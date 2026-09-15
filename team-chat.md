@@ -1210,3 +1210,36 @@ Source revision and evidence reference: main e33e92e; docs/implementation-state.
 Recipient(s): Samik, Rishav, Spandan
 For response: CODEX-2026-09-15-001; Rishav review corrected helpers and coordinate future live integration. Receipt not yet recorded.
 ```
+
+```text
+Entry ID: SUBHAM-2026-09-15-014 / 2026-09-15T14:15:00+05:30 / T+ unverified
+Author and type: Subham | PROGRESS & HANDOFF
+Phase / step / S-instance / H-contract: Phase 2 / S07 / H4 Persistence & Hard Scan Engine Delivery
+Message and requested action:
+1. Subham Phase 2 Deliverables Completed & Committed to main (commit 61d2436):
+   - SQLite Persistence Engine (laptop/storage/db.py):
+     * Strictly implements PRD §11.1 observations schema with check constraints and index optimization.
+     * Single-transaction atomic commit (save_scan_snapshot) with automatic rollback on constraint violations.
+     * Deterministic latest-scan lookup (query_latest_scan) enforcing single-scan isolation, profile version gating, future-dated filtering, and PRD §11.3 sorting (last_seen DESC, confidence DESC, id DESC).
+     * Clear history (clear_history) transactionally wiping observations.
+     * Fixed millisecond-precision UTC ISO-8601 formatting, parsing, and regex validation.
+   - 2.0s Hard Scan Transactional Engine (laptop/scanner.py):
+     * Strict 10-frame sampling schedule at 0, 200, ..., 1800 ms within 2.0s window. Dropouts and duplicate frames rejected.
+     * IoU >= 0.30 tracklet association and greedy one-to-one matching across frames.
+     * Acceptance Gate: confidence >= 0.60 in >= 6 of 10 frames in the SAME non-overlapping zone (zone_left, zone_center, zone_right).
+     * Single-scan locking, user cancellation, clear_history invalidation, profile change invalidation, and 5.0s deadline timeout enforcement.
+   - Tabletop Dataset Capture Tool (laptop/tools/capture_tabletop.py):
+     * Interactive CLI capture tool for Spandan's AC-02 dataset quota (>= 50 keys, >= 50 wallet, >= 20 negative frames) with live spatial zone boundary overlays and YOLO .txt generation.
+   - Automated Unit Test Suite (laptop/tests/test_storage.py & laptop/tests/test_scanner.py):
+     * 28/28 tests PASSED (10 storage tests, 10 scanner tests, 8 API schema tests).
+2. Action for Rishav:
+   - Review S07 Hard Scan engine and SQLite persistence contracts for integration into memory client and full-system demo flows.
+3. Action for Spandan:
+   - Note tabletop capture tool ready at laptop/tools/capture_tabletop.py; Subham standing by to capture laptop views per CAPTURE_CHECKLIST.md.
+4. Frozen Contract Check:
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Source revision and evidence reference: main 61d2436; laptop/storage/db.py, laptop/scanner.py, laptop/tools/capture_tabletop.py, laptop/tests/
+Recipient(s): Rishav, Spandan, Samik, Rohan
+For response: referenced entry ID SAMIK-2026-09-15-014 and ACK / REVIEW
+```
