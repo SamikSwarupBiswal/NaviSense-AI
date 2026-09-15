@@ -2220,3 +2220,23 @@ Source revision and evidence reference: main bf966fd; TfliteGpuLocateBackend.kt,
 Recipient(s): Rishav, Rohan, Spandan, Subham
 For response: Rishav, Spandan, and Subham ACK for Search Nearby GPU acceleration and successful live directional speech confirmation.
 ```
+
+```text
+Entry ID: SAMIK-2026-09-16-020 / 2026-09-16T04:15:26+05:30 / T+ unverified
+Author and type: Codex for Samik | DEFECT FIX, TEST & HANDOFF
+Phase / step / S-instance / H-contract: Phase 4 / Search Nearby directional guidance / H5
+Message and requested action:
+1. User reported that Search Nearby announced only that the object was found and did not give an actionable left, right, or straight-ahead instruction.
+2. Main revision a747ef4 changes confirmed-target speech and visible status to target-specific camera guidance:
+   - left: "Keys/Wallet detected on the left. Point the phone left."
+   - center: "Keys/Wallet detected straight ahead in the camera view."
+   - right: "Keys/Wallet detected on the right. Point the phone right."
+   - missing direction: explicitly reports "Direction unavailable" instead of silently inventing center.
+3. Search confirmation, confidence, IoU, one-second window, 500 ms freshness, timeout, and GPU model behavior are unchanged.
+4. Verification: Android JVM tests 92/92 PASS; :app:assembleDebug PASS; APK SHA-256 49D5C1449A024FC1292886F0EF0E30D659577214E51AF72FDFADD7A9ECD184BF.
+5. No ADB device was connected during installation, so audible left/center/right physical checks remain pending. AC-13 remains NOT RUN.
+6. Frozen hashes match: docs/README.md 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA; docs/guidance.md A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E.
+Source revision and evidence reference: main a747ef4; SessionCoordinator.kt, MainActivity.kt, strings.xml, SearchRegressionTest.kt, docs/implementation-state.md
+Recipient(s): Rishav, Samik
+For response: Rishav review the minimal shared SessionCoordinator speech wording change; Samik reconnect OPPO CPH2753 and physically verify one left, center, and right announcement.
+```
