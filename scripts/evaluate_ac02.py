@@ -165,5 +165,70 @@ def main():
         print("  - Per-class recall: >= 85.0%")
         sys.exit(0)
 
+    def load_records(path: str, is_gt: bool = True):
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if isinstance(data, list):
+            return data
+        elif isinstance(data, dict):
+            if "images" in data:
+                return data["images"]
+            elif "ground_truth_objects" in data:
+                img_id = data.get("reference_image", {}).get("file_path", "ref_image")
+                if is_gt:
+                    return [{
+                        "image_id": img_id,
+                        "annotations": data["ground_truth_objects"],
+                        "is_negative": len(data["ground_truth_objects"]) == 0
+                    }]
+                else:
+                    mock_detections = [
+                        {
+                            "class_name": obj["class_name"],
+                            "bbox_xyxy": obj["bbox_xyxy"],
+                            "confidence": 1.0
+                        }
+                        for obj in data["ground_truth_objects"]
+                    ]
+                    return [{
+                        "image_id": img_id,
+                        "detections": mock_detections
+                    }]
+            elif "detections" in data and not is_gt:
+                return [{
+                    "image_id": data.get("image_id", "ref_image"),
+                    "detections": data["detections"]
+                }]
+            else:
+                return [data]
+        return []
+
+    gt_data = load_records(args.gt, is_gt=True)
+    pred_data = load_records(args.pred, is_gt=False)
+
+    results = evaluate_device_split(args.device, gt_data, pred_data)
+
+    print("=" * 60)
+    print(f"AC-02 Gate Evaluation Report — Device: {results['device'].upper()}")
+    print("=" * 60)
+    for cls_name, stats in results["classes"].items():
+        status = "PASS" if stats["pass"] else "FAIL"
+        print(f"Class: {cls_name:<10} [{status}]")
+        print(f"  GT Count:   {stats['gt_count']:>4} (Quota >= 50: {'MET' if stats['quota_met'] else 'UNMET'})")
+        print(f"  TP: {stats['tp']:>4} | FP: {stats['fp']:>4} | FN: {stats['fn']:>4}")
+        print(f"  Precision: {stats['precision']*100:>6.2f}% (Target: >= 90.00%)")
+        print(f"  Recall:    {stats['recall']*100:>6.2f}% (Target: >= 85.00%)")
+        print("-" * 60)
+
+    neg = results["negative_frames"]
+    print(f"Negative Frames: Total={neg['total']}, False Alarms={neg['false_alarms']} (Quota >= 20: {'MET' if neg['quota_met'] else 'UNMET'})")
+    print("=" * 60)
+    print(f"OVERALL AC-02 VERDICT: {'PASSED' if results['overall_pass'] else 'FAILED / PENDING DATA'}")
+    print("=" * 60)
+
+    if not results["overall_pass"]:
+        sys.exit(1)
+    sys.exit(0)
+
 if __name__ == "__main__":
     main()

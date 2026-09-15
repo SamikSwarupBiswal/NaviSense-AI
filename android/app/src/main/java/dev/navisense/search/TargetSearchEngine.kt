@@ -27,6 +27,11 @@ class TargetSearchEngine(
     private var isTimeoutEmitted: Boolean = false
 
     private val recentFrames = ArrayDeque<SearchFrameRecord>()
+    private var lastFrameId = Long.MIN_VALUE
+    private var lastCapture = Long.MIN_VALUE
+    private var lastDelivery = Long.MIN_VALUE
+    private var geometry: Int? = null
+    private var model: String? = null
 
     val isSearchActive: Boolean get() = currentSessionGen >= 0 && !isConfirmed
 
@@ -44,6 +49,11 @@ class TargetSearchEngine(
         isConfirmed = false
         isTimeoutEmitted = false
         recentFrames.clear()
+        lastFrameId = Long.MIN_VALUE
+        lastCapture = Long.MIN_VALUE
+        lastDelivery = Long.MIN_VALUE
+        geometry = null
+        model = null
     }
 
     /**
@@ -72,9 +82,19 @@ class TargetSearchEngine(
         }
 
         val currentTimeMs = event.deliveryMonotonicMs
+        if (event.mode != AppVisionMode.LOCATE_SEARCH || event.modelIdentity.isBlank()) return null
+        if (model != null && model != event.modelIdentity) return null
+        if (event.frameId <= lastFrameId || event.captureMonotonicMs <= lastCapture || currentTimeMs < lastDelivery) return null
+        if (event.captureMonotonicMs < searchStartMonotonicMs || event.captureMonotonicMs > currentTimeMs || currentTimeMs - event.captureMonotonicMs > 500L) return null
+        lastFrameId = event.frameId
+        lastCapture = event.captureMonotonicMs
+        lastDelivery = currentTimeMs
+        if (geometry != event.geometryVersion) recentFrames.clear()
+        geometry = event.geometryVersion
+        model = event.modelIdentity
 
         // Check 15-second timeout (PRD §20)
-        if (currentTimeMs - searchStartMonotonicMs >= searchTimeoutMs) {
+        if (currentTimeMs - searchStartMonotonicMs >= searchTimeoutMs && !isTimeoutEmitted) {
             if (!isTimeoutEmitted) {
                 isTimeoutEmitted = true
                 return SearchEvent(
@@ -91,13 +111,15 @@ class TargetSearchEngine(
         }
 
         // Only evaluate frames that are usable
-        if (event.qualityStatus == FrameQualityStatus.UNUSABLE) {
+        if (event.qualityStatus != FrameQualityStatus.USABLE || event.errorMessage != null) {
+            recentFrames.clear()
             return null
         }
 
         // Filter for target class with confidence >= 0.60
         val matchingDetections = event.detections.filter {
-            it.label.equals(currentTargetClass, ignoreCase = true) && it.confidence >= minConfidence
+            it.label.equals(currentTargetClass, ignoreCase = true) && it.confidence.isFinite() && it.confidence in minConfidence..1f &&
+                listOf(it.boundingBox.left, it.boundingBox.top, it.boundingBox.right, it.boundingBox.bottom).all { coordinate -> coordinate.isFinite() && coordinate in 0f..1f } && it.boundingBox.area > 0f
         }
 
         // Maintain sliding window of latest 5 processed frames
@@ -106,7 +128,7 @@ class TargetSearchEngine(
         }
         recentFrames.addLast(
             SearchFrameRecord(
-                timestampMonotonicMs = currentTimeMs,
+                timestampMonotonicMs = event.captureMonotonicMs,
                 targetDetections = matchingDetections
             )
         )
@@ -130,11 +152,12 @@ class TargetSearchEngine(
         val clusters = mutableListOf<MutableList<DetectedObject>>()
 
         for (frame in framesInWindow) {
-            for (det in frame.targetDetections) {
-                val matchingCluster = clusters.find { cluster ->
-                    cluster.any { it.boundingBox.calculateIoU(det.boundingBox) >= matchIouThreshold }
-                }
+            val available = clusters.toMutableList()
+            for (det in frame.targetDetections.sortedByDescending { it.confidence }) {
+                val matchingCluster = available.filter { it.last().boundingBox.calculateIoU(det.boundingBox) >= matchIouThreshold }
+                    .maxByOrNull { it.last().boundingBox.calculateIoU(det.boundingBox) }
                 if (matchingCluster != null) {
+                    available.remove(matchingCluster)
                     matchingCluster.add(det)
                 } else {
                     clusters.add(mutableListOf(det))

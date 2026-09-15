@@ -322,4 +322,57 @@ class PerceptionUnitTests {
         assertEquals("chair", event.detections.first().label)
         assertEquals(0.88f, event.detections.first().confidence, 0.001f)
     }
+
+    @Test
+    fun testYoloModelRunnerRejectsInvalidBackendDetections() {
+        val mockBackend = InferenceBackend { _, _, _, _, _ ->
+            listOf(
+                RawDetection(classId = -1, confidence = 0.9f, boxX1 = 1f, boxY1 = 1f, boxX2 = 2f, boxY2 = 2f),
+                RawDetection(classId = 0, confidence = Float.NaN, boxX1 = 1f, boxY1 = 1f, boxX2 = 2f, boxY2 = 2f),
+                RawDetection(classId = 0, confidence = 0.9f, boxX1 = Float.POSITIVE_INFINITY, boxY1 = 1f, boxX2 = 2f, boxY2 = 2f)
+            )
+        }
+        val runner = YoloModelRunner(mockBackend)
+        runner.load(ModelMetadata("mobility", AppVisionMode.MOBILITY, 320, 320, listOf("chair")))
+
+        val event = runner.detect(
+            framePixels = ByteArray(100) { if (it % 2 == 0) 40 else 120 },
+            frameWidth = 10,
+            frameHeight = 10,
+            rotationDegrees = 0,
+            frameId = 1,
+            captureMonotonicMs = 1_000,
+            deliveryMonotonicMs = 1_001,
+            sessionGeneration = 1,
+            geometryVersion = 1
+        )
+
+        assertTrue(event.detections.isEmpty())
+    }
+
+    @Test
+    fun testYoloModelRunnerClosesOwnedBackend() {
+        class CloseableBackend : InferenceBackend, AutoCloseable {
+            var closed = false
+            override fun runInference(
+                framePixels: ByteArray,
+                frameWidth: Int,
+                frameHeight: Int,
+                modelWidth: Int,
+                modelHeight: Int
+            ) = emptyList<RawDetection>()
+
+            override fun close() {
+                closed = true
+            }
+        }
+
+        val backend = CloseableBackend()
+        val runner = YoloModelRunner(backend)
+        runner.load(ModelMetadata("mobility", AppVisionMode.MOBILITY, 320, 320, listOf("chair")))
+        runner.close()
+
+        assertTrue(backend.closed)
+        assertFalse(runner.isLoaded)
+    }
 }

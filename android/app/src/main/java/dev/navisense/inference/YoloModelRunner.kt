@@ -43,8 +43,10 @@ class YoloModelRunner(
     override val isLoaded: Boolean get() = loaded.get()
     override val metadata: ModelMetadata? get() = currentMetadata
 
+    @Synchronized
     override fun load(metadata: ModelMetadata): Boolean {
-        close()
+        loaded.set(false)
+        currentMetadata = null
         currentMetadata = metadata
         loaded.set(true)
         return true
@@ -114,7 +116,9 @@ class YoloModelRunner(
 
         val detections = mutableListOf<DetectedObject>()
         for (raw in rawDetections) {
-            if (raw.confidence < meta.confidenceThreshold) continue
+            if (raw.classId !in meta.classLabels.indices) continue
+            if (!raw.confidence.isFinite() || raw.confidence !in meta.confidenceThreshold..1f) continue
+            if (!raw.boxX1.isFinite() || !raw.boxY1.isFinite() || !raw.boxX2.isFinite() || !raw.boxY2.isFinite()) continue
 
             val uprightRect = transformer.toNormalizedUpright(
                 modelX1 = raw.boxX1,
@@ -123,11 +127,7 @@ class YoloModelRunner(
                 modelY2 = raw.boxY2
             ) ?: continue
 
-            val label = if (raw.classId in meta.classLabels.indices) {
-                meta.classLabels[raw.classId]
-            } else {
-                "unknown_${raw.classId}"
-            }
+            val label = meta.classLabels[raw.classId]
 
             detections.add(
                 DetectedObject(
@@ -152,8 +152,10 @@ class YoloModelRunner(
         )
     }
 
+    @Synchronized
     override fun close() {
         loaded.set(false)
         currentMetadata = null
+        (backend as? AutoCloseable)?.close()
     }
 }
