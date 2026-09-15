@@ -195,3 +195,128 @@ Source revision and evidence reference: dev.navisense.search.TargetSearchEngine
 Recipient(s): Subham, Rishav, Spandan
 For response: referenced entry ID SUBHAM-2026-09-15-009 and ACK
 ```
+
+```text
+Entry ID: RISHAV-2026-09-15-010 / 2026-09-15T11:10:00+05:30 / T+03:20
+Author and type: Rishav | REVIEW
+Phase / step / S-instance / H-contract: Phase 0 / S04 Receipt & Review (Subham H4) and H2/H5 Review (Samik)
+Message and requested action:
+1. Review of SUBHAM-2026-09-15-008 (S04 / H4 - Laptop REST API Schemas, SQLite Schema, PRD Fixtures, Android MemoryClientContract):
+   - Status: VERIFIED FOR HANDOFF.
+   - Checked laptop/api/schemas.py, laptop/tests/fixtures/responses.json, and android/app/src/main/java/dev/navisense/networking/MemoryClientContract.kt.
+   - All 6 Locate response statuses (Found, Ambiguous, Stale, HistoricalOnly, NotFound, Unsupported) and NetworkError are cleanly typed and map directly into SessionCoordinator state transitions.
+   - Enforced constraints verified: 2000 ms timeout cap, 64 KiB payload limit, 60.0s staleness threshold.
+2. Technical Confirmations in response to SUBHAM-2026-09-15-009 (Item 2 for Rishav):
+   - [Contract Confirmation]: Confirmed. MemoryClientContract.locateObject(queryName, sessionGeneration) is integrated into dev.navisense.networking and invoked by SessionCoordinator during Voice UX object location queries.
+   - [Auth & Security]: Pre-shared bearer token will be injected via local.properties (navisense.api.key=...) mapped to BuildConfig.NAVISENSE_API_KEY at compile time, supplemented with an in-app debug configuration screen for live IP/token override, ensuring raw secrets are NEVER committed to git.
+   - [Stale Callback Handling]: Confirmed. When locateObject completes, SessionCoordinator verifies sessionAuthority.isValid(sessionGeneration) before processing candidates, mutating mode, or queueing speech. Any callback from a stale generation (due to mode switch, timeout, or User Stop) is immediately and silently dropped.
+   - [Network Configuration]: Confirmed. Android app manifest enables cleartext traffic (android:usesCleartextTraffic="true"). Default target endpoint is configured to http://192.168.43.100:8000/api/v1 for portable Wi-Fi hotspot operation, with editable base URL in debug settings.
+3. Review of SAMIK-2026-09-14-004 & SAMIK-2026-09-15-008 (H2 & H5 - Mobile Perception & Target Search Contracts):
+   - Status: VERIFIED FOR HANDOFF.
+   - Unified PerceptionContracts.kt (NormalizedRect, DetectedObject, FrameQualityStatus, MobilePerceptionEvent) and SearchContracts.kt (TargetDirection, SearchStatus, SearchEvent) with Rishav's master app shell.
+   - Reconciled bounding box math: WalkingCorridor now uses NormalizedRect directly, confirming central corridor bounds [0.30, 0.70] width, [0.30, 1.00] depth, and >= 20% intersection area ratio.
+   - Confirmed TargetSearchEngine correctly evaluates 3-of-5 frames within 1.0s, handles 15.0s timeout, and drops evaluations on sessionGeneration mismatch.
+Source revision and evidence reference: android/app/src/main/java/dev/navisense/networking/MemoryClientContract.kt, android/app/src/main/java/dev/navisense/contracts/PerceptionContracts.kt, android/app/src/main/java/dev/navisense/contracts/SearchContracts.kt, android/app/src/main/java/dev/navisense/navigation/WalkingCorridor.kt
+Recipient(s): Subham, Samik, Spandan, Rohan
+For response: referenced entry IDs SUBHAM-2026-09-15-008, SAMIK-2026-09-14-004, SAMIK-2026-09-15-008 and ACK
+```
+
+```text
+Entry ID: RISHAV-2026-09-15-011 / 2026-09-15T11:15:00+05:30 / T+03:25
+Author and type: Rishav | HANDOFF
+Phase / step / S-instance / H-contract: Phase 0 / Step 01 / S01 / H6
+Message and requested action:
+Delivering S01 / H6 Comprehensive Update — Master Android Application Shell, Session Authority, Core Contracts, Build Pipeline & Test Harness:
+1. Master Build Configuration & Manifest (android/app/build.gradle.kts, AndroidManifest.xml):
+   - SDK: compileSdk = 34, minSdk = 26, targetSdk = 34.
+   - Features: ViewBinding enabled, Java 17 toolchain, debug suffix .debug.
+   - Core dependencies wired: AndroidX Core, AppCompat, Material, ConstraintLayout, Lifecycle KTX 2.7.0, Coroutines 1.7.3, CameraX 1.3.1 (Samik), OkHttp 4.12.0 (Subham), JUnit 4.13.2.
+   - Manifest permissions: CAMERA, WAKE_LOCK, INTERNET, FOREGROUND_SERVICE. Portrait locked; cleartext traffic enabled for local development.
+2. Accessible UI Shell (dev.navisense.app.MainActivity):
+   - Accessible baseline (PRD §13.6, AC-16): Minimum 48dp touch targets, high-contrast color scheme (Green/Red/Amber status badges), TalkBack accessibility announcements on every state change.
+   - Screen keep-awake flag (FLAG_KEEP_SCREEN_ON) active during navigation.
+   - Immediate User Stop button: Always prominent, zero confirmation dialogs, immediately silences all audio and resets coordinator to IDLE within <= 250 ms.
+3. Global Session Authority & Coordinator (dev.navisense.app.SessionCoordinator, dev.navisense.contracts.SessionGeneration):
+   - Monotonic 64-bit SessionGeneration authority: increments on mode start, mode transition, and User Stop.
+   - Thread-safe token generation and validation (isValid(generation)).
+   - Synchronously invalidates all pending asynchronous callbacks (vision inference, HTTP memory requests, search timeouts, speech queue).
+   - Supported modes: IDLE, MOBILITY, FINAL_SEARCH, FOUND, PAUSED, ERROR.
+4. Core Subsystem Contracts & Interfaces (dev.navisense.contracts, navigation, voice):
+   - AppMode, PathStatus (CLEAR_OBSERVED, BLOCKED, UNKNOWN), RiskLevel (SAFE, CAUTION, STOP).
+   - SensorEvent, SensorWireRecord, SensorHealth (PRD §14, AC-08/AC-09): Enforces ultrasonic distance <= 50 cm as critical close STOP (isCriticalClose).
+   - IClock, SystemMonotonicClock: Deterministic clock interface allowing fake clock injection for replay tests (AC-10).
+   - IRiskEngine: Pure risk evaluation contract accepting sensor events, camera perception events, and watchdog ticks (>= 20 Hz / 50 ms).
+   - WalkingCorridor: Geometric obstacle intersection calculator ([0.30, 0.70] x [0.30, 1.00], >= 20% area overlap).
+   - ISpeechArbiter, SpeechRequest: Prioritized speech arbiter interface with 4 strict priority tiers (Level 1 EMERGENCY_STOP, Level 2 NAVIGATION_CRITICAL, Level 3 SEARCH_GUIDANCE, Level 4 STATUS_INFO), preemption, and <= 250 ms audio cancellation.
+5. Verification Evidence:
+   - 25/25 automated unit tests PASSED via ./gradlew.bat testDebugUnitTest (0 failures, 0 errors):
+     - dev.navisense.EventContractsTest: 4/4 passed
+     - dev.navisense.IClockTest: 1/1 passed
+     - dev.navisense.PerceptionUnitTests: 13/13 passed
+     - dev.navisense.SessionGenerationTest: 3/3 passed
+     - dev.navisense.WalkingCorridorTest: 4/4 passed
+   - Debug APK successfully built via ./gradlew.bat :app:assembleDebug:
+     - File: android/app/build/outputs/apk/debug/app-debug.apk (7,286,242 bytes)
+     - SHA-256 Hash: C7899DCD66EA8F7D1EE090D6ED75A9F23E5E92FA0096D957FE2CFB743CAFE3F8
+   - Frozen File SHA-256 Hashes Re-verified (AGENTS.md §2):
+     - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+     - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Requested action: All teammates inspect shared contracts, package boundaries, and build files. Spandan, Rohan, Subham, Samik ACK receipt.
+Source revision and evidence reference: commit 91ecc1f on work/rishav-phase0; android/app/build/outputs/apk/debug/app-debug.apk
+Recipient(s): Spandan, Subham, Rohan, Samik
+For response: referenced entry ID RISHAV-2026-09-15-011 and ACK
+```
+
+```text
+Entry ID: RISHAV-2026-09-15-012 / 2026-09-15T11:20:00+05:30 / T+03:30
+Author and type: Rishav | CHAT
+Phase / step / S-instance / H-contract: Phase 0 / Inter-subsystem Handoffs & Prerequisite Requests (Team Dispatch)
+Message and requested action:
+Detailed and organized breakdown of handoffs, deliverables, and technical information needed from each teammate for Phase 0 completion and Phase 1 transition:
+
+1. To Spandan (Models & Datasets Lead):
+   - [Deliverable Needed - S02 / H1 (Scheduled T+01:15–01:45)]:
+     * Smoke Locate model artifact (TFLite for mobile, ONNX/PyTorch for laptop).
+     * Smoke Mobility YOLO model artifact (TFLite for mobile).
+     * Provide exact SHA-256 hashes and place Android exports in android/app/src/main/assets/models/.
+   - [Tensor Signatures & Normalization]:
+     * Confirm exact input tensor shape: e.g. [1, 384, 384, 3] or [1, 640, 640, 3].
+     * Confirm data type: Float32 (normalized [0.0, 1.0] or [-1.0, 1.0]) vs Uint8 quantized.
+     * Confirm channel ordering: RGB vs BGR.
+     * Confirm output tensor format: [ymin, xmin, ymax, xmax] vs [xmin, ymin, xmax, ymax], confidence score range, class index layout.
+   - [Demo Classes & Aliases]:
+     * Formally sign off on initial two classes ("keys" and "wallet") and dictionary aliases per models/locate/metadata.json.
+   - [Latency Budget]:
+     * Confirm model target on-phone inference latency <= 150 ms to guarantee 5-10 Hz perception loop without thermal throttling.
+
+2. To Rohan (Hardware, Firmware & Sensor Lead):
+   - [Deliverable Needed - S03 / H3 (Scheduled T+01:45–02:00)]:
+     * Hardware assembly and pinout record: ESP32-S3 board pin mapping for HC-SR04/RCWL-1601 (TRIG/ECHO pins), 5V power supply stability, and 5V->3.3V ECHO resistor voltage divider (e.g. 1k/2k ohm) to protect ESP32 GPIO.
+     * Physical mounting specification: Chest/belt height (~1.0m to 1.2m), straight-ahead perpendicular orientation.
+   - [USB Framing & Protocol Specification]:
+     * Serial configuration: 115200 baud, 8 data bits, no parity, 1 stop bit (8N1).
+     * Packet framing: Newline-delimited ASCII or framed JSON emitted at 20 Hz (50 ms interval): e.g. {"seq": N, "dist_cm": X.X, "status": "OK", "uptime_ms": M}\n or CSV format SEQ,UPTIME_MS,DIST_CM,STATUS\n.
+     * Status flag taxonomy: OK, NO_ECHO (distance > 400 cm), BLIND_ZONE (distance < 2 cm), SENSOR_FAULT.
+     * USB IDs: Provide Vendor ID (VID) and Product ID (PID) or CDC ACM driver profile so Android device_filter.xml can auto-attach.
+   - [Phone Hardware & Offline TTS Joint Verification]:
+     * Physical Android qualification device is connected via USB: Device ID 6545Q8A6X89TW8ZX.
+     * Current status: unauthorized. Action needed: Please accept "Always allow from this computer" USB debugging prompt on the phone screen.
+     * Once authorized, we will run joint verification of Android TextToSpeech offline English voice engine and measure silence latency upon Stop (<= 250 ms target per AC-11).
+
+3. To Samik (Android Perception & Search Lead):
+   - [Handoff S06 / H2 Alignment & S10 Preparation]:
+     * Camera resolution & frame rate: Confirm CameraX ImageAnalysis resolution (640x480 or 640x640) targeting 15-30 FPS.
+     * Coordinate transformation: Confirm CoordinateTransformer maps sensor coordinates to upright portrait orientation (compensating for 90° clockwise rear camera sensor) with normalized [0.0, 1.0] bounds.
+     * Walking Corridor bounds: Confirm camera corridor alignment with Rishav's WalkingCorridor ([0.30, 0.70] horizontal width, [0.30, 1.00] ground depth).
+     * Analysis Pause Hook: Confirm CameraX analyzer immediately pauses or drops frames when SessionCoordinator.userStop() is called or mode returns to AppMode.IDLE.
+
+4. To Subham (Laptop Memory & API Lead):
+   - [Handoff S07 / H4 Preparation]:
+     * Mock server script: Provide a standalone lightweight script (e.g. python -m laptop.api.mock_server) or command to spin up FastAPI with PRD v1 fixtures so Rishav can test dev.navisense.networking.MemoryClientContract without requiring laptop webcam capture.
+     * Response latency SLA: Confirm laptop locate query response latency <= 1000 ms to stay comfortably below the 2000 ms client timeout limit.
+
+Source revision and evidence reference: android/app/src/main/java/dev/navisense/, android/app/build/outputs/apk/debug/app-debug.apk, docs/AGENTS.md
+Recipient(s): Spandan, Rohan, Samik, Subham
+For response: reply with referenced entry ID and required specifications / artifacts.
+```
+
