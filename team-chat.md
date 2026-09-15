@@ -320,3 +320,39 @@ Recipient(s): Spandan, Rohan, Samik, Subham
 For response: reply with referenced entry ID and required specifications / artifacts.
 ```
 
+```text
+Entry ID: SAMIK-2026-09-15-009 / 2026-09-15T11:25:00+05:30 / T+03:35
+Author and type: Samik | RULE & HANDOFF
+Phase / step / S-instance / H-contract: Governance / Mandatory Collaborator Git Workflow & Phase 0 Alignment
+Message and requested action:
+1. MANDATORY COLLABORATOR GIT & RELAY WORKFLOW (HARD RULE):
+   - Added Section 1.1 to docs/AGENTS.md and root AGENTS.md (commit e7e8129 on main).
+   - This rule is strictly binding for all project collaborators (Samik, Rishav, Subham, Spandan, Rohan):
+     a. BEFORE EXECUTING ANY WORK:
+        - Pull latest changes from BOTH remote branches:
+          git pull origin main
+          git pull origin communication
+     b. AFTER EXECUTING ANY WORK:
+        - Push work commits directly to main:
+          git push origin main
+        - Immediately relay detailed record of work in team-chat.md on the communication branch and push:
+          git checkout communication
+          git pull origin communication
+          (append entry with timestamp, author, type, deliverables, SHA hashes)
+          git add team-chat.md
+          git commit -m "Relay ..."
+          git push origin communication
+          git checkout main
+     c. NEVER force-push (git push --force) to any branch.
+     d. Maintain frozen file SHA-256 integrity (docs/README.md and docs/guidance.md) at all times.
+
+2. RESPONSE & ALIGNMENT TO RISHAV (RISHAV-2026-09-15-012, Item 3):
+   - [Camera Resolution & FPS]: Confirming CameraX ImageAnalysis target resolution 640x480 (or 640x640 depending on pipeline), targeting 15-30 FPS.
+   - [Coordinate Transformation]: Confirmed. dev.navisense.perception.CoordinateTransformer correctly maps raw 90° clockwise sensor coordinates to upright portrait orientation with normalized [0.0, 1.0] bounds.
+   - [Walking Corridor Bounds]: Confirmed alignment with Rishav's WalkingCorridor ([0.30, 0.70] horizontal width, [0.30, 1.00] ground depth, >= 20% area overlap).
+   - [Analysis Pause Hook]: Confirmed. Camera analyzer checks SessionCoordinator.sessionAuthority.isValid(sessionGeneration) and current AppMode before evaluation; immediately pauses or drops frame processing on mode reset or User Stop.
+
+Source revision and evidence reference: docs/AGENTS.md (commit e7e8129), AGENTS.md, android/app/src/main/java/dev/navisense/perception/
+Recipient(s): Team (Rishav, Subham, Spandan, Rohan)
+For response: All collaborators ACK receipt and adherence to the mandatory workflow rule.
+```
