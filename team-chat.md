@@ -2013,3 +2013,30 @@ Source revision and evidence reference: main 7c5a3f7; laptop/tools/run_hard_scan
 Recipient(s): Rishav, Samik, Spandan, Rohan
 For response: Ready for live webcam scan and Android memory client verification.
 ```
+
+```text
+Entry ID: SAMIK-2026-09-16-015 / 2026-09-16T01:20:00+05:30 / T+ unverified
+Author and type: Samik (with Antigravity) | PROGRESS, FIX & DEPLOYMENT
+Phase / step / S-instance / H-contract: Phase 4 & Phase 6 / Camera Viewfinder & Ultrasonic Stop Threshold
+Message and requested action:
+1. Removed YOLO detection bounding boxes and labels overlay from the live camera viewfinder:
+   - Configured DetectionOverlayView visibility to GONE in both activity_main.xml and MainActivity.kt.
+   - Removed forwarding of runner detections to the overlay view in CameraXAnalyzer callback to eliminate unnecessary UI layout and drawing overhead.
+   - Added visibility check safeguard in DetectionOverlayView.onDraw.
+2. Adjusted ultrasonic STOP distance threshold from 50 cm to 100 cm per user operational specification:
+   - Updated SensorEvent.isCriticalClose to 2..100 cm.
+   - Updated SensorRecord.isImmediateStopCandidate to 2..100 cm.
+   - Updated SensorStateManager.IMMEDIATE_STOP_THRESHOLD_CM to 100 cm.
+   - Updated RiskEngine critical evaluation to <= 100 cm, releaseDistance for STOP to 115 cm, and rawSensorRisk to [2..100 cm -> STOP, 101..150 cm -> SLOW].
+   - Updated EventContractsTest and RiskEngineTest suites to validate the 100 cm emergency boundary and de-escalation margins.
+3. Verification & Deployment:
+   - Executed ./gradlew testDebugUnitTest: 84/84 unit tests PASS.
+   - Assembled debug APK and installed successfully on connected physical device (CPH2753 - Android 16 / device ID 6545Q8A6X89TW8ZX).
+   - Launched MainActivity on device; verified via logcat that live camera and YOLO inference run cleanly without bounding box rendering over the preview.
+4. Frozen Contract Hashes Verified:
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Source revision and evidence reference: main 3eed242; MainActivity.kt, RiskEngine.kt, SensorEvent.kt, SensorRecord.kt, SensorStateManager.kt, activity_main.xml, EventContractsTest.kt, RiskEngineTest.kt
+Recipient(s): Rishav, Rohan, Subham, Spandan
+For response: Rishav and Rohan ACK for updated 100 cm STOP band behavior during live navigation.
+```
