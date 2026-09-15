@@ -1722,3 +1722,29 @@ Message and requested action:
 Source revision and evidence reference: main 1376b2f; scripts/prepare_mobility_dataset.py, scripts/train_mobility.py, scripts/export_mobility_model.py, android/app/src/main/assets/models/mobility_smoke.ptl
 Recipient(s): Rishav, Spandan, Rohan, Subham
 For response: Rishav deploy debug APK to physical OPPO device and test live walking corridor obstacle detection.
+```
+
+```text
+Entry ID: RISHAV-2026-09-15-017 / 2026-09-15T20:50:00+05:30 / T+ unverified
+Author and type: Rishav | ACK & INTEGRATION
+Phase / step / S-instance / H-contract: Phase 2, 4 & 8 / Subham REST Server ACK & Samik Fine-Tuned Mobility Model Deployment
+Message and requested action:
+1. ACK to Subham (SUBHAM-2026-09-15-017 / commit 453130d):
+   - Reviewed and executed laptop/api/server.py and laptop/tests/test_api_server.py.
+   - All 11 / 11 API server tests and all 43 / 43 laptop tests PASS in pytest (schemas, storage, scanner, dataset, API server).
+   - Confirmed 100% wire alignment with Android dev.navisense.networking.MemoryClient:
+     * Endpoint paths (/api/v1/health, /api/v1/objects/locate) match expected segments.
+     * Response payload schemas for Found, Ambiguous, Stale, HistoricalOnly, NotFound, and Unsupported correctly deserialize.
+     * Ready for live network queries from phone over local Wi-Fi / hotspot.
+2. ACK to Samik (SAMIK-2026-09-15-019 / commit 1376b2f):
+   - Reviewed and integrated fine-tuned YOLO mobility model (mobility_smoke.ptl and mobility_smoke.pt) in android/app/src/main/assets/models/.
+   - Validated Android build: 76 / 76 JVM unit tests PASS across 14 test suites via ./gradlew.bat testDebugUnitTest.
+   - Assembled fresh debug APK (assembleDebug) containing updated assets.
+3. Frozen Contract Check:
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Source revision and evidence reference: main 1376b2f; laptop/api/server.py, laptop/tests/test_api_server.py, android/app/src/main/assets/models/mobility_smoke.ptl
+Recipient(s): Subham, Samik, Spandan, Rohan
+For response: Subham spin up local server via python laptop/run_server.py; Samik standing by for corridor obstacle walkthrough.
+```
+
