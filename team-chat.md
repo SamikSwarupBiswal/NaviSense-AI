@@ -1622,8 +1622,36 @@ Message and requested action:
 5. Frozen Contract Check:
    - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
    - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
-Source revision and evidence reference: main 612bb02; android/app/src/main/java/dev/navisense/networking/MemoryClient.kt, android/app/src/test/java/dev/navisense/MemoryClientTest.kt, android/app/src/main/java/dev/navisense/app/SessionCoordinator.kt, android/app/src/main/java/dev/navisense/app/MainActivity.kt
-Recipient(s): Samik, Subham, Rohan, Spandan
-For response: Subham acknowledge MemoryClient delivery matching FastAPI locate endpoints; Samik standing by for live obstacle walkthrough test.
+```text
+Entry ID: RISHAV-2026-09-15-016 / 2026-09-15T17:35:00+05:30 / T+ unverified
+Author and type: Rishav | PROGRESS, INTEGRATION & ON-DEVICE QUALIFICATION
+Phase / step / S-instance / H-contract: Phase 4 & 5 / Live CameraX Viewfinder & ESP32-S3 Type-C USB CDC Ultrasonic Sensor Integration
+Message and requested action:
+1. Live CameraX Viewfinder Display Verified on Physical Device:
+   - Root Cause Remediation: Resolved missing visual camera feed where previously only headless ImageAnalysis was bound with no UI surface.
+   - UI Architecture: Added high-contrast MaterialCardView containing androidx.camera.view.PreviewView (id/viewFinder) with "LIVE CAMERA" status badge in activity_main.xml.
+   - Lifecycle Binding: Bound CameraX Preview use case with surfaceProvider to ProcessCameraProvider alongside background ImageAnalysis in MainActivity.kt.
+   - Physical Verification: Installed on OPPO CPH2753 (Android 16, API 36). Verified active 30.0 FPS camera surface rendering (BufferQueueProducer queueBuffer fps=30.00) and verified via adb screencap inspection.
+2. ESP32-S3 USB Type-C CDC Ultrasonic Sensor Integration:
+   - Hardware Transport Driver: Implemented dev.navisense.usb.AndroidUsbCdcTransport implementing Rohan's UsbTransport interface.
+     * Configures CDC-ACM bulk endpoints, 115200 8N1 line coding.
+     * Asserts DTR/RTS control lines (0x0003) over CDC control request 0x22 to initialize ESP32-S3 native CDC transmission.
+     * Handles read timeouts gracefully (returns 0 on timeout rather than -1) to prevent premature termination of UsbSensorAdapter's background thread.
+   - Manifest & Device Filter: Created res/xml/device_filter.xml (ESP32-S3 VID 0x303A, PID 0x1001, plus CDC ACM classes). Declared USB_DEVICE_ATTACHED intent-filter in AndroidManifest.xml (confirmed registered in system dumpsys usb).
+   - Dynamic USB Discovery & Permission: Registered ACTION_USB_PERMISSION, ACTION_USB_DEVICE_ATTACHED, and ACTION_USB_DEVICE_DETACHED receivers. Scans deviceList on startup and resume.
+   - Coordinator & UI Wiring: Instantiates Rohan's UsbSensorAdapter.
+     * Wires onRecordReceived to parse SensorWireRecord and dispatch SensorEvent to coordinator.onSensorEvent(event).
+     * Updates live distance on screen: "Ultrasonic: <DIST_CM> cm".
+     * Triggers tactile emergency stop haptics (HapticFeedbackManager.triggerEmergencyStopVibration) on immediate stop candidate (<= 50 cm).
+3. Test Suite & Build Verification:
+   - 76 / 76 JVM unit tests PASS across 14 test suites via ./gradlew.bat testDebugUnitTest.
+   - APK built via ./gradlew.bat assembleDebug and installed to connected phone.
+4. Frozen Contract Check:
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Source revision and evidence reference: main 3615eb5; android/app/src/main/res/layout/activity_main.xml, android/app/src/main/java/dev/navisense/app/MainActivity.kt, android/app/src/main/java/dev/navisense/usb/AndroidUsbCdcTransport.kt, android/app/src/main/res/xml/device_filter.xml, docs/implementation-state.md
+Recipient(s): Rohan, Samik, Subham, Spandan
+For response: Rohan test live ESP32-S3 distance streaming over Type-C OTG cable; Samik verify concurrent camera + ultrasonic risk fusion.
 ```
+
 
