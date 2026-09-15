@@ -5,9 +5,13 @@ import dev.navisense.contracts.IClock
 import dev.navisense.contracts.SessionGeneration
 import dev.navisense.contracts.SystemMonotonicClock
 
+import dev.navisense.voice.AndroidTextToSpeechPlayer
+import dev.navisense.voice.ISpeechArbiter
+import dev.navisense.voice.SpeechArbiter
+
 /**
  * Base Application class for NaviSense AI.
- * Provides singleton lifecycle instances of monotonic clock and session generation authority.
+ * Provides singleton lifecycle instances of monotonic clock, session generation authority, and speech arbiter.
  */
 class NaviSenseApp : Application() {
 
@@ -17,6 +21,9 @@ class NaviSenseApp : Application() {
     lateinit var sessionGeneration: SessionGeneration
         private set
 
+    lateinit var speechArbiter: ISpeechArbiter
+        private set
+
     lateinit var sessionCoordinator: SessionCoordinator
         private set
 
@@ -24,6 +31,12 @@ class NaviSenseApp : Application() {
         super.onCreate()
         clock = SystemMonotonicClock()
         sessionGeneration = SessionGeneration()
-        sessionCoordinator = SessionCoordinator(sessionGeneration, clock)
+        val ttsPlayer = AndroidTextToSpeechPlayer(this)
+        speechArbiter = SpeechArbiter(ttsPlayer = ttsPlayer, clock = clock)
+        sessionCoordinator = SessionCoordinator(
+            sessionGeneration = sessionGeneration,
+            clock = clock,
+            speechArbiter = speechArbiter
+        )
     }
 }
