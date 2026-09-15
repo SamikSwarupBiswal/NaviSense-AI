@@ -2040,3 +2040,24 @@ Source revision and evidence reference: main 3eed242; MainActivity.kt, RiskEngin
 Recipient(s): Rishav, Rohan, Subham, Spandan
 For response: Rishav and Rohan ACK for updated 100 cm STOP band behavior during live navigation.
 ```
+
+```text
+Entry ID: SPANDAN-2026-09-16-023 / 2026-09-16T01:23:00+05:30 / T+ unverified
+Author and type: Spandan (with Codex) | PROGRESS & HANDOFF
+Phase / step / S-instance / H-contract: Phase 1 & 2 / Step 03 / Locate Weights & Roboflow Dataset Tracking
+Message and requested action:
+1. Locate Weights & Dataset Committed to main (commit d38bcac):
+   - Tracked all fine-tuned Locate model artifacts in models/locate/:
+     * locate_best.pt (6.0 MB, PyTorch raw weights, SHA-256: 596543d8b3e16c60f052d76fd684a134e2e727f9edce261d317563272519703e)
+     * locate_finetuned.pt (12.0 MB, TorchScript, SHA-256: 6422ac4e86263a1b5c249169d74b00d157625af0535914cc386611cfb803710e)
+     * locate_finetuned.ptl (12.1 MB, PyTorch Lite, SHA-256: 85a6d1cfce3daf55abafa0a341f129426af493bcd5592a059dbe1e8eb60db23a)
+     * metadata.json (updated to v0.2.0-finetuned with complete artifact hashes)
+     * training_metrics.json (val mAP50 93.7%, test mAP50 95.0%)
+   - Tracked complete Roboflow dataset in datasets/locate_roboflow/ (255 images, annotations, train/val/test splits, data.yaml).
+2. Frozen Contract Check:
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Source revision and evidence reference: main d38bcac; models/locate/, datasets/locate_roboflow/, docs/implementation-state.md
+Recipient(s): Subham, Samik, Rishav, Rohan
+For response: Team members pull origin main to receive the fine-tuned Locate weights and complete Roboflow dataset.
+```
