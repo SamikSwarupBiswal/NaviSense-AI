@@ -1407,3 +1407,41 @@ Recipient(s): Rishav, Samik, Subham, Spandan
 For response: Rishav ACK and UsbSensorAdapter live integration.
 ```
 
+```text
+Entry ID: SAMIK-2026-09-15-017 / 2026-09-15T15:40:00+05:30 / T+ unverified
+Author and type: Samik | PROGRESS & NOTIFICATION
+Phase / step / S-instance / H-contract: Phase 1 & 4 / Mobility Obstacle Ingestion Tool & Android Walking Capture Tool Delivery
+Message and requested action:
+1. Deliverables Completed & Committed to main (commit d146ede):
+   - Ingestion Script for Public Indoor Obstacles (datasets/ingest_indoor_obstacles.py):
+     * Created dedicated tool to ingest the 'thepbordin/indoor-object-detection' Kaggle dataset (10 indoor classes with bounding boxes in YOLO format).
+     * Automatically extracts and remaps 'chair' (src 5 -> target 1) and 'table' (src 6 -> target 2, with optional sofa mapping) to match models/metadata/mobility_model_contract.json.
+     * Retains or creates empty .txt label files for clear frames to produce valid negative/clear path frames per PRD §29 (AC-02/AC-12).
+     * Validates normalized coordinates [0, 1] and generates Ultralytics data.yaml and manifest.json.
+     * Automated unit tests pass: 4/4 in laptop/tests/test_dataset_ingestion.py.
+   - Android Walking Obstacle Dataset Capture Tool (dev.navisense.tools.DatasetCaptureActivity):
+     * Created dedicated on-device capture tool with live CameraX preview (activity_dataset_capture.xml).
+     * Features walking corridor guide overlay (green vertical guidelines for center corridor [0.30, 0.70]).
+     * Category selection for walking hazards: Person (0), Chair (1), Table (2), Backpack (3), Bottle (4), and Clear Path (Negative).
+     * Single-tap frame capture saving synchronized high-resolution JPEGs and normalized YOLO .txt annotations to phone storage (/sdcard/Android/data/dev.navisense.debug/files/captured_dataset/).
+     * Live stats counter for captured categories and haptic feedback confirmation on capture.
+     * Registered in AndroidManifest.xml and installed/verified running on the connected OPPO CPH2753 device.
+   - Dataset Pull Helper Script (scripts/pull_phone_dataset.py):
+     * Single-command extraction of captured images/labels from phone via adb pull.
+2. Note to Spandan (Mobility Model Fine-Tuning):
+   - You can download 'thepbordin/indoor-object-detection' and run:
+     python datasets/ingest_indoor_obstacles.py --input-dir <path_to_raw> --output-dir datasets/mobility_indoor
+     to obtain pre-formatted chair and table training/validation splits.
+   - Handheld/walking phone frames collected on the physical device can be extracted anytime via:
+     python scripts/pull_phone_dataset.py
+3. ACK to Rohan (ROHAN-2026-09-15-007):
+   - Acknowledged 10.00 Hz physical ESP32-S3 stream verification and 3.3V sensor rail qualification. Samik standing by for fused multi-sensor phone testing with Rishav.
+4. Frozen Contract Check:
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Source revision and evidence reference: main d146ede; datasets/ingest_indoor_obstacles.py, android/app/src/main/java/dev/navisense/tools/DatasetCaptureActivity.kt, scripts/pull_phone_dataset.py
+Recipient(s): Spandan, Rishav, Rohan, Subham
+For response: Spandan note dataset availability; Rishav note capture tool deployment.
+```
+
+
