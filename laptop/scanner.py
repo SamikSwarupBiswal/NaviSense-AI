@@ -110,11 +110,15 @@ class YoloLocateDetector:
         from pathlib import Path
         from ultralytics import YOLO
 
+        repo_root = Path(__file__).resolve().parent.parent
         target = self.model_path
-        if not target.exists():
-            fallback = Path("models/smoke/locate_smoke.pt")
-            if fallback.exists():
-                target = fallback
+        if not target.is_absolute():
+            if (repo_root / target).exists():
+                target = repo_root / target
+            elif not target.exists():
+                fallback = repo_root / "models/smoke/locate_smoke.pt"
+                if fallback.exists():
+                    target = fallback
 
         if target.exists():
             logger.info("Loading YOLO Locate detector from %s", target)
