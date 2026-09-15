@@ -1243,3 +1243,39 @@ Source revision and evidence reference: main 61d2436; laptop/storage/db.py, lapt
 Recipient(s): Rishav, Spandan, Samik, Rohan
 For response: referenced entry ID SAMIK-2026-09-15-014 and ACK / REVIEW
 ```
+
+```text
+Entry ID: SAMIK-2026-09-15-015 / 2026-09-15T14:35:00+05:30 / T+ unverified
+Author and type: Samik | PROGRESS & HANDOFF
+Phase / step / S-instance / H-contract: Phase 4 / S06 / H2 & H5 Producer Delivery & App Wiring Request
+Message and requested action:
+1. Samik Phase 4 Deliverables Completed & Committed to main (commit ab88a4b):
+   - CameraXAnalyzer (android/app/src/main/java/dev/navisense/camera/CameraXAnalyzer.kt):
+     * Implements androidx.camera.core.ImageAnalysis.Analyzer with AutoCloseable.
+     * Hardware & thread safety: Enforces AtomicBoolean in-flight gating (drops concurrent frames immediately and calls image.close()), STRATEGY_KEEP_ONLY_LATEST backpressure support, and single-thread execution compliance.
+     * Monotonic Clock & Timestamp Mapping: Uses CameraTimestampMapper to anchor camera timestamps to local system monotonic clock; enforces 500 ms freshness ceiling and rejects duplicates, backwards time jumps, or clock drift into the future.
+     * Dynamic Geometry Versioning: Tracks rotation, crop dimensions, and resolution; increments geometryVersion on change and resets tracker/search state accordingly.
+     * High-Performance Frame Conversion: Yuv420RgbConverter crops YUV_420_888 planes honoring rowStride and pixelStride directly to packed RGB bytes in sensor orientation without bitmap allocations.
+     * Perception & Tracking: Executes YoloModelRunner.detect(...) with ModelMetadata verification; in MOBILITY mode, passes detections to VisualTracker to maintain stable tracklets. Emits typed MobilePerceptionEvent (H2 contract) via onPerceptionEvent callback.
+     * Locate Search Engine Routing: In LOCATE_SEARCH mode with targetClass specified, routes detections through TargetSearchEngine (evaluating IoU clustering across distinct frames) and emits SearchEvent / SearchConfirmationEvent (H5 contract) via onSearchEvent callback.
+     * Session Lifecycle & Clean Invalidation: startSession(sessionGeneration, mode, runner, targetClass) starts or updates generation; stopSession() and close() atomically invalidate in-flight pipelines without leaking resources.
+   - Comprehensive Automated Tests:
+     * 50/50 JVM unit tests PASS across 11 test suites (CameraPipelineSupportTest, PerceptionUnitTests, EventContractsTest, SearchRegressionTest, LetterboxTest, SessionGenerationTest, SensorParserTest, etc.).
+     * 9/9 Instrumented tests PASS on physical OPPO CPH2753 (Android 14) via connectedDebugAndroidTest, verifying ProcessCameraProvider resolution, fake YUV frame end-to-end perception event emission, locate search confirmation routing, concurrency backpressure frame dropping, and model benchmark inference.
+2. Action for Rishav (Application Lifecycle & App Shell Wiring):
+   - Scope owned by Rishav (MainActivity, SessionCoordinator, and app lifecycle):
+     * ImageAnalysis Binding: Instantiate ImageAnalysis with ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST, attach CameraXAnalyzer via a single-thread background executor (e.g. Executors.newSingleThreadExecutor()), and bind to ProcessCameraProvider with CameraSelector.DEFAULT_BACK_CAMERA and the LifecycleOwner (MainActivity).
+     * Camera Permission: Ensure runtime Manifest.permission.CAMERA request and handling is active in MainActivity UI flow (noting that on ColorOS/OPPO, permission must be user-granted via dialog or app settings).
+     * SessionCoordinator Hookup:
+       - Forward emitted MobilePerceptionEvent to SessionCoordinator.onPerceptionEvent(event) for RiskEngine evaluation.
+       - Forward emitted SearchEvent to SessionCoordinator.onSearchEvent(event) for Found state transition and SpeechArbiter announcements.
+       - Connect mode toggle buttons (Mobility / Locate) to invoke analyzer.startSession(sessionGeneration, mode, runner, target) and runner model switching.
+       - On app pause/stop/destroy, unbind camera provider, call analyzer.stopSession() / analyzer.close(), and shut down background executor.
+3. Frozen Contract Check:
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Source revision and evidence reference: main ab88a4b; android/app/src/main/java/dev/navisense/camera/, android/app/src/test/java/dev/navisense/camera/, android/app/src/androidTest/java/dev/navisense/CameraXAnalyzerTest.kt
+Recipient(s): Rishav, Spandan, Subham, Rohan
+For response: referenced entry ID SAMIK-2026-09-15-015 and ACK / REVIEW from Rishav
+```
+
