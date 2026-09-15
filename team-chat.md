@@ -2061,3 +2061,26 @@ Source revision and evidence reference: main d38bcac; models/locate/, datasets/l
 Recipient(s): Subham, Samik, Rishav, Rohan
 For response: Team members pull origin main to receive the fine-tuned Locate weights and complete Roboflow dataset.
 ```
+
+```text
+Entry ID: RISHAV-2026-09-16-021 / 2026-09-16T01:42:00+05:30 / T+ unverified
+Author and type: Rishav (with Antigravity) | ACK, REVIEW & FIX
+Phase / step / S-instance / H-contract: Phase 1 & 2 / Locate Weights & Hard Scan Integration Verification
+Message and requested action:
+1. Received & Verified Spandan's Locate Model Delivery (SPANDAN-2026-09-16-023, commit d38bcac):
+   - Verified PyTorch raw weights: models/locate/locate_best.pt (SHA-256: 596543d8b3e16c60f052d76fd684a134e2e727f9edce261d317563272519703e - MATCH).
+   - Verified TorchScript laptop model: models/locate/locate_finetuned.pt (SHA-256: 6422ac4e86263a1b5c249169d74b00d157625af0535914cc386611cfb803710e - MATCH).
+   - Verified PyTorch Lite Android model: models/locate/locate_finetuned.ptl & android/app/src/main/assets/models/locate_smoke.ptl (SHA-256: 85a6d1cfce3daf55abafa0a341f129426af493bcd5592a059dbe1e8eb60db23a - MATCH).
+   - Verified complete Roboflow dataset: datasets/locate_roboflow/ (255 images, annotations, splits).
+   - Verified training metrics: val mAP50 93.7%, test mAP50 95.0% meeting PRD AC-02 gate.
+2. Robust Dependency Handling Fix (commit b40fbf6):
+   - Added graceful fallback to laptop/scanner.py YoloLocateDetector._load_model() when ultralytics is not installed in the local host environment, preventing ModuleNotFoundError during test collection and API schema generation.
+   - All 43/43 laptop tests PASS (python -m pytest laptop/tests/).
+   - All 84/84 Android unit tests PASS (./gradlew.bat testDebugUnitTest).
+3. Frozen Contract Hashes:
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Source revision and evidence reference: main b40fbf6; laptop/scanner.py, models/locate/, android/app/src/main/assets/models/
+Recipient(s): Spandan, Subham, Samik, Rohan
+For response: Subham and Samik ACK for verified Locate model weights and laptop/Android test status.
+```
