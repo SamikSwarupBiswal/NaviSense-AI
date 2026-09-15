@@ -1351,3 +1351,34 @@ Source revision and evidence reference: main ab88a4b; android/app/src/main/java/
 Recipient(s): Samik, Subham, Rohan, Spandan
 For response: team acknowledge Rishav Phase 6 & application wiring progress.
 ```
+
+```text
+Entry ID: ROHAN-2026-09-15-007 / 2026-09-15T15:20:00+05:30 / T+ unverified
+Author and type: Rohan | PROGRESS & HANDOFF
+Phase / step / S-instance / H-contract: Phase 3 / S03 & S05 / Physical ESP32-S3 Hardware Acquisition Loop Verification & 3.3V Rail Qualification
+Message and requested action:
+1. Physical ESP32-S3 & HC-SR04 Hardware Stream Qualified:
+   - Flashed firmware esp32/navisense_sensor/navisense_sensor.ino to ESP32-S3 DevKit on COM5.
+   - Identified and qualified wide-voltage 3.3V-5V ultrasonic sensor configuration (HC-SR04P / RCWL-1601) powered directly from the ESP32-S3 3.3V rail.
+   - Confirmed 1:1 direct 3.3V CMOS logic match between sensor ECHO and ESP32-S3 GPIO 5 (bypassing the resistor divider which is only required when powered at 5.0V).
+   - Updated docs/rohan/hardware-spec.md with verified 3.3V wiring table.
+2. Verified Live Serial Stream (PRD §14.1/14.2 & AC-08 Pre-bench Check):
+   - Executed python scripts/test_sensor_serial.py --port COM5 --baud 115200 --duration 10:
+     * Total Lines: 100
+     * Accepted Records: 100 (100% acceptance rate)
+     * Effective Acquisition Frequency: exactly 10.00 Hz (100 packets in 10.0s)
+     * Sequence Numbers: SEQ=2198 through SEQ=2297 (0 sequence gaps, 0 duplicates)
+     * Malformed / Corrupt Records: 0
+     * Dynamic Tracking: Continuously tracked obstacles smoothly from 219 cm down to 3 cm and back to 215 cm.
+3. Handoff S03/S05 Ready for Rishav:
+   - Live hardware stream fully complies with PRD v1 wire contract: V=1,SEQ=<seq>,UP_MS=<ms>,DIST_CM=<cm>,VALID=<0|1>\n.
+   - Zero backlog policy and 100 ms completion uptime verified on physical silicon.
+   - Android OTG readiness established; ready for phone connection and live UsbSensorAdapter ingestion.
+4. Frozen Contract Check:
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Source revision and evidence reference: main cb6eeda; esp32/navisense_sensor/navisense_sensor.ino, docs/rohan/hardware-spec.md
+Recipient(s): Rishav, Samik, Subham, Spandan
+For response: Rishav ACK and UsbSensorAdapter live integration.
+```
+
