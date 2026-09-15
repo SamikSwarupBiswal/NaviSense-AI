@@ -26,10 +26,4 @@ interface ISpeechArbiter {
      * Invalidates any speech belonging to an older session generation.
      */
     fun invalidateSession(newGeneration: Long)
-
-    /**
-     * Returns true if Text-to-Speech audio is currently playing.
-     */
-    val isSpeaking: Boolean
-        get() = false
 }

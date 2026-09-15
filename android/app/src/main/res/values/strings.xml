@@ -11,11 +11,6 @@
     <string name="btn_search_nearby_desc">Search nearby for personal objects. Double tap to activate.</string>
     <string name="btn_arrival">Confirm Arrival</string>
     <string name="btn_arrival_desc">Confirm you have arrived at the target zone and stop walking. Double tap to activate.</string>
-    <string name="btn_voice_nav">Voice Navigation (Maps)</string>
-    <string name="btn_voice_nav_desc">Speak destination to start outdoor walking navigation with Google Maps. Double tap to activate.</string>
-    <string name="status_outdoor_nav">Status: Outdoor walking navigation active.</string>
-    <string name="dialog_voice_nav_title">Say Your Destination</string>
-    <string name="dialog_voice_nav_hint">Listening… (e.g., \"Go to Library\")</string>
 
     <!-- System Status Strings -->
     <string name="status_idle">Status: Idle. Ready to start navigation.</string>
@@ -57,16 +52,4 @@
     <string name="action_retry">Retry</string>
     <string name="action_choose_another">Choose another object</string>
     <string name="action_cancel">Cancel</string>
-
-    <!-- Voice Command Strings -->
-    <string name="btn_voice_command">Voice Control</string>
-    <string name="voice_cmd_mic_desc">Voice command microphone. Double tap to toggle listening.</string>
-    <string name="voice_cmd_listening">Listening for commands...</string>
-    <string name="voice_cmd_opened">NaviSense opened. Ready for commands.</string>
-    <string name="voice_cmd_searching_wallet">Searching for wallet.</string>
-    <string name="voice_cmd_searching_keys">Searching for keys.</string>
-    <string name="voice_cmd_walking_started">Walking mode started.</string>
-    <string name="voice_cmd_stopped">Stopped.</string>
-    <string name="voice_cmd_arrival_confirmed">Arrival confirmed. Searching for target.</string>
-    <string name="voice_cmd_help">You can say: find keys, find wallet, start walking, or stop.</string>
 </resources>
