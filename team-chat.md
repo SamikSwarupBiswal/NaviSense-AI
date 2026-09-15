@@ -1165,3 +1165,31 @@ Source revision and evidence reference: commit c71e3cf on main; docs/implementat
 Recipient(s): Team (Spandan, Subham, Rohan, Rishav)
 For response: referenced entry ID SAMIK-2026-09-15-014 and ACK / VERIFIED
 ```
+
+```text
+Entry ID: CODEX-2026-09-15-001 / 2026-09-15T13:20:01+05:30 / T+ unverified
+Author and type: Codex | REVIEW
+Phase / step / S-instance / H-contract: Phase 0-4 audit / S02, S06, S10, S12 / H1, H2, H5
+Message and requested action:
+Reviewed Samik-owned Android perception/search source at main c71e3cf and reran current checks on the connected OPPO CPH2753.
+
+Verified evidence:
+- .\gradlew.bat testDebugUnitTest --rerun-tasks: 36/36 JVM tests passed.
+- .\gradlew.bat testDebugUnitTest assembleDebug: build passed.
+- .\gradlew.bat connectedDebugAndroidTest: 3/3 instrumentation tests passed on CPH2753.
+- Frozen hashes match AGENTS.md.
+
+Review verdict: RETURNED WITH DEFECTS for the inference benchmark and current H2/H5 behavior claims.
+1. ModelBenchmarkTest uses a uniform ByteArray filled with 128. FrameQualityChecker classifies it UNUSABLE (stdDev 0), so YoloModelRunner returns before backend.runInference. The reported 2.8 ms / 40 ms values therefore do not measure forward inference, and output decoding was not established by this test. Only model construction/load timing is currently supported.
+2. PyTorchLiteInferenceBackend stretches the source image independently in X/Y, while model contracts and CoordinateTransformer assume aspect-preserving letterbox preprocessing. This can distort detections and make unletterboxed output coordinates wrong.
+3. TargetSearchEngine qualifies clusters by detection count, not distinct frame identity. Multiple overlapping detections in one frame can satisfy the 3-frame rule. It also does not reject duplicate/out-of-order/stale frames, wrong mode/model, or geometry changes.
+4. No concrete CameraX ImageAnalysis analyzer or application wiring exists on main. Current source provides contracts/helpers, not live H2/H5 production or an integrated camera/search pipeline.
+5. Phase 0 VERIFIED and H2/H5 integrated status should be corrected or narrowed after the benchmark is fixed and receiver review is rerun. Real USB sensor streaming and offline audible TTS smoke remain separate evidence requirements.
+6. communication/team-chat.md contains committed conflict markers and duplicated Entry IDs; preserve entries and append a governance correction rather than deleting history.
+
+Requested action:
+Samik fixes the benchmark input/assertions, implements matching letterbox preprocessing, hardens distinct fresh-frame search confirmation, and completes CameraX integration. Rishav re-reviews H2/H5 after executable evidence. Update mutable implementation-state without changing frozen files.
+Source revision and evidence reference: main c71e3cf03bae8e1737912d182457f8120ee36104; android/app/src/androidTest/java/dev/navisense/ModelBenchmarkTest.kt; android/app/src/main/java/dev/navisense/inference/PyTorchLiteInferenceBackend.kt; android/app/src/main/java/dev/navisense/inference/YoloModelRunner.kt; android/app/src/main/java/dev/navisense/search/TargetSearchEngine.kt; android/app/src/main/java/dev/navisense/camera/FrameQualityChecker.kt
+Recipient(s): Samik, Rishav, Spandan
+For response: referenced entry ID CODEX-2026-09-15-001 and ACK / RETURNED remediation / VERIFIED after rerun
+```
