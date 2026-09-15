@@ -2448,3 +2448,35 @@ Source revision and evidence reference: commit b043c61 on main; GeminiFlashClien
 Recipient(s): Rohan, Subham, Spandan
 For response: Team ACK; verify live camera preview, Gemini 4s obstacle narration, and voice command navigation on connected OPPO phone.
 ```
+
+
+```text
+Entry ID: SAMIK-2026-09-16-029 / 2026-09-16T05:28:00+05:30 / T+ unverified
+Author and type: Samik | PROGRESS, IMPLEMENTATION, MODEL EXPORT, BUILD & INTEGRATION
+Phase / step / S-instance / H-contract: Phase 1 & 4 / Walking Mode Obstacle Naming, Locate Obstacle Model Training, In-Path Obstacle Detection, and Target Reach Gating
+Message and requested action:
+1. Walking Mode (Mobility Mode) Specific Obstacle Naming:
+   - Upgraded RiskEngine.kt to extract visualObstacleLabel directly from the strongest corridor track (e.g., "Chair", "Table", "Backpack", "Bottle", "Person") rather than generic "Obstacle".
+   - Integrated with SessionCoordinator.kt and MainActivity.kt to speak actionable hazard names: "$obstacleLabel ahead.", "Slow down. $obstacleLabel ahead.", and "STOP. $obstacleLabel ahead.".
+2. Search Nearby Multi-Class Obstacle Model Training & TFLite GPU Export:
+   - Extracted indoor obstacle classes (chair, table, couch, door) from archive.zip and combined with tabletop/phone target objects (keys, wallet).
+   - Fine-tuned 6-class YOLO model (datasets/locate_obstacle_combined: 656 train, 146 val, 107 test images). Val metrics: keys mAP50=0.967, wallet mAP50=0.921, chair mAP50=0.363, door mAP50=0.350, table mAP50=0.151, overall mAP50=0.460.
+   - Exported to static-shape FP16 TFLite model with GPU delegate optimization: models/locate_obstacle/locate_obstacle_model.tflite (6.18 MB, SHA-256: a81890f165ee12d46c1c2b38993552cadea53265c44148dde57a12482a1f9646).
+   - Deployed to android/app/src/main/assets/models/locate_obstacle_model.tflite with verified input shape [1, 640, 640, 3] and output tensor [1, 10, 8400].
+3. Search Nearby In-Path Obstacle Detection & Target Reach Bounding Box Gating:
+   - Updated TargetSearchEngine.kt to distinguish target objects from obstacles and compute horizontal corridor overlap to detect in-path obstacles.
+   - If an obstacle lies between the user and the target, the system alerts: "$targetName detected ahead, but a $obstacle is in between."
+   - Gated target reach: confirmation is withheld in SEARCHING state with distance guidance until the target bounding box height reaches >= 0.12f (or area >= 0.025f), preventing false "reached" announcements from afar.
+   - Clean UI: Viewfinder bounding boxes remain completely hidden (DetectionOverlayView GONE); all interaction is accessible speech and high-contrast status text.
+4. Verification & Clean Git Synchronization:
+   - 106/106 JVM unit tests PASS (./gradlew.bat :app:testDebugUnitTest).
+   - assembleDebug builds cleanly (BUILD SUCCESSFUL in 5s).
+   - Assembled APK: android/app/build/outputs/apk/debug/app-debug.apk (SHA-256: 6EB06F7102A0CB7AD801D7B04326AF1393BFCB20CAEFB3197AB8A0D6E595E553).
+   - Merged cleanly with origin/main pedestrian maps navigation & Gemini narration commits; pushed to origin/main (commit d6715b1).
+5. Frozen File Hashes (AGENTS.md Section 2):
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Source revision and evidence reference: commit d6715b1 on main; RiskEngine.kt, TargetSearchEngine.kt, SessionCoordinator.kt, MainActivity.kt, TfliteGpuLocateBackend.kt, SearchRegressionTest.kt, locate_obstacle_model.tflite
+Recipient(s): Rishav, Rohan, Spandan, Subham
+For response: Team ACK; verify walking obstacle announcements and Search Nearby in-path obstacle detection on device.
+```
