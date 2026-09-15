@@ -78,9 +78,9 @@ void loop() {
     // SEQ increments on EVERY acquisition cycle, including failed/invalid attempts
     uint32_t current_seq = g_sequence++;
 
-    // Step 1: Ensure TRIG is LOW for 2 µs
+    // Step 1: Ensure TRIG is LOW before pulse
     digitalWrite(PIN_TRIG, LOW);
-    delayMicroseconds(2);
+    delayMicroseconds(4);
 
     // Step 2: Emit 10 µs HIGH pulse on TRIG
     digitalWrite(PIN_TRIG, HIGH);
@@ -88,8 +88,9 @@ void loop() {
     digitalWrite(PIN_TRIG, LOW);
 
     // Step 3: Measure pulse duration on ECHO with bounded timeout (25 ms)
-    // pulseInLong returns duration in microseconds, or 0 if timeout occurs
-    unsigned long duration_us = pulseInLong(PIN_ECHO, HIGH, ECHO_TIMEOUT_US);
+    unsigned long duration_us = pulseIn(PIN_ECHO, HIGH, ECHO_TIMEOUT_US);
+
+
 
     // Step 4: Record measurement completion uptime in ms
     uint32_t completion_uptime_ms = millis();

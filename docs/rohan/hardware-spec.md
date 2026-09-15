@@ -52,10 +52,10 @@ $$V_{out} = V_{in} \times \frac{R_2}{R_1 + R_2} = 5.0\text{ V} \times \frac{2000
 
 | Component Pin | ESP32-S3 Pin / Rail | Wire Type | Voltage Level | Notes |
 |---|---|---|---|---|
-| **HC-SR04 VCC** | ESP32 5V (VBUS / VIN) | 22–24 AWG red wire | 5.0 V DC | Powered directly from USB-C OTG 5V supply |
+| **HC-SR04 VCC** | ESP32 3.3V (or 5V VBUS) | 22–24 AWG red wire | 3.3 V DC | Verified on 3.3V rail with 3.3V–5V wide-voltage sensor (HC-SR04P/RCWL) |
 | **HC-SR04 GND** | ESP32 GND | 22–24 AWG black wire | 0.0 V | Common ground plane |
 | **HC-SR04 TRIG** | ESP32 GPIO 4 (Output) | Jumper wire | 3.3 V CMOS | Emits 10 µs trigger pulses from ESP32 |
-| **HC-SR04 ECHO** | ESP32 GPIO 5 (Input) | Through 1k / 2k divider | 3.33 V divided | Scaled down from 5.0 V; never connect raw ECHO |
+| **HC-SR04 ECHO** | ESP32 GPIO 5 (Input) | Direct (or via divider if 5V) | 3.3 V CMOS | Direct 3.3V CMOS match when powered on 3.3V; divider only required if powered on 5V |
 
 ---
 
