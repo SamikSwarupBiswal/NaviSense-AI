@@ -1,7 +1,7 @@
 {
   "model_family": "yolov8n",
   "task": "locate",
-  "version": "0.1.0-smoke",
+  "version": "v0.2.0-finetuned",
   "classes": ["keys", "wallet"],
   "canonical_aliases": {
     "key": "keys",
@@ -32,5 +32,22 @@
     "coordinate_format": "normalized_0_1",
     "confidence_threshold": 0.60,
     "iou_threshold": 0.45
+  },
+  "artifacts": {
+    "pytorch_weights": {
+      "file": "locate_best.pt",
+      "sha256": "596543d8b3e16c60f052d76fd684a134e2e727f9edce261d317563272519703e",
+      "format": "pytorch_pt"
+    },
+    "torchscript_laptop": {
+      "file": "locate_finetuned.pt",
+      "sha256": "6422ac4e86263a1b5c249169d74b00d157625af0535914cc386611cfb803710e",
+      "format": "torchscript_pt"
+    },
+    "pytorch_lite_android": {
+      "file": "locate_finetuned.ptl",
+      "sha256": "85a6d1cfce3daf55abafa0a341f129426af493bcd5592a059dbe1e8eb60db23a",
+      "format": "pytorch_lite_ptl"
+    }
   }
 }

@@ -1,0 +1,16 @@
+path: datasets/locate_roboflow
+train: train/images
+val: valid/images
+test: test/images
+
+nc: 2
+names:
+  0: keys
+  1: wallet
+
+roboflow:
+  license: Private
+  project: navisense-locate
+  url: https://app.roboflow.com/spandanjit-mishra/navisense-locate/1
+  version: 1
+  workspace: spandanjit-mishra

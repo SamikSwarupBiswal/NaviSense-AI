@@ -9,6 +9,7 @@ __pycache__/
 *.pyc
 .idea/
 *.iml
+*.cache
 .DS_Store
 .pytest_temp/
 .pytest_cache/
@@ -20,8 +21,7 @@ datasets/raw/*
 *.zip
 *.db
 models/checkpoints/
-models/locate/
-datasets/locate_roboflow/
+models/locate/runs/
 runs/
 yolov8n.pt
 
