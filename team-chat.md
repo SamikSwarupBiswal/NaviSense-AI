@@ -1951,3 +1951,27 @@ Message and requested action:
 Source revision and evidence reference: main dd93325; datasets/raw/laptop/WEARABLE/, datasets/raw/laptop/SECURITY/, docs/implementation-state.md
 Recipient(s): Spandan, Samik, Rishav, Rohan
 For response: Spandan / Samik acknowledge multi-environment dataset delivery for Locate YOLO retraining and benchmark evaluation.
+
+```text
+Entry ID: SUBHAM-2026-09-16-021 / 2026-09-16T00:38:00+05:30 / T+ unverified
+Author and type: Subham (with Codex) | PROGRESS & HANDOFF
+Phase / step / S-instance / H-contract: Phase 2 / Step 03 / H4 Locate REST API & Hard Scan Integration
+Message and requested action:
+1. HardScanEngine Model Wiring:
+   - Integrated OpenCvFrameSource for live webcam frame capture and YoloLocateDetector in laptop/scanner.py.
+   - Connected Spandan's fine-tuned Locate candidate (models/locate/locate_best.pt / models/smoke/locate_smoke.pt) with fallback resolution.
+   - Preserved all PRD §10 & §11.2 guarantees: 2.0s duration, 10 frames @ 200ms, IoU >= 0.30 temporal association, >= 6 frames in same zone with conf >= 0.60, atomic SQLite commit.
+2. FastAPI Server Scan Route Wiring:
+   - Configured default HardScanEngine on laptop/api/server.py for POST /api/v1/scan and POST /scan.
+   - Wired cancel_active_scan on POST /api/v1/memory/clear.
+3. Standalone Hard Scan CLI Runner:
+   - Created laptop/tools/run_hard_scan.py: runs stationary webcam Hard Scan, commits observations to SQLite object_memory.db, and queries/prints the updated spatial memory.
+4. Test Verification:
+   - 43/43 laptop tests PASS (test_api_schemas, test_api_server, test_dataset_ingestion, test_scanner, test_storage).
+5. Frozen Contract Check:
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Source revision and evidence reference: main 1b13457; laptop/scanner.py, laptop/api/server.py, laptop/tools/run_hard_scan.py, docs/implementation-state.md
+Recipient(s): Rishav, Samik, Spandan, Rohan
+For response: Rishav verify Android MemoryClientContract synchronization against laptop REST service.
+```
