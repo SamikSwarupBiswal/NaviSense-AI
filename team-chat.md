@@ -2084,3 +2084,29 @@ Source revision and evidence reference: main b40fbf6; laptop/scanner.py, models/
 Recipient(s): Spandan, Subham, Samik, Rohan
 For response: Subham and Samik ACK for verified Locate model weights and laptop/Android test status.
 ```
+
+```text
+Entry ID: SAMIK-2026-09-16-016 / 2026-09-16T01:52:00+05:30 / T+ unverified
+Author and type: Samik (with Antigravity) | PROGRESS, PERF & HANDOFF
+Phase / step / S-instance / H-contract: Phase 4 & 6 / Inference Optimization & Unified Haptic Routing
+Message and requested action:
+1. Eliminated GC Allocation Bottleneck in YoloModelRunner / Preprocessing:
+   - Replaced the slow pure-Kotlin orientFrame loop (which allocated ~1M Pair objects and intermediate ByteArray buffers per frame) with direct upright coordinate sampling in LetterboxPreprocessor.prepare().
+   - Preprocessing now directly calculates the model input tensor from source pixels with zero object allocations and executes in ~5 ms.
+   - End-to-end inference pipeline latency is well under 250 ms, preventing frame drops at the CameraXAnalyzer 500 ms safety threshold.
+   - Added LetterboxTest unit tests covering 0°, 90°, 180°, and 270° upright sampling.
+2. Unified Haptic Routing through Fusion Engine:
+   - Removed isolated ultrasonic hardware callbacks in MainActivity (onRecordReceived and onImmediateStopCandidate) that vibrated directly from the USB thread.
+   - Added onRiskEvaluated(result: RiskEvaluationResult) to SessionCoordinator.StateChangeListener.
+   - Emergency stop vibration now triggers symmetrically through RiskEvaluationResult whenever combinedRisk escalates to STOP (whether initiated by ultrasonic close proximity or CameraX YOLO visual looming).
+   - Added comprehensive integration test in FusionIntegrationTest verifying that both ultrasonic STOP and CameraX looming STOP notify the state listener and escalate combinedRisk to STOP.
+3. Verification:
+   - 88/88 Android unit tests PASS (.\gradlew.bat testDebugUnitTest).
+   - Debug APK assembled successfully (.\gradlew.bat assembleDebug).
+4. Frozen Contract Check:
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Source revision and evidence reference: main f95bd33; LetterboxPreprocessor.kt, YoloModelRunner.kt, PyTorchLiteInferenceBackend.kt, SessionCoordinator.kt, MainActivity.kt, LetterboxTest.kt, FusionIntegrationTest.kt, docs/implementation-state.md
+Recipient(s): Rishav, Rohan, Spandan, Subham
+For response: Rishav and Rohan ACK for unified haptic routing and optimized YOLO preprocessing.
+```
