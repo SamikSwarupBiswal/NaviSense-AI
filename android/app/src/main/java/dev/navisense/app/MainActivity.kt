@@ -40,6 +40,8 @@ import dev.navisense.contracts.SessionToken
 import dev.navisense.inference.ModelMetadata
 import dev.navisense.inference.PyTorchLiteInferenceBackend
 import dev.navisense.inference.YoloModelRunner
+import dev.navisense.navigation.RiskEvaluationResult
+import dev.navisense.navigation.RiskLevel
 import dev.navisense.usb.AndroidUsbCdcTransport
 import dev.navisense.usb.SensorRecord
 import dev.navisense.usb.UsbSensorAdapter
@@ -413,9 +415,6 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                     runOnUiThread {
                         if (record.isValid) {
                             tvSensorStatus.text = "Ultrasonic: ${record.distanceCm} cm"
-                            if (coordinator.currentMode == AppMode.MOBILITY && record.isImmediateStopCandidate) {
-                                hapticFeedback.triggerEmergencyStopVibration()
-                            }
                         } else {
                             tvSensorStatus.text = "Ultrasonic: Invalid (out of range)"
                         }
@@ -431,9 +430,7 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                     coordinator.updateSensorHealth(h)
                 },
                 onImmediateStopCandidate = { _ ->
-                    if (coordinator.currentMode == AppMode.MOBILITY) {
-                        hapticFeedback.triggerEmergencyStopVibration()
-                    }
+                    // Emergency stop haptics unified through RiskEvaluationResult in onRiskEvaluated
                 }
             )
 
@@ -611,14 +608,35 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                 PathStatus.BLOCKED -> {
                     tvPathStatus.text = getString(R.string.status_path_blocked)
                     tvPathStatus.setTextColor(getColor(R.color.status_stop))
-                    if (coordinator.currentMode == AppMode.MOBILITY) {
-                        hapticFeedback.triggerEmergencyStopVibration()
-                    }
                 }
                 PathStatus.UNKNOWN -> {
                     tvPathStatus.text = getString(R.string.status_path_unknown)
                     tvPathStatus.setTextColor(getColor(R.color.status_unknown))
                 }
+            }
+        }
+    }
+
+    override fun onRiskEvaluated(result: RiskEvaluationResult) {
+        runOnUiThread {
+            if (coordinator.currentMode == AppMode.MOBILITY) {
+                when (result.combinedRisk) {
+                    RiskLevel.STOP -> {
+                        if (result.isEscalation) {
+                            hapticFeedback.triggerEmergencyStopVibration()
+                        }
+                    }
+                    RiskLevel.SLOW -> {
+                        if (result.isApproachingHazard && result.isEscalation) {
+                            hapticFeedback.triggerWarningVibration()
+                        }
+                    }
+                    else -> {}
+                }
+            } else if ((coordinator.currentMode == AppMode.FINAL_SEARCH || coordinator.currentMode == AppMode.FOUND) &&
+                result.sensorRisk == RiskLevel.STOP && result.isEscalation
+            ) {
+                hapticFeedback.triggerEmergencyStopVibration()
             }
         }
     }

@@ -6,7 +6,7 @@ import dev.navisense.contracts.*
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * Interface allowing pluggable backend inference (TFLite interpreter, NCNN, or test fixture).
+ * Interface allowing pluggable backend inference (TFLite interpreter, NCNN, PyTorch Lite, or test fixture).
  */
 fun interface InferenceBackend {
     fun runInference(
@@ -16,6 +16,15 @@ fun interface InferenceBackend {
         modelWidth: Int,
         modelHeight: Int
     ): List<RawDetection>
+
+    fun runInference(
+        framePixels: ByteArray,
+        frameWidth: Int,
+        frameHeight: Int,
+        modelWidth: Int,
+        modelHeight: Int,
+        rotationDegrees: Int
+    ): List<RawDetection> = runInference(framePixels, frameWidth, frameHeight, modelWidth, modelHeight)
 }
 
 /**
@@ -96,24 +105,24 @@ class YoloModelRunner(
             )
         }
 
-        // 2. Rotate the sensor-oriented CameraX pixels upright before inference.
-        // Training images are upright; rotating only the output boxes makes the
-        // detector see sideways people and severely damages class confidence.
-        val uprightFrame = orientFrame(framePixels, frameWidth, frameHeight, rotationDegrees)
+        // 2. Compute upright dimensions matching the letterbox sampling
+        val uprightWidth = if (rotationDegrees == 90 || rotationDegrees == 270) frameHeight else frameWidth
+        val uprightHeight = if (rotationDegrees == 90 || rotationDegrees == 270) frameWidth else frameHeight
 
-        // 3. Run backend inference (or return empty if no backend configured)
+        // 3. Run backend inference with direct rotation handled during letterbox sampling (zero GC allocations)
         val rawDetections = backend?.runInference(
-            framePixels = uprightFrame.pixels,
-            frameWidth = uprightFrame.width,
-            frameHeight = uprightFrame.height,
+            framePixels = framePixels,
+            frameWidth = frameWidth,
+            frameHeight = frameHeight,
             modelWidth = meta.inputWidth,
-            modelHeight = meta.inputHeight
+            modelHeight = meta.inputHeight,
+            rotationDegrees = rotationDegrees
         ) ?: emptyList()
 
-        // 4. The backend now sees upright pixels, so only undo letterboxing.
+        // 4. The backend saw upright letterboxed pixels, so transform coordinates to upright normalized [0, 1]
         val transformer = CoordinateTransformer(
-            frameWidth = uprightFrame.width,
-            frameHeight = uprightFrame.height,
+            frameWidth = uprightWidth,
+            frameHeight = uprightHeight,
             modelWidth = meta.inputWidth,
             modelHeight = meta.inputHeight,
             rotationDegrees = 0
@@ -162,34 +171,5 @@ class YoloModelRunner(
         loaded.set(false)
         currentMetadata = null
         (backend as? AutoCloseable)?.close()
-    }
-
-    private data class OrientedFrame(val pixels: ByteArray, val width: Int, val height: Int)
-
-    private fun orientFrame(pixels: ByteArray, width: Int, height: Int, rotationDegrees: Int): OrientedFrame {
-        if (rotationDegrees == 0) return OrientedFrame(pixels, width, height)
-        val channels = when (pixels.size) {
-            width * height -> 1
-            width * height * 3 -> 3
-            else -> throw IllegalArgumentException("Pixel buffer does not match frame dimensions")
-        }
-        val outputWidth = if (rotationDegrees == 90 || rotationDegrees == 270) height else width
-        val outputHeight = if (rotationDegrees == 90 || rotationDegrees == 270) width else height
-        val output = ByteArray(pixels.size)
-
-        for (sourceY in 0 until height) {
-            for (sourceX in 0 until width) {
-                val destination = when (rotationDegrees) {
-                    90 -> Pair(height - 1 - sourceY, sourceX)
-                    180 -> Pair(width - 1 - sourceX, height - 1 - sourceY)
-                    270 -> Pair(sourceY, width - 1 - sourceX)
-                    else -> throw IllegalArgumentException("Unsupported rotation: $rotationDegrees")
-                }
-                val sourceIndex = (sourceY * width + sourceX) * channels
-                val destinationIndex = (destination.second * outputWidth + destination.first) * channels
-                for (channel in 0 until channels) output[destinationIndex + channel] = pixels[sourceIndex + channel]
-            }
-        }
-        return OrientedFrame(output, outputWidth, outputHeight)
     }
 }

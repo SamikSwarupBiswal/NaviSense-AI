@@ -87,6 +87,55 @@ class FusionIntegrationTest {
         assertEquals("No obstacle detected ahead.", fixture.player.lastSpokenText)
     }
 
+    @Test
+    fun testUnifiedRiskEvaluationNotifiesStateListenerForBothSensorAndVisionStop() {
+        val fixture = coordinatorFixture(1_000L)
+        val token = fixture.coordinator.startMobility()
+        val evaluatedResults = mutableListOf<RiskEvaluationResult>()
+
+        fixture.coordinator.addListener(object : SessionCoordinator.StateChangeListener {
+            override fun onModeChanged(newMode: AppMode, token: SessionToken) {}
+            override fun onPathStatusChanged(newStatus: PathStatus) {}
+            override fun onSensorHealthChanged(newHealth: SensorHealth) {}
+            override fun onRiskEvaluated(result: RiskEvaluationResult) {
+                evaluatedResults.add(result)
+            }
+        })
+
+        // 1. Ultrasonic emergency STOP candidate (40 cm) triggers RiskLevel.STOP
+        fixture.clock.set(1_100L)
+        fixture.coordinator.onSensorEvent(sensorEvent(40, 1_100L))
+        val sensorResult = evaluatedResults.last()
+        assertEquals(RiskLevel.STOP, sensorResult.combinedRisk)
+        assertEquals(RiskLevel.STOP, sensorResult.sensorRisk)
+        assertTrue("Initial STOP must be escalation", sensorResult.isEscalation)
+
+        // Reset and test CameraX YOLO looming detection triggering RiskLevel.STOP
+        fixture.coordinator.userStop()
+        evaluatedResults.clear()
+        val newToken = fixture.coordinator.startMobility()
+
+        // 3 baseline frames at t=2100, 2200, 2300 ms
+        val boxT0 = NormalizedRect(0.30f, 0.40f, 0.70f, 0.90f)
+        val det1 = DetectedObject(0, "person", 0.90f, boxT0, trackId = 1L)
+        listOf(2_100L, 2_200L, 2_300L).forEach { t ->
+            fixture.clock.set(t)
+            fixture.coordinator.onPerceptionEvent(perceptionEvent(newToken.generation, AppVisionMode.MOBILITY, t, listOf(det1)))
+        }
+
+        // Expanded near-bottom frames at t=2500, 2550, 2600 ms (500 ms after baseline)
+        val boxT1 = NormalizedRect(0.25f, 0.35f, 0.75f, 0.95f)
+        val detLooming = DetectedObject(0, "person", 0.90f, boxT1, trackId = 1L)
+        listOf(2_500L, 2_550L, 2_600L).forEach { t ->
+            fixture.clock.set(t)
+            fixture.coordinator.onPerceptionEvent(perceptionEvent(newToken.generation, AppVisionMode.MOBILITY, t, listOf(detLooming)))
+        }
+
+        val stopResults = evaluatedResults.filter { it.combinedRisk == RiskLevel.STOP && it.visionRisk == RiskLevel.STOP }
+        assertTrue("Must evaluate at least one STOP result from vision looming", stopResults.isNotEmpty())
+        assertTrue("Vision looming must trigger emergency STOP escalation", stopResults.any { it.isEscalation })
+    }
+
     private data class Fixture(
         val clock: FakeClock,
         val player: FakeTextToSpeechPlayer,

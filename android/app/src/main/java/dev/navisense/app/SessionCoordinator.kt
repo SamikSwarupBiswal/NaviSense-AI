@@ -57,6 +57,7 @@ class SessionCoordinator(
         fun onModeChanged(newMode: AppMode, token: SessionToken)
         fun onPathStatusChanged(newStatus: PathStatus)
         fun onSensorHealthChanged(newHealth: SensorHealth)
+        fun onRiskEvaluated(result: RiskEvaluationResult) {}
     }
 
     @Synchronized
@@ -451,6 +452,11 @@ class SessionCoordinator(
                 )
             )
         }
+        notifyRiskEvaluated(result)
+    }
+
+    private fun notifyRiskEvaluated(result: RiskEvaluationResult) {
+        stateListeners.forEach { it.onRiskEvaluated(result) }
     }
 
     @Synchronized

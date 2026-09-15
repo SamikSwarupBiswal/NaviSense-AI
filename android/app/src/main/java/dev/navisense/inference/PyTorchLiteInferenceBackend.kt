@@ -37,10 +37,21 @@ class PyTorchLiteInferenceBackend(
         frameHeight: Int,
         modelWidth: Int,
         modelHeight: Int
+    ): List<RawDetection> = runInference(framePixels, frameWidth, frameHeight, modelWidth, modelHeight, 0)
+
+    override fun runInference(
+        framePixels: ByteArray,
+        frameWidth: Int,
+        frameHeight: Int,
+        modelWidth: Int,
+        modelHeight: Int,
+        rotationDegrees: Int
     ): List<RawDetection> {
         val mod = checkNotNull(module) { "Model is closed" }
 
-        val floatBuffer = LetterboxPreprocessor.prepare(framePixels, frameWidth, frameHeight, modelWidth, modelHeight)
+        val floatBuffer = LetterboxPreprocessor.prepare(
+            framePixels, frameWidth, frameHeight, modelWidth, modelHeight, rotationDegrees
+        )
 
         val inputTensor = Tensor.fromBlob(floatBuffer, longArrayOf(1, 3, modelHeight.toLong(), modelWidth.toLong()))
         val outputTensor = mod.forward(IValue.from(inputTensor)).toTensor()
