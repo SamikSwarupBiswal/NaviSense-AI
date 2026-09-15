@@ -100,6 +100,44 @@ def save_labeled_sample(
     return img_path
 
 
+def detect_session_state(output_dir: Path, session_id: str) -> tuple[int, dict]:
+    """Detect highest sample index and count existing annotations in session."""
+    images_dir = output_dir / session_id / "images"
+    labels_dir = output_dir / session_id / "labels"
+    if not images_dir.exists():
+        return 1, {"keys": 0, "wallet": 0, "both": 0, "neg": 0}
+
+    indices = []
+    prefix = f"{session_id}_"
+    for img in images_dir.glob(f"{prefix}*.jpg"):
+        stem = img.stem
+        if stem.startswith(prefix):
+            suffix = stem[len(prefix):]
+            if suffix.isdigit():
+                indices.append(int(suffix))
+
+    max_idx = max(indices) if indices else 0
+    next_idx = max_idx + 1
+
+    counts = {"keys": 0, "wallet": 0, "both": 0, "neg": 0}
+    if labels_dir.exists():
+        for lbl in labels_dir.glob(f"{prefix}*.txt"):
+            content = lbl.read_text().strip()
+            if not content:
+                counts["neg"] += 1
+            else:
+                lines = content.splitlines()
+                classes = [line.split()[0] for line in lines if line.strip()]
+                if "0" in classes and "1" in classes:
+                    counts["both"] += 1
+                elif "0" in classes:
+                    counts["keys"] += 1
+                elif "1" in classes:
+                    counts["wallet"] += 1
+
+    return next_idx, counts
+
+
 def run_capture(
     camera_index: int = 0,
     output_dir: str = "datasets/raw/laptop",
@@ -126,22 +164,25 @@ def run_capture(
     print("  [q] : Quit")
     print("=" * 75)
 
-    counts = {"keys": 0, "wallet": 0, "both": 0, "neg": 0}
+    sample_idx, counts = detect_session_state(out_path, session_id)
+    if sample_idx > 1:
+        print(f"[RESUME] Found existing {sample_idx - 1} frames. Resuming at index {sample_idx:04d}.")
+        print(f"Current Counts: Keys={counts['keys'] + counts['both']} | Wallet={counts['wallet'] + counts['both']} | Both={counts['both']} | Negatives={counts['neg']}")
 
     if mock_mode or cv2 is None:
         print("[MOCK MODE] Mock capture mode active.")
         print("Saving test sample files (single, both, negative)...")
         # Single keys
-        save_labeled_sample(None, out_path, session_id, 1, [(0, (0.50, 0.55, 0.18, 0.18))])
+        save_labeled_sample(None, out_path, session_id, sample_idx, [(0, (0.50, 0.55, 0.18, 0.18))])
         # Single wallet
-        save_labeled_sample(None, out_path, session_id, 2, [(1, (0.50, 0.55, 0.20, 0.20))])
+        save_labeled_sample(None, out_path, session_id, sample_idx + 1, [(1, (0.50, 0.55, 0.20, 0.20))])
         # Both keys & wallet
         save_labeled_sample(
-            None, out_path, session_id, 3,
+            None, out_path, session_id, sample_idx + 2,
             [(0, (0.20, 0.55, 0.18, 0.18)), (1, (0.80, 0.55, 0.20, 0.20))]
         )
         # Negative
-        save_labeled_sample(None, out_path, session_id, 4, None)
+        save_labeled_sample(None, out_path, session_id, sample_idx + 3, None)
         print(f"Saved mock samples to {out_path / session_id}")
         return
 
@@ -150,7 +191,6 @@ def run_capture(
         print(f"Error: Could not open camera at index {camera_index}")
         return
 
-    sample_idx = 1
     try:
         while True:
             ret, frame = cap.read()
@@ -222,8 +262,8 @@ def run_capture(
                 new_session = input("\nEnter new session ID: ").strip()
                 if new_session:
                     session_id = new_session
-                    sample_idx = 1
-                    print(f"Switched to session: {session_id}")
+                    sample_idx, counts = detect_session_state(out_path, session_id)
+                    print(f"Switched to session: {session_id} (resuming at sample {sample_idx:04d})")
 
     finally:
         cap.release()
