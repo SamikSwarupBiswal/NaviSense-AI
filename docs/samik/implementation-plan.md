@@ -184,9 +184,9 @@ When asked to implement this plan, work for Samik within the stated ownership. R
 ## 7. Current Record
 
 Event start/timezone: not recorded.
-Current step: 01 planned.
-Actual implementation/evidence: not recorded.
-Entry/exit review: pending.
+Current step: 01 smoke corrections tested; Step 02 live CameraX pending.
+Actual implementation/evidence: Codex review fixes on 2026-09-15; 44 JVM tests and 4 OPPO instrumentation tests pass. Corrected benchmark asserts actual forward execution; synthetic timing is not AC-05. See central implementation-state correction record.
+Entry/exit review: owned regression fixes authorized by user; named receiver re-review pending; Phase 0 exit reopened.
 Gate results: use the central implementation-state register; no changes implied by this plan.
 
 ## Communication branch — mandatory

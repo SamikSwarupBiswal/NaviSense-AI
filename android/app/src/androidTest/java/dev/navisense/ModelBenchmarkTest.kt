@@ -18,6 +18,15 @@ class ModelBenchmarkTest {
     private val context: Context get() = ApplicationProvider.getApplicationContext()
 
     @Test
+    fun testStaleCacheReplacement() {
+        val asset = "models/locate_smoke.ptl"
+        val path = PyTorchLiteInferenceBackend.copyAssetToCache(context, asset)
+        java.io.File(path).writeBytes(byteArrayOf(1, 2, 3))
+        PyTorchLiteInferenceBackend.copyAssetToCache(context, asset)
+        assertArrayEquals(context.assets.open(asset).use { it.readBytes() }, java.io.File(path).readBytes())
+    }
+
+    @Test
     fun testLocateSmokeModelLoadAndInference() {
         val assetName = "models/locate_smoke.ptl"
         val modelPath = PyTorchLiteInferenceBackend.copyAssetToCache(context, assetName)
@@ -47,7 +56,7 @@ class ModelBenchmarkTest {
         assertTrue(runner.load(metadata))
 
         // Create 640x480 test image bytes (simulating camera frame)
-        val dummyFrame = ByteArray(640 * 480) { 128.toByte() }
+        val dummyFrame = ByteArray(640 * 480) { if (it % 2 == 0) 40 else 180.toByte() }
 
         // Warm-up pass
         runner.detect(
@@ -81,11 +90,13 @@ class ModelBenchmarkTest {
             val elapsed = SystemClock.elapsedRealtime() - start
             totalInferenceMs += elapsed
             assertNotNull(event)
+            assertEquals(dev.navisense.contracts.FrameQualityStatus.USABLE, event.qualityStatus)
+            assertEquals(i + 1, backend.completedForwardPasses)
             assertEquals("NaviSense-Locate-YOLO-smoke", event.modelIdentity)
         }
 
         val avgInferenceMs = totalInferenceMs.toDouble() / runs
-        println("BENCHMARK: Locate smoke model average inference latency: ${avgInferenceMs} ms (${1000.0 / avgInferenceMs} FPS)")
+        println("BENCHMARK: Locate synthetic pipeline mean (quality + preprocessing + forward + decode): ${avgInferenceMs} ms; completed forward calls=${backend.completedForwardPasses}")
 
         backend.close()
         runner.close()
@@ -120,7 +131,7 @@ class ModelBenchmarkTest {
         )
         assertTrue(runner.load(metadata))
 
-        val dummyFrame = ByteArray(640 * 480) { 128.toByte() }
+        val dummyFrame = ByteArray(640 * 480) { if (it % 2 == 0) 40 else 180.toByte() }
 
         val start = SystemClock.elapsedRealtime()
         val event = runner.detect(
@@ -135,9 +146,11 @@ class ModelBenchmarkTest {
             geometryVersion = 1
         )
         val elapsed = SystemClock.elapsedRealtime() - start
-        println("BENCHMARK: Mobility smoke model single inference latency: ${elapsed} ms")
+        println("BENCHMARK: Mobility synthetic pipeline single sample (quality + preprocessing + forward + decode): ${elapsed} ms; completed forward calls=${backend.completedForwardPasses}")
 
         assertNotNull(event)
+        assertEquals(dev.navisense.contracts.FrameQualityStatus.USABLE, event.qualityStatus)
+        assertEquals(1, backend.completedForwardPasses)
         assertEquals("NaviSense-Mobility-YOLO-smoke", event.modelIdentity)
 
         backend.close()
@@ -163,6 +176,6 @@ class ModelBenchmarkTest {
         backend = null
         System.gc()
 
-        println("BENCHMARK: Clean model switching verified with zero OutOfMemoryError")
+        println("BENCHMARK: Sequential model load/close completed; memory leaks were not measured")
     }
 }

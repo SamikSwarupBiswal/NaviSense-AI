@@ -1,10 +1,10 @@
 # NaviSense AI — Implementation State
 
-Last updated: 2026-09-14 (Asia/Kolkata).
+Last updated: 2026-09-15 (Asia/Kolkata), Codex review remediation.
 
 Product authority: [PRD v3.2](README.md). Ownership baseline: [frozen shared guidance](guidance.md). Timed execution: [24-hour plan](implementation-plan.md). Rules: [AGENTS](AGENTS.md).
 
-**Current state: requirements and work allocation documented; implementation not yet evidenced in this workspace.** The workspace inspection found documentation only. Source code, trained/exported artifacts, firmware, test runs, and physical-device results have not been recorded here. This does not establish whether members have work elsewhere; import or link that evidence before updating its status.
+**Current state: Android perception helpers and smoke runtime implemented; live CameraX/application integration and peer review pending.** The previous Phase 0 completion and inference timings were overstated. See the correction record below. All product acceptance gates remain NOT RUN.
 
 This file is the central progress tracker. The PRD defines what must be delivered; the guides define who does it and how work is handed off. Rishav consolidates progress here using each member's evidence. Do not interpret completed documentation as completed engineering work.
 
@@ -14,13 +14,13 @@ This file is the central progress tracker. The PRD defines what must be delivere
 |---|---|---|
 | Product requirements and hardening | Documented & Frozen | PRD v3.2 and guidance.md verified exact against frozen SHA-256 baseline |
 | Five-member allocation | Active across all subsystems | All 5 owners (Spandan, Subham, Rohan, Samik, Rishav) executing concurrent workstreams |
-| Phase plans and handoffs | Active / Phase 0 Complete | Phase 0 verified; Phases 1–4 kicked off across subsystems; H1–H6 contracts merged |
+| Phase plans and handoffs | Phase 0 exit reopened | Smoke load/forward tests available; full compatibility and receiver evidence pending |
 | Acceptance plan | Active | 16 PRD acceptance gates mapped and assigned; baseline benchmarks underway |
 | Implementation source | Evidenced on main | Master Android shell, perception engine, USB driver, FastAPI schemas, and models present |
 | Models and datasets | Evidenced & Benchmarked | Locate/Mobility smoke models benchmarked on phone; AC-02 evaluation harness ready |
 | Actual hardware/phone compatibility | Physically Verified | OPPO CPH2753 (Android 16 API 36, Camera2 FULL, USB host active, Google TTS installed); app live |
 | Integrated user experiences | In progress | Master app shell running live; CameraX analyzer, UsbSensorAdapter, and Hard Scan connecting |
-| Acceptance | 0 of 16 gates recorded PASS | Baseline benchmarks passing (load < 5s, latency < 50ms); formal acceptance gates pending |
+| Acceptance | 0 of 16 gates recorded PASS | Component checks do not establish acceptance or sustained runtime performance |
 
 Do not calculate an overall completion percentage from document count or these gates: gates differ in scope and none has run yet.
 
@@ -44,7 +44,7 @@ Gate results use **NOT RUN / RUNNING / PASS / FAIL / BLOCKED**. A PASS requires 
 | [Spandan](spandan/guidance.md) | Models, datasets, training, exports and quality evaluation | In progress | S02/H1 smoke artifacts, metadata contracts, reference fixtures, CAPTURE_CHECKLIST.md, verify_smoke.py (PASS), evaluate_ac02.py (PASS) | Ingest dataset batches from Subham and Samik; run train_locate.py for Handoff S09 candidate weights |
 | [Subham](subham/guidance.md) | Laptop Locate, Hard Scan, SQLite, API and Android memory client | In progress | REST API schemas, SQLite schema, response fixtures (8/8 tests pass), MemoryClientContract, mock server script | Capture laptop tabletop dataset per checklist; implement webcam adapter & 2.0s Hard Scan |
 | [Rohan](rohan/guidance.md) | Hardware, firmware, mount, USB and Android sensor adapter | In progress | Hardware spec, 10Hz ESP32 firmware, serial test tool (20/20 pass), replay harness (10/10 pass), dev.navisense.usb package & UsbSensorAdapter (unit tests pass) | Physical bench ranging across 6 distances (AC-08); benchmark live USB OTG streaming to phone |
-| [Samik](samik/guidance.md) | Android camera, both inference adapters, tracking and search engine | In progress | Contracts (H2/H5), transforms, tracker, search engine; PyTorch Lite benchmark on OPPO CPH2753 (Locate: 31ms load / 2.8ms inf; Mobility: 317ms load / 40ms inf); app running live | Capture phone search dataset; implement concrete CameraX analyzer pipeline |
+| [Samik](samik/guidance.md) | Android camera, both inference adapters, tracking and search engine | In progress | Codex fixed benchmark execution, letterbox preprocessing, fresh distinct-frame search matching and atomic model cache replacement; regression tests added | Capture phone dataset; implement CameraX and deliver H2/H5 integration to Rishav |
 | [Rishav](rishav/guidance.md) | Risk, voice UX, accessible shell, lifecycle and integration | In progress | Master app shell v0 merged on main (commit 78f3187), core contracts, accessible UI, 25/25 unit tests pass | Wire UsbSensorAdapter & immediate STOP; implement offline TTS arbiter with 4 priority levels |
 
 Ownership above is the user's current allocation. Work reported by Codex must be labelled Codex-prepared/implemented/tested as appropriate, not attributed as completed member work without confirmation.
@@ -55,11 +55,11 @@ Phase numbers match the PRD and guides; Phase 0 is the prerequisite compatibilit
 
 | Phase | Responsible owners | State | Evidence / next exit requirement |
 |---|---|---|---|
-| 0 — Compatibility and contracts | All; Rishav coordinates | Verified | S01–S04 delivered and verified; phone audited; PyTorch Lite benchmarked on device; all contracts merged |
+| 0 — Compatibility and contracts | All; Rishav coordinates | Exit reopened | Model smoke execution only; actual USB/offline audio and named peer review still required |
 | 1 — Stationary Vision | Spandan; Subham laptop adapter; Samik phone check | In progress | Smoke models verified; AC-02 harness ready; dataset capture batches and custom Locate training underway |
 | 2 — Hard Scan + Memory | Subham | In progress | FastAPI schemas & SQLite schema verified; transactional 2.0s Hard Scan & mock/live server in progress |
 | 3 — Sensor Node | Rohan | In progress | 10Hz firmware & 1k/2k divider verified; USB serial adapter implemented; physical bench ranging next |
-| 4 — Android Camera AI | Samik; Spandan artifacts; Rishav shell | In progress | PyTorch Lite backend & CoordinateTransformer verified on device; CameraX ImageAnalysis pipeline next |
+| 4 — Android Camera AI | Samik; Spandan artifacts; Rishav shell | In progress | Tested helpers and model backend; concrete CameraX analyzer and application event wiring still pending |
 | 5 — USB Integration | Rohan; Rishav lifecycle integration | In progress | UsbSensorAdapter unit tests pass; Android USB host verified; live cable streaming and lifecycle hookup next |
 | 6 — Fusion + Risk | Rishav; Samik/Rohan inputs | In progress | RiskEngine contracts defined; sensor <= 50cm emergency STOP wiring & staleness watchdog next |
 | 7 — Voice UX | Rishav; all producers support cancellation | In progress | SpeechArbiter contracts defined; offline Android TextToSpeech wrapper with <= 250ms STOP cancel next |
@@ -105,11 +105,11 @@ Project-owner acceptance: **not recorded**. Documentation link/schema checks do 
 
 | Handoff | Producer | Receiver | State | Missing deliverable / evidence |
 |---|---|---|---|---|
-| H1 — Model artifacts | Spandan | Subham and Samik | Verified | Models delivered; Samik verified on OPPO CPH2753 (3/3 tests pass; load < 5s, latency 2.8ms/40ms); Subham laptop load pending |
-| H2 — Mobile perception | Samik | Rishav | Verified | dev.navisense.contracts.MobilePerceptionEvent implemented & integrated into master app shell (commit 78f3187) |
+| H1 — Model artifacts | Spandan | Subham and Samik | Partial smoke evidence | Corrected Android model load/forward checks; decoding reference comparison, laptop receipt and peer review pending |
+| H2 — Mobile perception | Samik | Rishav | Helpers tested; integration pending | No live camera producer or receiver event wiring; prior integration claim withdrawn |
 | H3 — Sensor events | Rohan | Rishav | Verified | Hardware spec, ESP32 firmware, serial tool (20/20 PASS), replay harness (10/10 PASS), UsbSensorAdapter unit tests pass |
 | H4 — Memory | Subham | Rishav | Verified | REST API schemas, response fixtures (8/8 tests PASS), SQLite schema, MemoryClientContract delivered |
-| H5 — Search events | Samik | Rishav | Verified | dev.navisense.contracts.SearchEvent & TargetSearchEngine implemented & integrated into master app shell |
+| H5 — Search events | Samik | Rishav | Helpers tested; integration pending | Search regressions pass; live Locate/Found/speech wiring and receiver re-review pending |
 | H6 — Build integration | Rishav | All | Verified | Master app shell v0 merged on main (commit 78f3187); clean build & live execution on OPPO CPH2753 |
 
 ## 8. Decisions and Blockers
@@ -121,7 +121,7 @@ No active implementation blocker has been confirmed. The following prerequisites
 | Actual phone and Android version | Rishav, Samik, Rohan | RESOLVED: OPPO CPH2753, MediaTek MT6835 (arm64-v8a), Android 16 (API 36), Camera2 Level FULL, rear camera orientation 90°, USB host active, Google TTS installed |
 | Board, GPIOs, power, USB interface and mount | Rohan | RESOLVED: Recorded in docs/rohan/hardware-spec.md: ESP32-S3 DevKit, GPIO 4 (TRIG), GPIO 5 (ECHO via 1k/2k divider), 5V phone OTG (< 80mA), chest rig |
 | Demo Locate classes/aliases | Spandan with Subham/Samik | RESOLVED: Object 1 = "keys" (aliases: key, keychain, car keys), Object 2 = "wallet" (aliases: billfold, purse, cardholder) recorded in models/metadata/demo_classes.json |
-| Model/runtime/export compatibility | Spandan, Samik | RESOLVED: PyTorch Mobile Lite (.ptl) verified on OPPO CPH2753 (Locate: 31ms load / 2.8ms inf; Mobility: 317ms load / 40ms inf; <= 5000ms per PRD §13.5) |
+| Model/runtime/export compatibility | Spandan, Samik | Corrected load/forward execution tested on smoke artifacts; reference detection comparison and full pipeline qualification pending |
 | App package paths and event/session contracts | Rishav with producers | RESOLVED: dev.navisense.contracts.* and session architecture merged in commit 78f3187 |
 | Laptop camera zones and permitted memory network | Subham | In progress: Laptop tabletop capture per CAPTURE_CHECKLIST.md; local HTTP subnet 192.168.43.0/24 |
 
@@ -169,7 +169,7 @@ Next action / blocker resolver:
 | Item | Current state |
 |---|---|
 | Event duration | User specified 24 hours |
-| Actual start/date/timezone | Recorded start Asia/Kolkata; clock advancing toward T+05:30 |
+| Actual start/date/timezone | Unverified: chat timestamps and T+ values conflict; do not infer current elapsed time |
 | Master/individual implementation plans | Fully aligned and active |
 | Shared breaks | Planned T+06:00–06:30, T+12:00–13:00, T+18:00–18:30 |
 | Staged handoffs | S01–S04 delivered & verified; S05–S08 in progress |
@@ -188,11 +188,11 @@ A VERIFIED phase exit is not whole-product acceptance.
 
 | Phase | Lead | Peer reviewer | Entry | Exit | Actual time / permitted scope / evidence |
 |---|---|---|---|---|---|
-| 0 | Rishav | Subham | READY | VERIFIED | All S01–S04 deliverables verified; physical phone audited; app running live; PyTorch Lite benchmarked on device |
+| 0 | Rishav | Subham | READY-FIXTURES | RETURNED | Earlier exit claim withdrawn; named peer review and physical compatibility evidence outstanding |
 | 1 | Spandan | Samik and Subham | READY | PENDING | Smoke exports verified; AC-02 harness ready; datasets capture and custom Locate training underway |
 | 2 | Subham | Rishav | READY | PENDING | API schemas, SQLite spec and response fixtures verified; webcam adapter & 2.0s Hard Scan underway |
 | 3 | Rohan | Rishav | READY | PENDING | Firmware, electrical spec, serial tests and UsbSensorAdapter verified; physical bench ranging underway |
-| 4 | Samik | Rishav | READY | PENDING | Perception contracts, transforms & PyTorch Lite backend verified on device; CameraX analyzer underway |
+| 4 | Samik | Rishav | READY-FIXTURES | PENDING | User authorized review fixes to owned helpers/tests; AI prepared scope only, Rishav acknowledgement pending; no live integration exit |
 | 5 | Rohan | Rishav | READY | PENDING | UsbSensorAdapter unit tests pass; physical OTG streaming and lifecycle integration underway |
 | 6 | Rishav | Samik and Rohan | PENDING | PENDING | RiskEngine contracts defined; sensor <= 50cm emergency STOP wiring next |
 | 7 | Rishav | Samik | PENDING | PENDING | SpeechArbiter contracts defined; offline Android TextToSpeech wrapper next |
@@ -233,3 +233,15 @@ The requested relocation required only five individual-guide link target changes
 | docs/guidance.md | 6DCF13CD6C5A6DDC22ABA076DBF79CB830F81DCE48F103DDB6FEC0A6BA352EEA | A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E |
 
 Documentation organization is complete; implementation and acceptance statuses are unchanged. AGENTS.md records the current frozen checksums.
+
+## Review remediation — 2026-09-15
+
+Final retest after benchmark wording/cache synchronization changes: 44 JVM tests and 4 device tests pass. Locate pipeline mean 48.8 ms (six forward calls including warm-up); Mobility single sample 185 ms (one forward call). Loads 28 ms and 300 ms. Earlier corrected run below is retained for comparison. Both frozen hashes verified unchanged.
+
+Actor: Codex, on Samik's explicit request to resolve review findings. Base source c71e3cf. Scope: owned inference/search helpers, regression tests and correction of status claims. No named peer acknowledgement is impersonated.
+
+Earlier 2.8 ms Locate / 40 ms Mobility claims measured rejection of uniform imagery and are withdrawn wherever quoted above as historical activity. Earlier zero-leak claims were not measured. The corrected benchmark requires USABLE results and counts completed forward calls. The first corrected device run exposed two failures: PyTorch required a direct buffer. After fixing allocation, 44 JVM tests and 4 OPPO CPH2753 instrumentation tests passed using `android/gradlew.bat testDebugUnitTest connectedDebugAndroidTest`. Recorded synthetic pipeline timing (quality + preprocessing + forward + decode): Locate 57.8 ms mean of five samples after warm-up; Mobility 189 ms single sample. Loads: 28 ms / 295 ms. These samples are not AC-05, model accuracy or live camera measurements.
+
+Letterboxing now preserves aspect ratio with 114 padding and shares the inverse transform's geometry; portrait RGB and landscape padding fixtures pass. Search requires ordered, fresh, distinct capture/frame IDs, Locate mode/model identity, geometry reset and one-to-one matching per frame. Cache replacement is atomic on each asset load, including existing non-empty files; a device test replaces stale bytes and verifies the packaged bytes are restored. Native model resources are destroyed on close.
+
+H2/H5 remain awaiting concrete CameraX producer and Rishav integration/review. The status defect is corrected; live CameraX is not claimed implemented. Next owner actions: Samik implements owned camera producer; Rishav wires readiness/watchdog/session/risk/search outputs and reviews receipts. All 16 acceptance gates remain NOT RUN. Frozen hashes match AGENTS.md before edits; verify again at commit. Original failed benchmark attempt retained here; later retests do not erase it.

@@ -51,7 +51,7 @@ If export speed/quality fails, work with Spandan and rerun affected gates. Do no
 
 ## Current Handoff Record
 
-Status: planned. Phone, runtime, artifacts and measured results: not yet recorded. Primary receiver: Rishav; model producer: Spandan. Next action: Phase 0 two-model phone smoke and event contract agreement. Use the shared status format when work starts.
+Status: helper implementation and smoke execution tested; CameraX/application integration pending. Codex corrected the review findings on 2026-09-15; 44 JVM tests and 4 instrumentation tests pass on OPPO CPH2753. Earlier frame-rejection timings are withdrawn. Primary receiver: Rishav (re-review pending); model producer: Spandan. Next action: live camera producer and H2/H5 integration. Central implementation-state records scope and limitations.
 
 ## Communication branch — mandatory
 

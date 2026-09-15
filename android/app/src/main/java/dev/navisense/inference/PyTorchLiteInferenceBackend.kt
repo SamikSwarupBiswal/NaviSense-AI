@@ -23,6 +23,8 @@ class PyTorchLiteInferenceBackend(
 ) : InferenceBackend, AutoCloseable {
 
     private var module: Module? = null
+    var completedForwardPasses: Int = 0
+        private set
 
     init {
         module = LiteModuleLoader.load(modelPath)
@@ -35,53 +37,17 @@ class PyTorchLiteInferenceBackend(
         modelWidth: Int,
         modelHeight: Int
     ): List<RawDetection> {
-        val mod = module ?: return emptyList()
+        val mod = checkNotNull(module) { "Model is closed" }
 
-        val numPixels = modelWidth * modelHeight
-        val floatBuffer = FloatBuffer.allocate(3 * numPixels)
-
-        val isGrayscale = framePixels.size == frameWidth * frameHeight
-        val scaleX = frameWidth.toFloat() / modelWidth
-        val scaleY = frameHeight.toFloat() / modelHeight
-
-        val rChannel = FloatArray(numPixels)
-        val gChannel = FloatArray(numPixels)
-        val bChannel = FloatArray(numPixels)
-
-        for (my in 0 until modelHeight) {
-            val fy = (my * scaleY).toInt().coerceIn(0, frameHeight - 1)
-            for (mx in 0 until modelWidth) {
-                val fx = (mx * scaleX).toInt().coerceIn(0, frameWidth - 1)
-                val pixelIndex = my * modelWidth + mx
-                if (isGrayscale) {
-                    val gray = (framePixels[fy * frameWidth + fx].toInt() and 0xFF) / 255.0f
-                    rChannel[pixelIndex] = gray
-                    gChannel[pixelIndex] = gray
-                    bChannel[pixelIndex] = gray
-                } else {
-                    val srcIdx = (fy * frameWidth + fx) * 3
-                    if (srcIdx + 2 < framePixels.size) {
-                        rChannel[pixelIndex] = (framePixels[srcIdx].toInt() and 0xFF) / 255.0f
-                        gChannel[pixelIndex] = (framePixels[srcIdx + 1].toInt() and 0xFF) / 255.0f
-                        bChannel[pixelIndex] = (framePixels[srcIdx + 2].toInt() and 0xFF) / 255.0f
-                    }
-                }
-            }
-        }
-
-        floatBuffer.put(rChannel)
-        floatBuffer.put(gChannel)
-        floatBuffer.put(bChannel)
-        floatBuffer.flip()
+        val floatBuffer = LetterboxPreprocessor.prepare(framePixels, frameWidth, frameHeight, modelWidth, modelHeight)
 
         val inputTensor = Tensor.fromBlob(floatBuffer, longArrayOf(1, 3, modelHeight.toLong(), modelWidth.toLong()))
         val outputTensor = mod.forward(IValue.from(inputTensor)).toTensor()
+        completedForwardPasses++
         val outData = outputTensor.dataAsFloatArray
         val shape = outputTensor.shape()
 
-        if (shape.size != 3 || shape[0] != 1L || shape[2] != 8400L) {
-            return emptyList()
-        }
+        check(shape.size == 3 && shape[0] == 1L && shape[1] == (4 + numClasses).toLong() && shape[2] == 8400L) { "Incompatible model output: ${shape.contentToString()}" }
 
         val numChannels = shape[1].toInt()
         val numAnchors = shape[2].toInt()
@@ -156,19 +122,24 @@ class PyTorchLiteInferenceBackend(
     }
 
     override fun close() {
+        module?.destroy()
         module = null
     }
 
     companion object {
+        @Synchronized
         fun copyAssetToCache(context: Context, assetName: String): String {
             val file = File(context.cacheDir, assetName)
-            if (!file.exists() || file.length() == 0L) {
-                file.parentFile?.mkdirs()
-                context.assets.open(assetName).use { input ->
-                    FileOutputStream(file).use { output ->
-                        input.copyTo(output)
-                    }
-                }
+            file.parentFile?.mkdirs()
+            // AtomicFile preserves the previous complete artifact if copying fails.
+            val atomic = android.util.AtomicFile(file)
+            val output = atomic.startWrite()
+            try {
+                context.assets.open(assetName).use { it.copyTo(output) }
+                atomic.finishWrite(output)
+            } catch (failure: Throwable) {
+                atomic.failWrite(output)
+                throw failure
             }
             return file.absolutePath
         }
