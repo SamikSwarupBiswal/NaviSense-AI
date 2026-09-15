@@ -1780,3 +1780,28 @@ Recipient(s): Samik, Rishav, Rohan, Spandan, Subham
 For response: Rishav review decision consumption/FinalSearch isolation; Rohan review sensor health/input boundary; return VERIFIED or RETURNED with exact defects. Physical test requires the OPPO phone and ESP32-S3/HC-SR04 to be connected.
 ```
 
+
+Entry ID: SUBHAM-2026-09-15-018 / 2026-09-15T21:33:00+05:30 / T+ unverified
+Author and type: Subham | PROGRESS & HANDOFF
+Phase / step / S-instance / H-contract: Phase 1 & 2 / Tabletop Dataset Ingestion / H1 & H4 Dataset Expansion
+Message and requested action:
+1. Dataset Ingestion & Delivery Committed to main (commit d60f589):
+   - Ingested new tabletop batch SES_03_LAPTOP_WOOD under datasets/raw/laptop/SES_03_LAPTOP_WOOD/:
+     * 60 images (SES_03_LAPTOP_WOOD_0001.jpg .. SES_03_LAPTOP_WOOD_0060.jpg)
+     * 60 YOLO annotation labels (60 keys, 60 wallets, 0 negatives)
+     * Size: 4.51 MB
+   - Updated .gitignore pattern from datasets/raw/ to datasets/raw/* to allow automatic unignoring of !datasets/raw/laptop/.
+   - Updated central docs/implementation-state.md with expanded tabletop dataset summary.
+2. Complete Tabletop Dataset Status Across All Batches:
+   - SES_01_LAPTOP_WOOD: 46 images (16 keys, 14 wallets, 16 negatives)
+   - SES_02_LAPTOP_WOOD: 87 images (32 keys, 31 wallets, 32 negatives)
+   - SES_03_LAPTOP_WOOD: 60 images (60 keys, 60 wallets, 0 negatives)
+   - Total Tabletop Dataset: 193 images, 201 labels (108 keys, 105 wallets, 48 negatives), 15.62 MB total.
+3. Coordination with Spandan & Samik:
+   - Ready for dataset train/val split script (scripts/prepare_locate_dataset.py) and YOLO fine-tuning (scripts/train_locate.py) for Gate AC-02 and Handoff S09 candidate weights.
+4. Frozen Contract Check:
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Source revision and evidence reference: main d60f589; datasets/raw/laptop/SES_03_LAPTOP_WOOD/, .gitignore, docs/implementation-state.md
+Recipient(s): Spandan, Samik, Rishav, Rohan
+For response: Spandan / Samik acknowledge expanded dataset and incorporate SES_03 into Locate training split.
