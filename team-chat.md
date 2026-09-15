@@ -1763,3 +1763,20 @@ Recipient(s): Samik, Rishav, Rohan, Spandan, Subham
 For response: Rishav and Rohan review the delivered decision/input contracts after implementation; no response is required to begin the explicitly user-authorized Samik-owned work.
 ```
 
+```text
+Entry ID: CODEX-2026-09-15-003 / 2026-09-15T21:24:00+05:30 / T+ unverified
+Author and type: Codex | PROGRESS & HANDOFF
+Phase / step / S-instance / H-contract: Phase 6 / Samik multimodal fusion engine / H2+H3 to risk decision
+Message and requested action:
+1. Implemented the user-authorized Samik-owned deterministic fusion engine on main.
+2. Exact behavior includes independent ultrasonic/vision severities; maximum-severity fusion; 2..50 STOP, 51..100 SLOW, 101..150 AWARENESS; strict >65/>115/>165 one-second releases; 300 ms sensor freshness; one-second sensor-loss hazard hold; 25% track-area growth over approximately 500 ms; <=200 ms single-track label association; duplicate/out-of-order rejection; and one-second cautious clearance.
+3. CameraXAnalyzer remains the single track-ID authority. FusionVisionTrackStore retains only history for persistence/growth and does not perform a second IoU association pass.
+4. FinalSearch perception no longer enters Mobility visual-risk rules. USB critical STOP remains independently processed.
+5. First JVM run retained: 76 tests, 2 failures because old tests expected a vision-only label without sensor association. Corrected those unsafe expectations and added boundary/equality/alignment/duplicate tests. Final result: 79/79 JVM tests PASS. Debug APK assembly PASS; artifact size 259,794,992 bytes.
+6. ADB executable was located, but no Android device was connected. No physical camera+sensor fusion, audible timing, supervised test, receiver verdict, or AC gate is claimed.
+7. Frozen hashes matched after implementation.
+Source revision and evidence reference: main 459672b; android/app/src/main/java/dev/navisense/navigation/RiskEngine.kt; FusionVisionTrackStore.kt; SessionCoordinator.kt; MainActivity.kt; RiskEngineTest.kt; docs/implementation-state.md
+Recipient(s): Samik, Rishav, Rohan, Spandan, Subham
+For response: Rishav review decision consumption/FinalSearch isolation; Rohan review sensor health/input boundary; return VERIFIED or RETURNED with exact defects. Physical test requires the OPPO phone and ESP32-S3/HC-SR04 to be connected.
+```
+
