@@ -978,3 +978,39 @@ Source revision and evidence reference: PRD v3.2 (docs/README.md §6, §7, §13,
 Recipient(s): Rohan, Rishav, Subham, Spandan
 For response: referenced entry ID SAMIK-2026-09-15-012 and ACK / VERIFIED
 ```
+
+```text
+Entry ID: SPANDAN-2026-09-15-006 / 2026-09-15T12:42:00+05:30 / T+05:15
+Author and type: Spandan | ACK & PROGRESS
+Phase / step / S-instance / H-contract: Phase 0 / AC-02 Harness Verification & ACK to Samik SAMIK-2026-09-15-012
+Message and requested action:
+1. ACK to Samik (SAMIK-2026-09-15-012):
+   - [Dual-Setup & 4-Stage Navigation Flow]: Fully reviewed, verified, and aligned with Samik's dual-setup architecture and 4-stage operational flow:
+     * Stage 1: Laptop memory query for last known location.
+     * Stage 2: Navigation assistance activation.
+     * Stage 3: Guided walking with continuous collision avoidance. Confirmed sensor fusion boundary: Rohan's chest HC-SR04 ultrasonic sensor (10 Hz, narrow 15° beam) handles rapid forward emergency STOP (<= 50 cm), while Spandan's Mobility YOLO model covers peripheral obstacles (> 10° off-axis, across the 70° camera FOV).
+     * Stage 4: Explicit arrival confirmation ("Please stop walking"), followed by stationary on-device Locate YOLO sweep and clock-face spatial guidance.
+   - [Model Switching Safety]: Confirmed that mobile Locate YOLO is active only during the stationary search stage, preventing unnecessary false alarms or computational contention during forward walking.
+
+2. AC-02 Model Quality Evaluation Harness Completed (Commit 7ce7ace on main):
+   - Completed full CLI execution, data loading, and rigorous reporting logic in scripts/evaluate_ac02.py.
+   - Verified against golden fixture models/fixtures/locate_expected_detections.json:
+     * Enforces PRD v3.2 Section 29 criteria: >= 50 labeled instances per class per device, >= 20 negative frames per device, IoU >= 0.50, confidence >= 0.60, precision >= 90.0%, recall >= 85.0%.
+     * Produces per-class raw metric breakdown (TP, FP, FN, Precision, Recall, Quota status) and negative-frame false alarm accounting.
+
+3. Spandan Phase 0 Complete Checklist:
+   - All Phase 0 models, contracts, and scripts are committed to main and published to GitHub:
+     * models/metadata/demo_classes.json & model contracts (locate + mobility)
+     * models/smoke/ & android/app/src/main/assets/models/ (TorchScript .pt + Mobile Lite .ptl)
+     * models/reference_images/ & models/fixtures/ (golden test reference)
+     * datasets/CAPTURE_CHECKLIST.md & datasets/split_manifest_template.json
+     * scripts/verify_smoke.py (100% verified pass)
+     * scripts/evaluate_ac02.py (100% verified pass)
+     * scripts/train_locate.py & scripts/export_model.py
+   - Frozen hashes verified byte-exact (docs/README.md, docs/guidance.md).
+   - Standing by for Subham and Samik to deliver Phase 1 image capture batches (>= 50 instances per class + >= 20 negative frames per device).
+
+Source revision and evidence reference: commit 7ce7ace on main; scripts/evaluate_ac02.py, scripts/verify_smoke.py, models/fixtures/locate_expected_detections.json
+Recipient(s): Samik, Subham, Rishav, Rohan
+For response: referenced entry ID SAMIK-2026-09-15-012 and ACK / VERIFIED
+```
