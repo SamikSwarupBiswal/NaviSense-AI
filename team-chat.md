@@ -197,7 +197,6 @@ For response: referenced entry ID SUBHAM-2026-09-15-009 and ACK
 ```
 
 ```text
-<<<<<<< HEAD
 Entry ID: RISHAV-2026-09-15-010 / 2026-09-15T11:10:00+05:30 / T+03:20
 Author and type: Rishav | REVIEW
 Phase / step / S-instance / H-contract: Phase 0 / S04 Receipt & Review (Subham H4) and H2/H5 Review (Samik)
@@ -359,7 +358,6 @@ For response: All collaborators ACK receipt and adherence to the mandatory workf
 ```
 
 ```text
-<<<<<<< HEAD
 Entry ID: ROHAN-2026-09-15-001 / 2026-09-15T11:30:00+05:30 / T+03:40
 Author and type: Rohan | PROGRESS & SETUP ACK
 Phase / step / S-instance / H-contract: Phase 0 / Collaborator Setup & Workflow ACK
@@ -683,7 +681,7 @@ Recipient(s): Team (Rishav, Samik, Subham, Rohan)
 For response: referenced entry ID and ACK
 ```
 
-Entry ID: ROHAN-2026-09-15-006 / 2026-09-15T12:00:00+05:30 / T+04:10
+Entry ID: ROHAN-2026-09-15-006-COPY-2 / 2026-09-15T12:00:00+05:30 / T+04:10
 Author and type: Rohan | HANDOFF & PROGRESS
 Phase / step / S-instance / H-contract: Phase 0 / S03-S08-S13 Pre-Delivery & Teammate Handoff Package
 Message and requested action:
@@ -705,7 +703,7 @@ For response: referenced entry ID ROHAN-2026-09-15-006 and ACK / VERIFIED
 ```
 
 ```text
-Entry ID: SUBHAM-2026-09-15-013 / 2026-09-15T12:05:00+05:30 / T+04:15
+Entry ID: SUBHAM-2026-09-15-013-COPY-2 / 2026-09-15T12:05:00+05:30 / T+04:15
 Author and type: Subham | HANDOFF & PROGRESS
 Phase / step / S-instance / H-contract: Phase 0 / S04 / H4 Code Commit Relay & Rohan ACK
 Message and requested action:
@@ -729,7 +727,7 @@ For response: referenced entry IDs ROHAN-2026-09-15-006 and ACK / VERIFIED
 ```
 
 ```text
-Entry ID: SAMIK-2026-09-15-010 / 2026-09-15T12:05:00+05:30 / T+04:15
+Entry ID: SAMIK-2026-09-15-010-COPY-2 / 2026-09-15T12:05:00+05:30 / T+04:15
 Author and type: Samik | PROGRESS & REVIEW
 Phase / step / S-instance / H-contract: Phase 0 / Physical Qualification Device Verification & Hardware Alignment
 Message and requested action:
@@ -759,7 +757,7 @@ For response: referenced entry IDs ROHAN-2026-09-15-004, ROHAN-2026-09-15-006 an
 ```
 
 ```text
-Entry ID: SAMIK-2026-09-15-011 / 2026-09-15T12:15:00+05:30 / T+04:25
+Entry ID: SAMIK-2026-09-15-011-COPY-2 / 2026-09-15T12:15:00+05:30 / T+04:25
 Author and type: Samik | PROGRESS & INTEGRATION
 Phase / step / S-instance / H-contract: Phase 0 / S01 / H6 Master Application Shell & Contracts Integration
 Message and requested action:
@@ -1192,4 +1190,23 @@ Samik fixes the benchmark input/assertions, implements matching letterbox prepro
 Source revision and evidence reference: main c71e3cf03bae8e1737912d182457f8120ee36104; android/app/src/androidTest/java/dev/navisense/ModelBenchmarkTest.kt; android/app/src/main/java/dev/navisense/inference/PyTorchLiteInferenceBackend.kt; android/app/src/main/java/dev/navisense/inference/YoloModelRunner.kt; android/app/src/main/java/dev/navisense/search/TargetSearchEngine.kt; android/app/src/main/java/dev/navisense/camera/FrameQualityChecker.kt
 Recipient(s): Samik, Rishav, Spandan
 For response: referenced entry ID CODEX-2026-09-15-001 and ACK / RETURNED remediation / VERIFIED after rerun
+```
+
+```text
+Entry ID: CODEX-2026-09-15T13-32-11-0530-002 / 2026-09-15T13:32:11+05:30 / T+ unverified
+Author and type: Codex | PROGRESS / REVIEW
+Phase / step / S-instance / H-contract: Review remediation / H1 H2 H5
+Message and requested action:
+User explicitly requested resolution of all six findings. Main e33e92e fixes benchmark execution assertions, direct tensor allocation, aspect-preserving letterbox padding, distinct fresh ordered search frames, per-frame one-to-one matching, atomic asset replacement and native resource release. Added search/preprocessing/cache regression tests.
+Verification: 44 JVM tests and 4 OPPO CPH2753 instrumentation tests PASS using gradlew.bat testDebugUnitTest connectedDebugAndroidTest. First corrected attempt failed twice on heap buffers; direct allocation fixed it. Final synthetic pipeline timing: Locate mean 48.8 ms / 6 forward calls including warm-up; Mobility single sample 185 ms / 1 forward call. Load 28/300 ms. No sustained FPS, accuracy or leak qualification inferred.
+Status correction: earlier 2.8/40 ms inference and Phase 0 completion claims withdrawn. H2/H5 helpers exist; CameraX/application integration and named receiver review remain pending. All 16 gates NOT RUN. Frozen README/guidance hashes match AGENTS.md. No source on communication.
+Log repair authorized by user's finding 6: removed 2 stray conflict delimiters; retained every message body and duplicate occurrence. Duplicate Entry IDs receive occurrence suffixes; old ambiguous references resolve to the original entry unless explicitly qualified below. Ordinary append-only policy continues after this repair. No history rewritten.
+Alias mapping:
+- ROHAN-2026-09-15-006 occurrence 2 -> ROHAN-2026-09-15-006-COPY-2
+- SUBHAM-2026-09-15-013 occurrence 2 -> SUBHAM-2026-09-15-013-COPY-2
+- SAMIK-2026-09-15-010 occurrence 2 -> SAMIK-2026-09-15-010-COPY-2
+- SAMIK-2026-09-15-011 occurrence 2 -> SAMIK-2026-09-15-011-COPY-2
+Source revision and evidence reference: main e33e92e; docs/implementation-state.md Review remediation; android/app/src/test/java/dev/navisense/{SearchRegressionTest,LetterboxTest}.kt; android/app/src/androidTest/java/dev/navisense/ModelBenchmarkTest.kt
+Recipient(s): Samik, Rishav, Spandan
+For response: CODEX-2026-09-15-001; Rishav review corrected helpers and coordinate future live integration. Receipt not yet recorded.
 ```
