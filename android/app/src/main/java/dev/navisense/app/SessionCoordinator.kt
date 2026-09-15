@@ -272,6 +272,51 @@ class SessionCoordinator(
     }
 
     /**
+     * Starts outdoor/campus pedestrian map navigation with turn-by-turn guidance.
+     */
+    @Synchronized
+    fun startMapNavigation(destinationName: String): SessionToken {
+        val newGen = sessionGeneration.advance()
+        currentMode = AppMode.MAP_NAVIGATION
+        activeTargetClass = destinationName
+        activeTargetZone = destinationName
+        currentPathStatus = PathStatus.UNKNOWN
+        riskEngine.reset()
+        speechArbiter?.invalidateSession(newGen)
+        speechArbiter?.speak(
+            SpeechRequest(
+                utteranceId = "start_map_nav_$newGen",
+                phrase = "Starting map directions to $destinationName",
+                priority = AlertPriority.INFORMATIONAL,
+                sessionGeneration = newGen,
+                requestMonotonicMs = clock.nowMonotonicMs()
+            )
+        )
+        val token = SessionToken(newGen, currentMode)
+        notifyModeChanged(token)
+        notifySearchStateChanged(SearchUiState.NONE)
+        return token
+    }
+
+    /**
+     * Speaks Gemini 1.5 Flash walking obstacle description with directional priority.
+     */
+    @Synchronized
+    fun onGeminiNarrationReceived(narration: String) {
+        if (currentMode != AppMode.MOBILITY && currentMode != AppMode.MAP_NAVIGATION) return
+        val currentGen = sessionGeneration.get()
+        speechArbiter?.speak(
+            SpeechRequest(
+                utteranceId = "gemini_narr_${clock.nowMonotonicMs()}",
+                phrase = narration,
+                priority = AlertPriority.DIRECTIONAL,
+                sessionGeneration = currentGen,
+                requestMonotonicMs = clock.nowMonotonicMs()
+            )
+        )
+    }
+
+    /**
      * Starts guided target navigation toward a stationary memory candidate (PRD Section 13.3 & 13.4).
      * Begins walking assistance toward target zone with announcement:
      * "Last seen at {zone}. Obstacle assistance started."
@@ -496,7 +541,7 @@ class SessionCoordinator(
         if (!sessionGeneration.isValid(event.sessionGeneration)) return
         // Locate detections in FinalSearch belong exclusively to TargetSearchEngine.
         // They must never drive Mobility corridor or visual-risk rules.
-        if (currentMode != AppMode.MOBILITY && currentMode != AppMode.OUTDOOR_WALKING) return
+        if (currentMode != AppMode.MOBILITY && currentMode != AppMode.OUTDOOR_WALKING && currentMode != AppMode.MAP_NAVIGATION) return
         val result = riskEngine.onPerceptionEvent(event)
         handleRiskEvaluation(result)
     }

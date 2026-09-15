@@ -16,6 +16,10 @@
     <string name="status_outdoor_nav">Status: Outdoor walking navigation active.</string>
     <string name="dialog_voice_nav_title">Say Your Destination</string>
     <string name="dialog_voice_nav_hint">Listening… (e.g., \"Go to Library\")</string>
+    <string name="btn_map_directions">Map Directions (VIT)</string>
+    <string name="btn_map_directions_desc">Start map-based walking directions around VIT Chennai. Double tap to choose destination.</string>
+    <string name="status_map_nav">Status: Map directions active.</string>
+    <string name="map_destination_dialog_title">Select Campus Destination</string>
 
     <!-- System Status Strings -->
     <string name="status_idle">Status: Idle. Ready to start navigation.</string>

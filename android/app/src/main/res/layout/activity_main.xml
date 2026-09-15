@@ -211,6 +211,22 @@
             app:strokeWidth="1dp"
             app:cornerRadius="14dp" />
 
+        <!-- Map Directions Action (VIT Chennai & Surroundings) -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnMapDirections"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:layout_marginTop="8dp"
+            android:backgroundTint="@color/navisense_card_surface"
+            android:text="@string/btn_map_directions"
+            android:textColor="@color/navisense_yellow"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:contentDescription="@string/btn_map_directions_desc"
+            app:strokeColor="@color/navisense_yellow"
+            app:strokeWidth="1.5dp"
+            app:cornerRadius="14dp" />
+
         <!-- Confirm Arrival Action (Visible during Target Navigation) -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnConfirmArrival"

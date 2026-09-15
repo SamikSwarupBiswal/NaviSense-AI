@@ -26,5 +26,8 @@ enum class AppMode {
     OUTDOOR_WALKING,
 
     /** Fatal error or background state. Processing paused; requires explicit restart. */
-    PAUSED
+    PAUSED,
+
+    /** Outdoor/campus pedestrian turn-by-turn map navigation using offline map and GPS. */
+    MAP_NAVIGATION
 }

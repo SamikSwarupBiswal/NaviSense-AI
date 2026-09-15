@@ -69,8 +69,15 @@ import dev.navisense.voice.AlertPriority
 import dev.navisense.voice.SpeechRequest
 import dev.navisense.voice.VoiceCommand
 import dev.navisense.voice.VoiceCommandManager
+import dev.navisense.cloud.GeminiFlashClient
+import dev.navisense.cloud.GeminiWalkingAnalyzer
+import dev.navisense.map.LocationTracker
+import dev.navisense.map.MapNavigationCoordinator
+import dev.navisense.map.MapPOI
+import dev.navisense.map.MapRoutingEngine
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import kotlin.math.roundToInt
 
 /**
  * Accessible UI Activity Shell for NaviSense AI MVP (PRD Section 13.6).
@@ -105,6 +112,7 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
     private lateinit var btnStartWalking: Button
     private lateinit var btnSearchNearby: Button
     private lateinit var btnVoiceCommand: Button
+    private lateinit var btnMapDirections: Button
     private lateinit var btnConfirmArrival: Button
     private lateinit var btnStop: Button
     private lateinit var btnVoiceWalkingNav: Button
@@ -118,6 +126,22 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
     private var lastKnownLocation: GeoPoint = GeoPoint(12.8406, 80.1534)
 
     private var voiceCommandManager: VoiceCommandManager? = null
+
+    private lateinit var geminiClient: GeminiFlashClient
+    private lateinit var geminiWalkingAnalyzer: GeminiWalkingAnalyzer
+    private var mapRoutingEngine: MapRoutingEngine? = null
+    private var locationTracker: LocationTracker? = null
+    private var mapNavigationCoordinator: MapNavigationCoordinator? = null
+
+    private val requestLocationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val fineGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true
+        val coarseGranted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        if (fineGranted || coarseGranted) {
+            locationTracker?.startTracking()
+        }
+    }
 
     private var cameraProvider: ProcessCameraProvider? = null
     private var cameraAnalyzer: CameraXAnalyzer? = null
@@ -245,6 +269,7 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
         btnSearchNearby = findViewById(R.id.btnSearchNearby)
         btnVoiceCommand = findViewById(R.id.btnVoiceCommand)
         btnVoiceWalkingNav = findViewById(R.id.btnVoiceWalkingNav)
+        btnMapDirections = findViewById(R.id.btnMapDirections)
         btnConfirmArrival = findViewById(R.id.btnConfirmArrival)
         btnStop = findViewById(R.id.btnStop)
 
@@ -270,6 +295,43 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
             checkNavPermissionsAndStart()
         }
 
+        // Initialize Gemini 1.5 Flash Client & 4-second walking analyzer
+        val prefs = getSharedPreferences("navisense_config", Context.MODE_PRIVATE)
+        val savedApiKey = prefs.getString("gemini_api_key", null)
+            ?: System.getProperty("GEMINI_API_KEY")
+            ?: ""
+        geminiClient = GeminiFlashClient(savedApiKey)
+        geminiWalkingAnalyzer = GeminiWalkingAnalyzer(
+            client = geminiClient,
+            frameProvider = {
+                // Thread-safe capture of current rendered camera viewfinder frame
+                runOnUiThreadSafely { viewFinder.bitmap }
+            },
+            onNarrationReceived = { narration ->
+                coordinator.onGeminiNarrationReceived(narration)
+            }
+        )
+
+        // Load offline VIT Chennai campus walkable map asynchronously
+        cameraExecutor.execute {
+            try {
+                assets.open("maps/vit_chennai_map.json").use { stream ->
+                    mapRoutingEngine = MapRoutingEngine.loadFromStream(stream)
+                    Log.i(TAG, "Loaded offline VIT Chennai map with ${mapRoutingEngine?.pois?.size} POIs")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to load offline map asset", e)
+            }
+        }
+
+        // Initialize Location Tracker and Map Navigation Coordinator
+        mapNavigationCoordinator = MapNavigationCoordinator(
+            speechArbiter = coordinator.speechArbiter
+        )
+        locationTracker = LocationTracker(this) { lat, lon, _, bearing ->
+            mapNavigationCoordinator?.onLocationUpdated(lat, lon, bearing)
+        }
+
         btnStartWalking.setOnClickListener {
             coordinator.startMobility()
             window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -278,6 +340,10 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
 
         btnSearchNearby.setOnClickListener {
             showSearchTargetDialog()
+        }
+
+        btnMapDirections.setOnClickListener {
+            showMapDestinationDialog()
         }
 
         btnConfirmArrival.setOnClickListener {
@@ -291,6 +357,9 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
         btnStop.setOnClickListener {
             hapticFeedback.cancel()
             stopOutdoorNavigationSensors()
+            geminiWalkingAnalyzer.stop()
+            mapNavigationCoordinator?.stopNavigation()
+            locationTracker?.stopTracking()
             coordinator.userStop()
             window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             announce(getString(R.string.status_idle))
@@ -345,6 +414,10 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
         } catch (_: IllegalArgumentException) {}
 
         disconnectUsbSensor()
+
+        geminiWalkingAnalyzer.stop()
+        mapNavigationCoordinator?.stopNavigation()
+        locationTracker?.stopTracking()
 
         cameraAnalyzer?.stopSession()
         cameraAnalyzer?.close()
@@ -569,16 +642,29 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
             when (newMode) {
                 AppMode.MOBILITY -> {
                     activateLocalModel(token, AppVisionMode.MOBILITY, null)
+                    geminiWalkingAnalyzer.start()
+                }
+                AppMode.MAP_NAVIGATION -> {
+                    activateLocalModel(token, AppVisionMode.MOBILITY, null)
+                    geminiWalkingAnalyzer.start()
                 }
                 AppMode.FINAL_SEARCH -> {
+                    geminiWalkingAnalyzer.stop()
+                    mapNavigationCoordinator?.stopNavigation()
                     activateLocalModel(token, AppVisionMode.LOCATE_SEARCH, coordinator.activeTargetClass)
                 }
                 AppMode.IDLE, AppMode.PAUSED -> {
+                    geminiWalkingAnalyzer.stop()
+                    mapNavigationCoordinator?.stopNavigation()
+                    locationTracker?.stopTracking()
                     cameraAnalyzer?.stopSession()
                     releaseActiveVisionRunnerAsync()
                     detectionOverlay.clearDetections()
                 }
-                AppMode.FOUND -> {}
+                AppMode.FOUND -> {
+                    geminiWalkingAnalyzer.stop()
+                    mapNavigationCoordinator?.stopNavigation()
+                }
                 else -> {}
             }
         }
@@ -967,6 +1053,7 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                 btnStartWalking.visibility = View.VISIBLE
                 btnSearchNearby.visibility = View.VISIBLE
                 btnVoiceWalkingNav.visibility = View.VISIBLE
+                btnMapDirections.visibility = View.VISIBLE
                 btnConfirmArrival.visibility = View.GONE
                 stopOutdoorNavigationSensors()
             }
@@ -975,6 +1062,7 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                 btnStartWalking.visibility = View.GONE
                 btnSearchNearby.visibility = View.GONE
                 btnVoiceWalkingNav.visibility = View.GONE
+                btnMapDirections.visibility = View.GONE
                 if (coordinator.activeTargetClass != null) {
                     btnConfirmArrival.visibility = View.VISIBLE
                 } else {
@@ -986,6 +1074,15 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                 btnStartWalking.visibility = View.GONE
                 btnSearchNearby.visibility = View.GONE
                 btnVoiceWalkingNav.visibility = View.GONE
+                btnMapDirections.visibility = View.GONE
+                btnConfirmArrival.visibility = View.GONE
+            }
+            AppMode.MAP_NAVIGATION -> {
+                tvSystemMode.text = getString(R.string.status_map_nav)
+                btnStartWalking.visibility = View.GONE
+                btnSearchNearby.visibility = View.GONE
+                btnVoiceWalkingNav.visibility = View.GONE
+                btnMapDirections.visibility = View.GONE
                 btnConfirmArrival.visibility = View.GONE
             }
             AppMode.FINAL_SEARCH -> {
@@ -1005,6 +1102,7 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                 btnStartWalking.visibility = View.GONE
                 btnSearchNearby.visibility = View.GONE
                 btnVoiceWalkingNav.visibility = View.GONE
+                btnMapDirections.visibility = View.GONE
                 btnConfirmArrival.visibility = View.GONE
             }
             AppMode.FOUND -> {
@@ -1014,6 +1112,7 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                 btnStartWalking.visibility = View.VISIBLE
                 btnSearchNearby.visibility = View.VISIBLE
                 btnVoiceWalkingNav.visibility = View.VISIBLE
+                btnMapDirections.visibility = View.VISIBLE
                 btnConfirmArrival.visibility = View.GONE
             }
             AppMode.PAUSED -> {
@@ -1021,11 +1120,81 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                 btnStartWalking.visibility = View.VISIBLE
                 btnSearchNearby.visibility = View.VISIBLE
                 btnVoiceWalkingNav.visibility = View.VISIBLE
+                btnMapDirections.visibility = View.VISIBLE
                 btnConfirmArrival.visibility = View.GONE
             }
             else -> {
                 tvSystemMode.text = "Status: ${mode.name}"
             }
+        }
+    }
+
+    private fun showMapDestinationDialog() {
+        val engine = mapRoutingEngine ?: run {
+            announce("Map data is loading. Please try again in a moment.")
+            return
+        }
+
+        val pois = engine.pois
+        val names = pois.map { "${it.name} (${it.category.replaceFirstChar { c -> c.uppercase() }})" }.toTypedArray()
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.map_destination_dialog_title)
+            .setItems(names) { _, which ->
+                val selectedPoi = pois[which]
+                startMapNavigationToPoi(selectedPoi)
+            }
+            .setNegativeButton(R.string.action_cancel, null)
+            .show()
+    }
+
+    private fun startMapNavigationToPoi(poi: MapPOI) {
+        val engine = mapRoutingEngine ?: return
+
+        // Request location permissions if not yet granted
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            requestLocationPermissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                )
+            )
+        }
+
+        // Start GPS tracking
+        locationTracker?.startTracking()
+
+        // Default start coordinate: VIT Chennai Main Gate if indoor / awaiting GPS lock
+        val startLat = 12.8407
+        val startLon = 80.1534
+
+        val route = engine.planRoute(startLat, startLon, poi.id)
+        if (route == null) {
+            announce("Unable to compute walking route to ${poi.name}")
+            return
+        }
+
+        coordinator.startMapNavigation(poi.name)
+        mapNavigationCoordinator?.startNavigation(route)
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        announce("Navigating to ${poi.name}. Route distance is ${route.totalDistanceMeters.roundToInt()} meters.")
+    }
+
+    private fun <T> runOnUiThreadSafely(block: () -> T): T? {
+        return if (Looper.myLooper() == Looper.getMainLooper()) {
+            block()
+        } else {
+            var result: T? = null
+            val latch = java.util.concurrent.CountDownLatch(1)
+            runOnUiThread {
+                try {
+                    result = block()
+                } finally {
+                    latch.countDown()
+                }
+            }
+            latch.await(500, java.util.concurrent.TimeUnit.MILLISECONDS)
+            result
         }
     }
 
