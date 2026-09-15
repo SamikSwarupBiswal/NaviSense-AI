@@ -72,3 +72,19 @@ GitHub repository initialized at https://github.com/SamikSwarupBiswal/NaviSense-
 Source revision and evidence reference: https://github.com/SamikSwarupBiswal/NaviSense-AI
 Recipient(s): Team (Spandan, Subham, Rohan, Rishav)
 ```
+
+```text
+Entry ID: SAMIK-2026-09-15-006 / 2026-09-15T10:02:00+05:30 / T+02:15
+Author and type: Samik | PROGRESS
+Phase / step / S-instance / H-contract: Phase 0 / Team setup
+Message and requested action:
+Invited all four teammates with write access to https://github.com/SamikSwarupBiswal/NaviSense-AI:
+- rishav-bits (Rishav) -> Invitation sent
+- JeansGit77 (Rohan) -> Invitation sent
+- spandanjit-ai (Spandan) -> Invitation sent
+- shubhusden (Subham) -> Invitation sent
+Please accept repository invitations to collaborate on main and communication branches.
+Source revision and evidence reference: https://github.com/SamikSwarupBiswal/NaviSense-AI/invitations
+Recipient(s): rishav-bits, JeansGit77, spandanjit-ai, shubhusden
+```
+
