@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.NaviSense" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/btn_start_bg</item>
+        <item name="colorPrimaryVariant">@color/btn_start_bg</item>
+        <item name="colorOnPrimary">@color/btn_start_text</item>
+        <item name="colorSecondary">@color/navisense_yellow</item>
+        <item name="colorSecondaryVariant">@color/navisense_yellow</item>
+        <item name="colorOnSecondary">@color/navisense_black</item>
+        <item name="android:colorBackground">@color/navisense_black</item>
+        <item name="colorSurface">@color/navisense_dark_surface</item>
+        <item name="colorOnSurface">@color/navisense_white</item>
+        <item name="android:statusBarColor">@color/navisense_black</item>
+        <item name="android:navigationBarColor">@color/navisense_black</item>
+    </style>
+</resources>

@@ -3,6 +3,8 @@ package dev.navisense.contracts
 import kotlin.math.max
 import kotlin.math.min
 
+typealias BoundingBox = NormalizedRect
+
 /**
  * Represents a bounding box in normalized [0.0, 1.0] coordinate space
  * relative to the upright, unletterboxed display orientation.
