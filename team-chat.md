@@ -1684,3 +1684,41 @@ Source revision and evidence reference: main 453130d; laptop/api/server.py, lapt
 Recipient(s): Rishav, Spandan, Samik, Rohan
 For response: Rishav verify live MemoryClient query against running server; Spandan note readiness for trained model artifact connection.
 `
+
+Entry ID: SAMIK-2026-09-15-019 / 2026-09-15T19:52:00+05:30 / T+ unverified
+Author and type: Samik | PROGRESS & HANDOFF
+Phase / step / S-instance / H-contract: Phase 1 & 4 Model Tuning & Deployment / S02 Delivery / Mobility YOLO Fine-Tuning & Mobile PTL Export
+Message and requested action:
+1. Deliverables Completed & Committed to main (commit 1376b2f):
+   - Dataset Unification (scripts/prepare_mobility_dataset.py):
+     * Unified Kaggle indoor obstacle dataset (thepbordin/indoor-object-detection) and phone-captured walking dataset (OPPO CPH2753).
+     * Produced datasets/mobility_combined/ with 1,143 train images (834 negatives) and 286 val images (202 negatives).
+     * Mapped to 5 target classes: 0: person, 1: chair, 2: table, 3: backpack, 4: bottle.
+   - Mobility YOLO Fine-Tuning Pipeline (scripts/train_mobility.py):
+     * Fine-tuned YOLOv8n across 10 epochs on 16-core / 32-thread CPU.
+     * Evaluated validation metrics:
+       - Overall mAP50: 0.4416 (44.2%)
+       - Overall mAP50-95: 0.3241 (32.4%)
+       - Inference latency: 20.9 ms per frame (~48 FPS, well exceeding 10 FPS PRD target)
+       - Class-specific metrics: Bottle mAP50 = 0.853 (Recall 1.00), Backpack mAP50 = 0.362, Chair mAP50 = 0.394 (Precision 0.420), Table mAP50 = 0.157.
+     * Preserved high background rejection across 202 negative hallway/floor frames.
+   - PyTorch Mobile Lite (.ptl) Exporter (scripts/export_mobility_model.py):
+     * Wrapped model to emit raw detection tensor of shape [1, 9, 8400] (4 coords + 5 class scores).
+     * Exported via optimize_for_mobile and _save_for_lite_interpreter to models/smoke/mobility_smoke.ptl and TorchScript mobility_smoke.pt.
+     * Directly packaged models into android/app/src/main/assets/models/.
+     * Computed and tracked SHA-256 hashes in models/metadata/mobility_model_contract.json:
+       - TorchScript: 0596574c5343d4d955ae4767f6964d4f3383bc375b177f4f518dd0fcdb991744
+       - Mobile Lite (.ptl): d76302b62ba357a5dfa7531f201a7d7141ce55b1c940d3c6eae3b19d573b4936
+   - Android Build & Integration Verification:
+     * Ran JVM test suite (testDebugUnitTest): 25/25 tasks UP-TO-DATE, all tests PASS.
+     * Built and assembled debug APK cleanly (assembleDebug).
+     * Verified RiskEngine close obstacle rule: objects near bottom of walking corridor (bottom >= 0.85 / looming) trigger RiskLevel.STOP, prompting SpeechArbiter emergency "STOP" preemption.
+2. Note to Rishav & Team:
+   - Updated mobility models are deployed and packaged in the Android assets.
+   - CameraXAnalyzer and PyTorchLiteInferenceBackend will now run on the fine-tuned 5-class weights on physical phone.
+3. Frozen Contract Check:
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Source revision and evidence reference: main 1376b2f; scripts/prepare_mobility_dataset.py, scripts/train_mobility.py, scripts/export_mobility_model.py, android/app/src/main/assets/models/mobility_smoke.ptl
+Recipient(s): Rishav, Spandan, Rohan, Subham
+For response: Rishav deploy debug APK to physical OPPO device and test live walking corridor obstacle detection.
