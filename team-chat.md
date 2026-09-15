@@ -924,3 +924,57 @@ Source revision and evidence reference: docs/spandan/guidance.md, docs/spandan/i
 Recipient(s): Team (Rishav, Samik, Subham, Rohan)
 For response: Team review and alignment.
 ```
+
+```text
+Entry ID: SAMIK-2026-09-15-012 / 2026-09-15T12:40:00+05:30 / T+04:50
+Author and type: Samik | GUIDANCE & DECISION
+Phase / step / S-instance / H-contract: Phase 0 / Hardware Architecture, Dual-Setup Alignment & Navigation Flow Guidelines
+Message and requested action:
+Comprehensive Architecture, Dual-Setup Boundaries, and Navigation Flow Guidelines for Rohan (Hardware & Sensor Lead):
+
+1. Dual-Setup Hardware Boundaries Confirmation:
+   - SETUP 1: Stationary Locate & Memory System (Laptop):
+     * Owned entirely by Subham (laptop/).
+     * Components: Laptop webcam + Python FastAPI service (port 8000) + SQLite database (laptop/memory.db).
+     * Microcontroller / Sensor Status: ZERO external hardware. Rohan / Arduino / ESP32 has NO hardware, firmware, or sensor components on the laptop. No Arduino or microcontroller is needed or connected to the laptop setup.
+   - SETUP 2: Mobile Navigation System (Wearable / Walking Rig):
+     * Owned jointly by Rohan (Hardware/Firmware/USB), Samik (Camera/Vision/Search), and Rishav (Risk Engine/UX).
+     * Components: Android Phone (OPPO CPH2753) mounted on chest harness + ESP32-S3 DevKit + HC-SR04 ultrasonic sensor + USB-C OTG cable + 1k/2k ECHO voltage divider.
+     * Microcontroller / Sensor Status: This is Rohan's sole hardware domain. ESP32-S3 running Arduino-framework firmware (esp32/navisense_sensor/navisense_sensor.ino) streaming 10 Hz telemetry over USB-C OTG serial to dev.navisense.usb.UsbSensorAdapter.
+
+2. End-to-End Navigation Journey & PRD §13.4 Boundary ("Where are my keys?" -> Pick Up):
+   Rohan, to ensure complete clarity on how your ultrasonic sensor fits into the user journey, here is the exact 4-stage operational flow:
+   - Stage 1 [Memory Query]: User asks "Where are my keys?" -> Phone queries Laptop API (GET /api/v1/objects/locate?name=keys) -> Android TTS announces: "Your keys were last seen on the right side of the team table, 2 minutes ago."
+   - Stage 2 [Navigation Request]: User says "Guide me there" -> Phone announces: "Last seen at the team table, right side. Obstacle assistance started."
+   - Stage 3 [Guided Walking & Crucial PRD §13.4 Boundary]:
+     * HARD CONTRACT: NaviSense does NOT invent fake turn-by-turn indoor GPS/compass steps ("turn 30 degrees right, walk 5 steps").
+     * The visually impaired user walks toward the known room landmark (the table) using cognitive familiarity / supervisor context.
+     * ACTIVE SAFETY SHIELD: While the user walks, the phone provides continuous real-time collision avoidance. Phone camera (Mobility YOLO) identifies dynamic obstacles (people, chairs, bags), while Rohan's chest HC-SR04 ultrasonic sensor provides high-speed (10 Hz) forward distance ranging.
+     * Voice Alerts: System announces "Chair ahead", "Obstacle ahead", "Slow down", and an immediate, non-negotiable "STOP!" if any obstacle breaches <= 50 cm.
+   - Stage 4 [Arrival & Final Search (PRD §13.2 / Demo 4)]:
+     * When near the table, the user confirms arrival ("Arrived" button / voice) and stops walking.
+     * Phone transitions from Mobility YOLO to Locate YOLO (running locally on Android).
+     * Phone speaks: "Please stop walking. Searching for your keys."
+     * User sweeps phone camera across table; on-device Locate YOLO pinpoints the keys and gives clock-face spatial guidance: "Keys detected ahead and slightly right, 50 centimeters away." User reaches out and retrieves them.
+
+3. Rohan's Technical Guidelines & Firmware Specification:
+   - Firmware Wire Format (PRD §14.1): Exactly 10 Hz over USB CDC serial (115200 baud, 8N1):
+     V=1,SEQ=<seq>,UP_MS=<uptime_ms>,DIST_CM=<dist>,VALID=<valid>\n
+   - Valid integer range: 2..400 cm (VALID=1); timeouts/out-of-range emit DIST_CM=-1,VALID=0.
+   - Electrical Protection: Passive divider (R1=1.0 kΩ, R2=2.0 kΩ ±1%) stepping HC-SR04 5V ECHO down to 3.33V for ESP32-S3 GPIO 5. Direct 3.3V TRIG from GPIO 4 (10 µs pulse).
+   - USB OTG Power Budget: ESP32-S3 (Wi-Fi/BT OFF ~60 mA) + HC-SR04 (~15 mA active) = < 80 mA total draw (well below phone 500 mA OTG limit).
+
+4. Acceptance Gates Led by Rohan:
+   - AC-08 (Sensor Bench Ranging): 20 readings at 30, 50, 75, 100, 150, 200 cm; >= 90% valid per distance, median absolute error <= 5 cm. Retain raw measurements.
+   - AC-09 (USB Stability & Hot-Plug Recovery): 10-minute continuous streaming over USB OTG to Android, followed by 5 detach/reattach cycles verifying automatic recovery (DISCONNECTED -> RECOVERING -> HEALTHY).
+   - AC-06 (Emergency STOP Latency): 20 obstacle presentations (10 at 30 cm, 10 at 40 cm). Must trigger audible STOP: decision <= 100 ms, audio onset <= 500 ms, total physical entry-to-audio <= 750 ms under concurrent vision inference load (Samik).
+
+5. Team Coordination Touchpoints:
+   - To Rishav: Ensure 50 ms watchdog calls evaluateHealth() on UsbSensorAdapter, and prioritize record.isImmediateStopCandidate (<= 50 cm) for instant STOP.
+   - To Samik: Coaxial alignment (transducers parallel to rear camera within ±5° pitch/yaw) and verify chest mount clamp leaves bottom USB-C port unobstructed.
+   - To Spandan: Note ultrasonic 15° beam width vs camera 70° FOV; generic ultrasonic STOP protects against unclassified/opaque obstacles.
+
+Source revision and evidence reference: PRD v3.2 (docs/README.md §6, §7, §13, §14, §29); docs/rohan/phase0-handoffs-and-requests.md; docs/rohan/hardware-spec.md; esp32/navisense_sensor/navisense_sensor.ino; android/app/src/main/java/dev/navisense/usb/UsbSensorAdapter.kt
+Recipient(s): Rohan, Rishav, Subham, Spandan
+For response: referenced entry ID SAMIK-2026-09-15-012 and ACK / VERIFIED
+```
