@@ -488,28 +488,6 @@ Formally logging downstream milestone commitments, freezes, and acceptance gate 
    - Demonstrate immediate proximity STOP bypassing vision and sensor disconnect resilience without app crash.
    - Provide comprehensive documentation of acoustic limitations (angled walls, soft fabrics, drop-offs/steps) for final disclosure.
 Source revision and evidence reference: docs/rohan/guidance.md, docs/rohan/implementation-plan.md, docs/AGENTS.md
-```text
-Entry ID: ROHAN-2026-09-15-005 / 2026-09-15T11:50:00+05:30 / T+04:00
-Author and type: Rohan | PROGRESS
-Phase / step / S-instance / H-contract: Phase 0 / Subsystem Commitments & Acceptance Gate Roadmap
-Message and requested action:
-Formally logging downstream milestone commitments, freezes, and acceptance gate ownership for Rohan (Hardware, Firmware, Mount, USB):
-1. Milestone Deliverables:
-   - Handoff S13 (T+11:30): Deliver stable Android USB adapter handling bounded line parsing (128-byte limit, CRLF/LF), monotonic receipt timestamps (<= 300 ms validity), sequence loss diagnostics, and 3-valid-packet recovery logic.
-   - S17 Freeze (T+15:30): Physical sensor mount, wiring, and firmware configuration frozen.
-   - Bench Pre-Marking: Pre-mark 6 bench distances (30, 50, 75, 100, 150, 200 cm) and set up dual timestamp recording (physical optical entry beam + external high-speed audio mic).
-2. Acceptance Gates Led:
-   - AC-08 (T+17:00–17:20) — Sensor Bench Calibration: 120 physical readings across 6 pre-marked distances (requires >= 90% validity per distance, median absolute error <= 5 cm).
-   - AC-06 (T+19:00–19:30) — Physical Obstacle to Audible STOP Latency: 20 bench presentations (10 at 30 cm, 10 at 40 cm) under live inference load. Proves risk decision <= 100 ms, audible onset <= 500 ms, and physical entry-to-audio <= 750 ms with zero missed STOPs.
-   - AC-09 (T+19:30–20:00) — USB Transport Stability & Recovery: 10-minute continuous stream without crash or drift, followed by 5 physical cable disconnect/reconnect cycles (recovery <= 2.0 s).
-3. Peer Reviews & Collaboration:
-   - Reviews: AC-05 (Samik mobile inference latency) and AC-14 (Subham full flow integration).
-   - Contributes to: AC-01 (Mobility run), AC-07 (Supervised walking trials), AC-10 (Replay cases), and AC-12 (Sensor disconnect/degradation).
-4. Final Demo & S18 Role (T+23:30–24:00):
-   - Manage physical hardware and mount during live demo.
-   - Demonstrate immediate proximity STOP bypassing vision and sensor disconnect resilience without app crash.
-   - Provide comprehensive documentation of acoustic limitations (angled walls, soft fabrics, drop-offs/steps) for final disclosure.
-Source revision and evidence reference: docs/rohan/guidance.md, docs/rohan/implementation-plan.md, docs/AGENTS.md
 Recipient(s): Team (Rishav, Samik, Subham, Spandan)
 For response: Team review and alignment.
 ```
@@ -586,6 +564,107 @@ For response: referenced entry IDs ROHAN-2026-09-15-003, ROHAN-2026-09-15-005 an
 ```
 
 ```text
+Entry ID: ROHAN-2026-09-15-006 / 2026-09-15T12:00:00+05:30 / T+04:10
+Author and type: Rohan | HANDOFF & PROGRESS
+Phase / step / S-instance / H-contract: Phase 0 / S03-S08-S13 Pre-Delivery & Teammate Handoff Package
+Message and requested action:
+1. ACK to Subham (SUBHAM-2026-09-15-010 & SUBHAM-2026-09-15-012):
+   - Acknowledged Subham's verified Handoff S04 / H4 delivery (FastAPI schemas, PRD v1 fixtures, SQLite schema, MemoryClientContract).
+   - Acknowledged confirmation of sensor network isolation (pure USB CDC/OTG, zero Wi-Fi traffic on 192.168.43.0/24) and error taxonomy separation.
+   - Confirmed joint readiness for S16 candidate integration at T+14:30 and AC-14 full flow integration peer review.
+2. Delivered Comprehensive Phase 0 Document (docs/rohan/phase0-handoffs-and-requests.md):
+   - Published full hardware, firmware, electrical, USB adapter specification, and cross-subsystem prerequisite matrix on main and communication branches.
+3. Delivered Android USB Serial Adapter Implementation (dev.navisense.usb.UsbSensorAdapter):
+   - Background worker thread with bounded read buffer (128 bytes) and transport abstraction (UsbTransport, StreamUsbTransport).
+   - Monotonic receipt timing via injectable clock and automatic sequence loss counting (totalLostPackets diagnostic).
+   - 3-valid-packet recovery logic and immediate proximity STOP candidate callback (onImmediateStopCandidate for readings <= 50 cm).
+   - Exposed evaluateHealth(): SensorState API for Rishav's 50 ms watchdog loop.
+   - Added comprehensive unit test suite dev.navisense.usb.UsbSensorAdapterTest covering stream processing, recovery, sequence loss diagnostics, and immediate STOP callbacks.
+4. Source revision and evidence reference: commit e7c1fe6 on main; docs/rohan/phase0-handoffs-and-requests.md, android/app/src/main/java/dev/navisense/usb/UsbSensorAdapter.kt, android/app/src/test/java/dev/navisense/usb/UsbSensorAdapterTest.kt
+Recipient(s): Rishav, Samik, Subham, Spandan
+For response: referenced entry ID ROHAN-2026-09-15-006 and ACK / VERIFIED
+```
+
+```text
+Entry ID: SUBHAM-2026-09-15-013 / 2026-09-15T12:05:00+05:30 / T+04:15
+Author and type: Subham | HANDOFF & PROGRESS
+Phase / step / S-instance / H-contract: Phase 0 / S04 / H4 Code Commit Relay & Rohan ACK
+Message and requested action:
+1. Main Branch Code Commit Relay (Mandatory Collaborator Git & Relay Workflow):
+   - Committed and pushed all Subham Phase 0 source code, schemas, unit tests, and documentation to main branch (commit 2f8223c on main):
+     * laptop/api/schemas.py (FastAPI Pydantic schemas for PRD §23)
+     * laptop/config/settings.py (Authoritative SQLite schema spec for PRD §11-12)
+     * laptop/tests/fixtures/responses.json (Complete v1 response fixtures)
+     * laptop/tests/test_api_schemas.py (8/8 automated unit tests passed via pytest)
+     * android/app/src/main/java/dev/navisense/networking/MemoryClientContract.kt (Android Memory Client contract)
+     * models/locate/metadata.json (Locate YOLO model metadata & alias mapping)
+     * docs/subham/phase0-handoffs-and-requests.md (Comprehensive Phase 0 handoffs and prerequisite matrix)
+2. ACK to ROHAN-2026-09-15-006:
+   - Reviewed Rohan's delivery of UsbSensorAdapter and docs/rohan/phase0-handoffs-and-requests.md.
+   - Confirmed receipt of sensor transport specifications.
+   - Re-verified frozen file SHA-256 hashes (docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA, docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E).
+
+Source revision and evidence reference: commit 2f8223c on main; laptop/api/schemas.py, android/app/src/main/java/dev/navisense/networking/MemoryClientContract.kt, docs/subham/phase0-handoffs-and-requests.md
+Recipient(s): Rishav, Samik, Spandan, Rohan
+For response: referenced entry IDs ROHAN-2026-09-15-006 and ACK / VERIFIED
+```
+
+```text
+Entry ID: SAMIK-2026-09-15-010 / 2026-09-15T12:05:00+05:30 / T+04:15
+Author and type: Samik | PROGRESS & REVIEW
+Phase / step / S-instance / H-contract: Phase 0 / Physical Qualification Device Verification & Hardware Alignment
+Message and requested action:
+1. Physical Android Qualification Device Verified & App Live:
+   - Device ID: 6545Q8A6X89TW8ZX
+   - Hardware Model: OPPO CPH2753 (SoC: MediaTek MT6835, 64-bit arm64-v8a)
+   - Operating System: Android 16 (API Level 36)
+   - Hardware Capabilities Verified via adb:
+     * android.hardware.usb.host: Supported & active (USB OTG ready for Rohan's ESP32-S3 sensor node).
+     * android.hardware.camera.level.full: Camera2 Level FULL hardware support.
+     * Rear Camera Orientation: Facing Back, 90° clockwise orientation. Matches CoordinateTransformer.kt unletterboxing and upright portrait mapping.
+     * Speech Engine: com.google.android.tts verified installed on device for offline English speech.
+   - Master App Execution: android/app/build/outputs/apk/debug/app-debug.apk built and installed; dev.navisense.app.MainActivity running live with zero crashes, displaying accessible UI and prominent User STOP control.
+
+2. Response to Rohan (ROHAN-2026-09-15-004 & ROHAN-2026-09-15-006):
+   - [Rig Mechanical Dimensions & USB-C Clearance]: Confirmed chest mount phone clamp leaves bottom USB-C port unobstructed with ample physical clearance for right-angle OTG cable without mechanical strain.
+   - [Coaxial Optical Alignment]: Confirmed rigid coaxial forward alignment between phone rear camera lens and HC-SR04 transducers (+/- 5° pitch/yaw deviation) at chest height (~100–120 cm).
+   - [AC-06 Co-Benchmarking Commitment]: Confirmed Samik will run concurrent on-device vision inference (Locate + Mobility YOLO) during Rohan's AC-06 bench obstacle tests (T+19:00–19:30) to validate <= 100 ms STOP decision and <= 500 ms audio onset under live CPU/NPU contention.
+   - [S03-S08-S13 Review]: ACK to ROHAN-2026-09-15-006; verified UsbSensorAdapter implementation and unit tests.
+
+3. Status to Spandan:
+   - Physical qualification phone is connected, authorized, and standing by for S02 / H1 TFLite model exports to benchmark mobile inference latency, frame rates, and memory footprint.
+
+Source revision and evidence reference: commit 0bfbd3a on main; docs/implementation-state.md, android/app/build/outputs/apk/debug/app-debug.apk
+Recipient(s): Rohan, Rishav, Spandan, Subham
+For response: referenced entry IDs ROHAN-2026-09-15-004, ROHAN-2026-09-15-006 and ACK
+```
+
+```text
+Entry ID: SAMIK-2026-09-15-011 / 2026-09-15T12:15:00+05:30 / T+04:25
+Author and type: Samik | PROGRESS & INTEGRATION
+Phase / step / S-instance / H-contract: Phase 0 / S01 / H6 Master Application Shell & Contracts Integration
+Message and requested action:
+1. Integration of Rishav's S01 / H6 Master Application Shell on main (Commit 78f3187):
+   - Merged and verified all components from work/rishav-phase0 onto main:
+     * dev.navisense.app.MainActivity, SessionCoordinator, NaviSenseApp.
+     * Core contracts: AppMode, SessionGeneration, SessionToken, IClock, PathStatus, RiskLevel, WalkingCorridor, IRiskEngine, ISpeechArbiter, SpeechRequest.
+     * Accessible layouts & styles: activity_main.xml, colors.xml, strings.xml, styles.xml.
+     * Unified type bridges: NormalizedBoundingBox <-> NormalizedRect, BoundingBox <-> NormalizedRect, PerceptionFrameEvent <-> MobilePerceptionEvent, SearchConfirmationEvent <-> SearchEvent.
+2. Verification Results:
+   - 25/25 automated unit tests PASSED (0 failures, 0 errors).
+   - android/app/build/outputs/apk/debug/app-debug.apk assembled successfully with CameraX 1.3.1, ViewBinding, and OkHttp 4.12.0.
+   - Freshly installed and verified on physical qualification device (OPPO CPH2753, Android 16).
+3. Frozen File Hashes:
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+
+Source revision and evidence reference: commit 78f3187 on main; android/app/build/outputs/apk/debug/app-debug.apk
+Recipient(s): Rishav, Subham, Rohan, Spandan
+For response: referenced entry ID RISHAV-2026-09-15-011 and ACK / VERIFIED
+```
+
+```text
+
 Entry ID: SPANDAN-2026-09-15-001 / 2026-09-15T11:55:00+05:30 / T+04:05
 Author and type: Spandan | PROGRESS & SETUP ACK
 Phase / step / S-instance / H-contract: Phase 0 / Collaborator Setup & Workflow ACK
@@ -603,6 +682,110 @@ Source revision and evidence reference: commit 821fcf4 on main
 Recipient(s): Team (Rishav, Samik, Subham, Rohan)
 For response: referenced entry ID and ACK
 ```
+
+Entry ID: ROHAN-2026-09-15-006 / 2026-09-15T12:00:00+05:30 / T+04:10
+Author and type: Rohan | HANDOFF & PROGRESS
+Phase / step / S-instance / H-contract: Phase 0 / S03-S08-S13 Pre-Delivery & Teammate Handoff Package
+Message and requested action:
+1. ACK to Subham (SUBHAM-2026-09-15-010 & SUBHAM-2026-09-15-012):
+   - Acknowledged Subham's verified Handoff S04 / H4 delivery (FastAPI schemas, PRD v1 fixtures, SQLite schema, MemoryClientContract).
+   - Acknowledged confirmation of sensor network isolation (pure USB CDC/OTG, zero Wi-Fi traffic on 192.168.43.0/24) and error taxonomy separation.
+   - Confirmed joint readiness for S16 candidate integration at T+14:30 and AC-14 full flow integration peer review.
+2. Delivered Comprehensive Phase 0 Document (docs/rohan/phase0-handoffs-and-requests.md):
+   - Published full hardware, firmware, electrical, USB adapter specification, and cross-subsystem prerequisite matrix on main and communication branches.
+3. Delivered Android USB Serial Adapter Implementation (dev.navisense.usb.UsbSensorAdapter):
+   - Background worker thread with bounded read buffer (128 bytes) and transport abstraction (UsbTransport, StreamUsbTransport).
+   - Monotonic receipt timing via injectable clock and automatic sequence loss counting (totalLostPackets diagnostic).
+   - 3-valid-packet recovery logic and immediate proximity STOP candidate callback (onImmediateStopCandidate for readings <= 50 cm).
+   - Exposed evaluateHealth(): SensorState API for Rishav's 50 ms watchdog loop.
+   - Added comprehensive unit test suite dev.navisense.usb.UsbSensorAdapterTest covering stream processing, recovery, sequence loss diagnostics, and immediate STOP callbacks.
+4. Source revision and evidence reference: commit e7c1fe6 on main; docs/rohan/phase0-handoffs-and-requests.md, android/app/src/main/java/dev/navisense/usb/UsbSensorAdapter.kt, android/app/src/test/java/dev/navisense/usb/UsbSensorAdapterTest.kt
+Recipient(s): Rishav, Samik, Subham, Spandan
+For response: referenced entry ID ROHAN-2026-09-15-006 and ACK / VERIFIED
+```
+
+```text
+Entry ID: SUBHAM-2026-09-15-013 / 2026-09-15T12:05:00+05:30 / T+04:15
+Author and type: Subham | HANDOFF & PROGRESS
+Phase / step / S-instance / H-contract: Phase 0 / S04 / H4 Code Commit Relay & Rohan ACK
+Message and requested action:
+1. Main Branch Code Commit Relay (Mandatory Collaborator Git & Relay Workflow):
+   - Committed and pushed all Subham Phase 0 source code, schemas, unit tests, and documentation to main branch (commit 2f8223c on main):
+     * laptop/api/schemas.py (FastAPI Pydantic schemas for PRD §23)
+     * laptop/config/settings.py (Authoritative SQLite schema spec for PRD §11-12)
+     * laptop/tests/fixtures/responses.json (Complete v1 response fixtures)
+     * laptop/tests/test_api_schemas.py (8/8 automated unit tests passed via pytest)
+     * android/app/src/main/java/dev/navisense/networking/MemoryClientContract.kt (Android Memory Client contract)
+     * models/locate/metadata.json (Locate YOLO model metadata & alias mapping)
+     * docs/subham/phase0-handoffs-and-requests.md (Comprehensive Phase 0 handoffs and prerequisite matrix)
+2. ACK to ROHAN-2026-09-15-006:
+   - Reviewed Rohan's delivery of UsbSensorAdapter and docs/rohan/phase0-handoffs-and-requests.md.
+   - Confirmed receipt of sensor transport specifications.
+   - Re-verified frozen file SHA-256 hashes (docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA, docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E).
+
+Source revision and evidence reference: commit 2f8223c on main; laptop/api/schemas.py, android/app/src/main/java/dev/navisense/networking/MemoryClientContract.kt, docs/subham/phase0-handoffs-and-requests.md
+Recipient(s): Rishav, Samik, Spandan, Rohan
+For response: referenced entry IDs ROHAN-2026-09-15-006 and ACK / VERIFIED
+```
+
+```text
+Entry ID: SAMIK-2026-09-15-010 / 2026-09-15T12:05:00+05:30 / T+04:15
+Author and type: Samik | PROGRESS & REVIEW
+Phase / step / S-instance / H-contract: Phase 0 / Physical Qualification Device Verification & Hardware Alignment
+Message and requested action:
+1. Physical Android Qualification Device Verified & App Live:
+   - Device ID: 6545Q8A6X89TW8ZX
+   - Hardware Model: OPPO CPH2753 (SoC: MediaTek MT6835, 64-bit arm64-v8a)
+   - Operating System: Android 16 (API Level 36)
+   - Hardware Capabilities Verified via adb:
+     * android.hardware.usb.host: Supported & active (USB OTG ready for Rohan's ESP32-S3 sensor node).
+     * android.hardware.camera.level.full: Camera2 Level FULL hardware support.
+     * Rear Camera Orientation: Facing Back, 90° clockwise orientation. Matches CoordinateTransformer.kt unletterboxing and upright portrait mapping.
+     * Speech Engine: com.google.android.tts verified installed on device for offline English speech.
+   - Master App Execution: android/app/build/outputs/apk/debug/app-debug.apk built and installed; dev.navisense.app.MainActivity running live with zero crashes, displaying accessible UI and prominent User STOP control.
+
+2. Response to Rohan (ROHAN-2026-09-15-004 & ROHAN-2026-09-15-006):
+   - [Rig Mechanical Dimensions & USB-C Clearance]: Confirmed chest mount phone clamp leaves bottom USB-C port unobstructed with ample physical clearance for right-angle OTG cable without mechanical strain.
+   - [Coaxial Optical Alignment]: Confirmed rigid coaxial forward alignment between phone rear camera lens and HC-SR04 transducers (+/- 5° pitch/yaw deviation) at chest height (~100–120 cm).
+   - [AC-06 Co-Benchmarking Commitment]: Confirmed Samik will run concurrent on-device vision inference (Locate + Mobility YOLO) during Rohan's AC-06 bench obstacle tests (T+19:00–19:30) to validate <= 100 ms STOP decision and <= 500 ms audio onset under live CPU/NPU contention.
+   - [S03-S08-S13 Review]: ACK to ROHAN-2026-09-15-006; verified UsbSensorAdapter implementation and unit tests.
+
+3. Status to Spandan:
+   - Physical qualification phone is connected, authorized, and standing by for S02 / H1 TFLite model exports to benchmark mobile inference latency, frame rates, and memory footprint.
+
+Source revision and evidence reference: commit 0bfbd3a on main; docs/implementation-state.md, android/app/build/outputs/apk/debug/app-debug.apk
+Recipient(s): Rohan, Rishav, Spandan, Subham
+For response: referenced entry IDs ROHAN-2026-09-15-004, ROHAN-2026-09-15-006 and ACK
+```
+
+```text
+Entry ID: SAMIK-2026-09-15-011 / 2026-09-15T12:15:00+05:30 / T+04:25
+Author and type: Samik | PROGRESS & INTEGRATION
+Phase / step / S-instance / H-contract: Phase 0 / S01 / H6 Master Application Shell & Contracts Integration
+Message and requested action:
+1. Integration of Rishav's S01 / H6 Master Application Shell on main (Commit 78f3187):
+   - Merged and verified all components from work/rishav-phase0 onto main:
+     * dev.navisense.app.MainActivity, SessionCoordinator, NaviSenseApp.
+     * Core contracts: AppMode, SessionGeneration, SessionToken, IClock, PathStatus, RiskLevel, WalkingCorridor, IRiskEngine, ISpeechArbiter, SpeechRequest.
+     * Accessible layouts & styles: activity_main.xml, colors.xml, strings.xml, styles.xml.
+     * Unified type bridges: NormalizedBoundingBox <-> NormalizedRect, BoundingBox <-> NormalizedRect, PerceptionFrameEvent <-> MobilePerceptionEvent, SearchConfirmationEvent <-> SearchEvent.
+2. Verification Results:
+   - 25/25 automated unit tests PASSED (0 failures, 0 errors).
+   - android/app/build/outputs/apk/debug/app-debug.apk assembled successfully with CameraX 1.3.1, ViewBinding, and OkHttp 4.12.0.
+   - Freshly installed and verified on physical qualification device (OPPO CPH2753, Android 16).
+3. Frozen File Hashes:
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+
+Source revision and evidence reference: commit 78f3187 on main; android/app/build/outputs/apk/debug/app-debug.apk
+Recipient(s): Rishav, Subham, Rohan, Spandan
+For response: referenced entry ID RISHAV-2026-09-15-011 and ACK / VERIFIED
+```
+
+
+
+
+
 
 ```text
 Entry ID: SPANDAN-2026-09-15-002 / 2026-09-15T12:00:00+05:30 / T+04:10
