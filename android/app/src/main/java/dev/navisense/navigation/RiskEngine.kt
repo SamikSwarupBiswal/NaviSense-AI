@@ -1,308 +1,275 @@
 package dev.navisense.navigation
 
 import dev.navisense.contracts.*
-import dev.navisense.tracking.ActiveTrack
-import dev.navisense.tracking.VisualTracker
 import kotlin.math.abs
 
-/**
- * Deterministic multi-source Risk Engine adhering to PRD v3.2 Section 17.
- *
- * Implements:
- * 1. Independent ultrasonic proximity rules with 1.0s de-escalation hold and +15cm margin (PRD §17.1, §17.3).
- * 2. Visual corridor evaluation with short-lived tracking and qualification (PRD §17.1, §17.4).
- * 3. Optical Expansion / Looming Detection (PRD §17.1):
- *    Expansion Rate = (current_area - prev_area) / (prev_area * dt)
- *    Triggers SLOW ("<Label> approaching") or STOP on rapid approach.
- * 4. Staleness watchdogs for sensor (500 ms) and camera (1000 ms) (PRD §17.2).
- * 5. Path clearance evaluation for BLOCKED, CLEAR_OBSERVED, and UNKNOWN (PRD §17.2).
- */
+/** Samik-owned deterministic ultrasonic + YOLO fusion engine. */
 class RiskEngine(
     val corridor: WalkingCorridor = WalkingCorridor(),
-    val tracker: VisualTracker = VisualTracker(matchIouThreshold = 0.30f, trackExpiryMs = 500L),
-    val loomingThresholdRate: Float = 0.50f, // 50% expansion per second (~25% over 0.5s)
     val clock: IClock = SystemMonotonicClock()
 ) : IRiskEngine {
-
+    private val visionTracks = FusionVisionTrackStore()
+    private var activeConnectionId: Long? = null
+    private var lastSensorSequence: Long? = null
+    private var lastSensorUptime: Long? = null
     private var lastSensorEvent: SensorEvent? = null
-    private var lastPerceptionEvent: PerceptionFrameEvent? = null
-
-    private var heldSensorRisk: RiskLevel = RiskLevel.NONE
-    private var sensorReleaseStartTimeMs: Long? = null
-
-    private var heldVisionRisk: RiskLevel = RiskLevel.NONE
-    private var visionReleaseStartTimeMs: Long? = null
-
-    private var clearanceStartTimeMs: Long? = null
-    private var previousCombinedRisk: RiskLevel = RiskLevel.NONE
-
-    private var lastPrimaryHazardSource: RiskSource? = null
-    private var lastAssociatedObjectLabel: String? = null
-    private var lastIsApproachingHazard: Boolean = false
-    private var lastExpansionRate: Float? = null
+    private var lastUsableSensorEvent: SensorEvent? = null
+    private var lastPerceptionEvent: MobilePerceptionEvent? = null
+    private var lastUsableCameraDeliveryMs: Long? = null
+    private var lastVisionSessionGeneration: Long? = null
+    private var lastVisionFrameId: Long? = null
+    private var lastVisionCaptureMs: Long? = null
+    private var lastVisionModelIdentity: String? = null
+    private var lastVisionGeometryVersion: Int? = null
+    private var heldSensorRisk = RiskLevel.NONE
+    private var sensorReleaseStartMs: Long? = null
+    private var sensorLossStartMs: Long? = null
+    private var heldVisionRisk = RiskLevel.NONE
+    private var visionReleaseStartMs: Long? = null
+    private var clearanceStartMs: Long? = null
+    private var previousCombinedRisk = RiskLevel.NONE
+    private var tentativeCorridorCandidate = false
+    private var associatedObjectLabel: String? = null
+    private var approachingHazard = false
+    private var expansionRate: Float? = null
 
     @Synchronized
     override fun onSensorEvent(event: SensorEvent): RiskEvaluationResult {
+        val now = event.receiptMonotonicMs
+        if (!acceptSensorOrdering(event)) return buildResult(now)
         lastSensorEvent = event
-        val currentMonotonicMs = event.receiptMonotonicMs
-
-        // 1. Evaluate raw ultrasonic risk
-        val rawSensorRisk = if (event.wireRecord.isValid && event.wireRecord.distanceCm in 2..400) {
-            when {
-                event.wireRecord.distanceCm <= 50 -> RiskLevel.STOP
-                event.wireRecord.distanceCm <= 100 -> RiskLevel.SLOW
-                event.wireRecord.distanceCm <= 150 -> RiskLevel.AWARENESS
-                else -> RiskLevel.NONE
-            }
-        } else {
-            // Disconnected or invalid echo: vision-only mode, no ultrasonic hazard
-            RiskLevel.NONE
-        }
-
-        // 2. Apply ultrasonic escalation & de-escalation release rules (PRD §17.3)
-        if (rawSensorRisk.severity > heldSensorRisk.severity) {
-            // Immediate escalation
-            heldSensorRisk = rawSensorRisk
-            sensorReleaseStartTimeMs = null
-        } else if (rawSensorRisk.severity < heldSensorRisk.severity) {
-            // De-escalation requires distance above active boundary + 15 cm continuously for 1.0s
-            val requiredClearanceDistanceCm = when (heldSensorRisk) {
-                RiskLevel.STOP -> 50 + 15      // > 65 cm
-                RiskLevel.SLOW -> 100 + 15     // > 115 cm
-                RiskLevel.AWARENESS -> 150 + 15 // > 165 cm
-                RiskLevel.NONE -> 0
-            }
-
-            val isDistanceSafe = event.wireRecord.isValid && event.wireRecord.distanceCm > requiredClearanceDistanceCm
-            if (isDistanceSafe) {
-                if (sensorReleaseStartTimeMs == null) {
-                    sensorReleaseStartTimeMs = currentMonotonicMs
-                } else if (currentMonotonicMs - sensorReleaseStartTimeMs!! >= 1000L) {
-                    // Release timer satisfied: step down directly to current raw level
-                    heldSensorRisk = rawSensorRisk
-                    sensorReleaseStartTimeMs = null
-                }
-            } else {
-                // Violating reading resets release timer
-                sensorReleaseStartTimeMs = null
-            }
-        } else {
-            sensorReleaseStartTimeMs = null
-        }
-
-        return buildResult(currentMonotonicMs)
+        val valid = event.wireRecord.version == 1 && event.wireRecord.isValid &&
+            event.wireRecord.distanceCm in 2..400
+        val critical = valid && event.wireRecord.distanceCm <= 50
+        val normallyUsable = valid && event.sensorHealth == SensorHealth.STREAMING
+        if (normallyUsable || critical) {
+            lastUsableSensorEvent = event
+            sensorLossStartMs = null
+            updateSensorRisk(rawSensorRisk(event.wireRecord.distanceCm), event, now)
+        } else markSensorUnavailable(now)
+        return buildResult(now)
     }
 
     @Synchronized
     override fun onPerceptionEvent(event: PerceptionFrameEvent): RiskEvaluationResult {
+        val now = event.deliveryMonotonicMs
+        if (!acceptVisionOrdering(event)) return buildResult(now)
         lastPerceptionEvent = event
-        val currentMonotonicMs = event.captureMonotonicMs
-
-        // 1. Frame quality check (PRD §17.2)
-        if (event.qualityStatus == FrameQualityStatus.UNUSABLE) {
-            clearanceStartTimeMs = null
-            return buildResult(currentMonotonicMs)
+        val usable = event.mode == AppVisionMode.MOBILITY &&
+            event.qualityStatus == FrameQualityStatus.USABLE && event.errorMessage == null &&
+            event.captureMonotonicMs >= 0L && event.deliveryMonotonicMs >= event.captureMonotonicMs &&
+            event.deliveryMonotonicMs - event.captureMonotonicMs <= CAMERA_CAPTURE_FRESH_MS
+        if (!usable) {
+            tentativeCorridorCandidate = false
+            clearanceStartMs = null
+            return buildResult(now)
         }
-
-        // 2. Update visual tracker
-        val trackedDetections = tracker.update(event.detections, currentMonotonicMs, event.geometryVersion)
-
-        // Reset clearance if any tentative detection >= 0.40 exists in corridor
-        for (det in trackedDetections) {
-            if (det.confidence >= 0.40f && corridor.isCorridorObstacle(det.boundingBox)) {
-                clearanceStartTimeMs = null
-                break
-            }
+        lastUsableCameraDeliveryMs = now
+        tentativeCorridorCandidate = event.detections.any {
+            it.confidence >= MIN_VISION_CONFIDENCE && validBox(it.boundingBox) &&
+                corridor.isCorridorObstacle(it.boundingBox)
         }
+        if (tentativeCorridorCandidate) clearanceStartMs = null
 
-        // 3. Evaluate qualified corridor tracks
+        val tracks = visionTracks.update(
+            event.frameId, event.captureMonotonicMs, event.geometryVersion,
+            event.detections.filter { it.confidence >= MIN_VISION_CONFIDENCE && validBox(it.boundingBox) }
+        )
         var rawVisionRisk = RiskLevel.NONE
-        var primaryTrack: ActiveTrack? = null
-        var qualifiedCorridorTrackCount = 0
-        var isApproaching = false
-        var maxExpansionRate: Float? = null
-
-        val activeTracks = tracker.currentActiveTracks
-        for (track in activeTracks) {
-            if (!track.isQualified(currentMonotonicMs, windowMs = 1000L)) continue
-            if (!corridor.isCorridorObstacle(track.currentBox)) continue
-
-            qualifiedCorridorTrackCount++
-            primaryTrack = track
-
-            val isNearBottom = track.currentBox.bottom >= 0.85f && track.currentBox.area >= 0.20f
-            val expansion = track.computeExpansionRate(currentMonotonicMs, targetIntervalMs = 500L, toleranceMs = 150L)
-            val trackApproaching = expansion != null && expansion >= loomingThresholdRate
-
-            if (expansion != null) {
-                if (maxExpansionRate == null || expansion > maxExpansionRate) {
-                    maxExpansionRate = expansion
-                }
-            }
-
-            val trackRisk = when {
-                // PRD §17.1 Rule 7: Near corridor track growing >= 25% over 0.5s -> STOP
-                isNearBottom && trackApproaching -> {
-                    isApproaching = true
-                    RiskLevel.STOP
-                }
-                // Optical expansion looming warning in corridor -> SLOW
-                trackApproaching -> {
-                    isApproaching = true
-                    RiskLevel.SLOW
-                }
-                // Near bottom corridor track -> SLOW
-                isNearBottom -> RiskLevel.SLOW
-                // Persistent corridor track -> AWARENESS
+        var strongestTrack: FusionVisionTrackStore.Track? = null
+        var strongestGrowth: Float? = null
+        val persistentCorridorTracks = mutableListOf<FusionVisionTrackStore.Track>()
+        tracks.forEach { track ->
+            if (!track.isPersistent(event.captureMonotonicMs) ||
+                !corridor.isCorridorObstacle(track.current.box)) return@forEach
+            persistentCorridorTracks += track
+            val growth = track.areaGrowth(event.captureMonotonicMs)
+            val isApproaching = growth != null && growth >= MIN_AREA_GROWTH
+            val box = track.current.box
+            val nearBottom = box.bottom >= NEAR_BOTTOM && box.area >= NEAR_AREA
+            val risk = when {
+                isApproaching && nearBottom -> RiskLevel.STOP
+                isApproaching || nearBottom -> RiskLevel.SLOW
                 else -> RiskLevel.AWARENESS
             }
-
-            if (trackRisk.severity > rawVisionRisk.severity) {
-                rawVisionRisk = trackRisk
+            if (risk.severity > rawVisionRisk.severity) {
+                rawVisionRisk = risk
+                strongestTrack = track
+                strongestGrowth = growth
             }
         }
-
-        lastIsApproachingHazard = isApproaching
-        lastExpansionRate = maxExpansionRate
-
-        // 4. Vision hold and release policy (PRD §17.3)
-        if (rawVisionRisk.severity > heldVisionRisk.severity) {
-            heldVisionRisk = rawVisionRisk
-            visionReleaseStartTimeMs = null
-        } else if (rawVisionRisk.severity < heldVisionRisk.severity) {
-            if (visionReleaseStartTimeMs == null) {
-                visionReleaseStartTimeMs = currentMonotonicMs
-            } else if (currentMonotonicMs - visionReleaseStartTimeMs!! >= 1000L) {
-                heldVisionRisk = rawVisionRisk
-                visionReleaseStartTimeMs = null
-            }
-        } else {
-            visionReleaseStartTimeMs = null
-        }
-
-        // Single corridor track association under PRD §17.4
-        val sensor = lastSensorEvent
-        val syncAllowed = sensor != null &&
-                sensor.wireRecord.isValid &&
-                abs(sensor.receiptMonotonicMs - currentMonotonicMs) <= 200L
-
-        lastAssociatedObjectLabel = if (qualifiedCorridorTrackCount == 1 && primaryTrack != null && syncAllowed) {
-            if (isApproaching) "${primaryTrack.label} approaching" else primaryTrack.label
-        } else if (isApproaching && primaryTrack != null) {
-            "${primaryTrack.label} approaching"
-        } else if (isApproaching) {
-            "Obstacle approaching"
-        } else {
-            null
-        }
-
-        return buildResult(currentMonotonicMs)
+        approachingHazard = strongestGrowth != null && strongestGrowth >= MIN_AREA_GROWTH
+        expansionRate = strongestTrack?.expansionRatePerSecond(event.captureMonotonicMs)
+        associatedObjectLabel = associateLabel(persistentCorridorTracks, event.captureMonotonicMs)
+        updateVisionRisk(rawVisionRisk, now)
+        return buildResult(now)
     }
 
     @Synchronized
     override fun onWatchdogTick(currentTimeMonotonicMs: Long): RiskEvaluationResult {
-        // Sensor staleness: no usable sensor event for > 500 ms
-        val sensorStale = lastSensorEvent == null ||
-                (currentTimeMonotonicMs - lastSensorEvent!!.receiptMonotonicMs > 500L)
-
-        if (sensorStale) {
-            // Drop held sensor severity on sustained loss, but cannot claim clear
-            heldSensorRisk = RiskLevel.NONE
-            sensorReleaseStartTimeMs = null
-            clearanceStartTimeMs = null
-        }
-
-        // Camera staleness: no usable camera frame for > 1000 ms (PRD §17.2)
-        val cameraStale = lastPerceptionEvent == null ||
-                (currentTimeMonotonicMs - lastPerceptionEvent!!.captureMonotonicMs > 1000L)
-
-        if (cameraStale) {
+        val sensorAge = lastSensorEvent?.let { currentTimeMonotonicMs - it.receiptMonotonicMs }
+        if (sensorAge == null || sensorAge > SENSOR_FRESH_MS) markSensorUnavailable(currentTimeMonotonicMs)
+        val cameraAge = lastUsableCameraDeliveryMs?.let { currentTimeMonotonicMs - it }
+        if (cameraAge == null || cameraAge > CAMERA_DELIVERY_DEADLINE_MS) {
             heldVisionRisk = RiskLevel.NONE
-            visionReleaseStartTimeMs = null
-            clearanceStartTimeMs = null
+            visionReleaseStartMs = null
+            tentativeCorridorCandidate = false
+            associatedObjectLabel = null
+            approachingHazard = false
+            expansionRate = null
+            clearanceStartMs = null
         }
-
         return buildResult(currentTimeMonotonicMs)
     }
 
     @Synchronized
     override fun reset() {
-        lastSensorEvent = null
-        lastPerceptionEvent = null
-        heldSensorRisk = RiskLevel.NONE
-        sensorReleaseStartTimeMs = null
-        heldVisionRisk = RiskLevel.NONE
-        visionReleaseStartTimeMs = null
-        clearanceStartTimeMs = null
-        previousCombinedRisk = RiskLevel.NONE
-        lastPrimaryHazardSource = null
-        lastAssociatedObjectLabel = null
-        lastIsApproachingHazard = false
-        lastExpansionRate = null
-        tracker.reset()
+        activeConnectionId = null; lastSensorSequence = null; lastSensorUptime = null
+        lastSensorEvent = null; lastUsableSensorEvent = null; lastPerceptionEvent = null
+        lastUsableCameraDeliveryMs = null; lastVisionSessionGeneration = null
+        lastVisionFrameId = null; lastVisionCaptureMs = null; lastVisionModelIdentity = null
+        lastVisionGeometryVersion = null; heldSensorRisk = RiskLevel.NONE
+        sensorReleaseStartMs = null; sensorLossStartMs = null; heldVisionRisk = RiskLevel.NONE
+        visionReleaseStartMs = null; clearanceStartMs = null; previousCombinedRisk = RiskLevel.NONE
+        tentativeCorridorCandidate = false; associatedObjectLabel = null
+        approachingHazard = false; expansionRate = null; visionTracks.reset()
     }
 
-    private fun buildResult(currentMonotonicMs: Long): RiskEvaluationResult {
-        val combinedRisk = RiskLevel.max(heldSensorRisk, heldVisionRisk)
+    private fun acceptSensorOrdering(event: SensorEvent): Boolean {
+        if (activeConnectionId != event.connectionId) {
+            activeConnectionId = event.connectionId
+            lastSensorSequence = null; lastSensorUptime = null; lastSensorEvent = null
+            lastUsableSensorEvent = null; heldSensorRisk = RiskLevel.NONE
+            sensorReleaseStartMs = null; sensorLossStartMs = null; clearanceStartMs = null
+        }
+        val previousSequence = lastSensorSequence
+        val previousUptime = lastSensorUptime
+        if (previousSequence != null && previousUptime != null) {
+            val sequenceDelta = unsignedDelta(event.wireRecord.sequenceNumber, previousSequence)
+            val uptimeDelta = unsignedDelta(event.wireRecord.deviceUptimeMs, previousUptime)
+            if (sequenceDelta == 0L || sequenceDelta >= HALF_UINT32 || uptimeDelta >= HALF_UINT32) return false
+        }
+        lastSensorSequence = event.wireRecord.sequenceNumber
+        lastSensorUptime = event.wireRecord.deviceUptimeMs
+        return true
+    }
 
-        val primarySource = when {
-            heldSensorRisk.severity > heldVisionRisk.severity -> RiskSource.SENSOR
-            heldVisionRisk.severity > heldSensorRisk.severity -> RiskSource.VISION
-            combinedRisk != RiskLevel.NONE -> RiskSource.SENSOR // Sensor priority on tie
+    private fun acceptVisionOrdering(event: MobilePerceptionEvent): Boolean {
+        val sessionChanged = lastVisionSessionGeneration != event.sessionGeneration
+        val modelChanged = lastVisionModelIdentity != null && lastVisionModelIdentity != event.modelIdentity
+        val geometryChanged = lastVisionGeometryVersion != null && lastVisionGeometryVersion != event.geometryVersion
+        if (sessionChanged || modelChanged || geometryChanged) {
+            visionTracks.reset(); heldVisionRisk = RiskLevel.NONE; visionReleaseStartMs = null
+            clearanceStartMs = null; lastVisionFrameId = null; lastVisionCaptureMs = null
+        }
+        if (!sessionChanged) {
+            if (lastVisionFrameId != null && event.frameId <= lastVisionFrameId!!) return false
+            if (lastVisionCaptureMs != null && event.captureMonotonicMs <= lastVisionCaptureMs!!) return false
+        }
+        lastVisionSessionGeneration = event.sessionGeneration
+        lastVisionModelIdentity = event.modelIdentity
+        lastVisionGeometryVersion = event.geometryVersion
+        lastVisionFrameId = event.frameId
+        lastVisionCaptureMs = event.captureMonotonicMs
+        return true
+    }
+
+    private fun updateSensorRisk(raw: RiskLevel, event: SensorEvent, now: Long) {
+        if (raw.severity > heldSensorRisk.severity) {
+            heldSensorRisk = raw; sensorReleaseStartMs = null; return
+        }
+        if (raw.severity == heldSensorRisk.severity) { sensorReleaseStartMs = null; return }
+        val releaseDistance = when (heldSensorRisk) {
+            RiskLevel.STOP -> 65; RiskLevel.SLOW -> 115
+            RiskLevel.AWARENESS -> 165; RiskLevel.NONE -> 0
+        }
+        if (event.wireRecord.distanceCm > releaseDistance) {
+            val started = sensorReleaseStartMs
+            if (started == null) sensorReleaseStartMs = now
+            else if (now - started >= RELEASE_HOLD_MS) {
+                heldSensorRisk = raw; sensorReleaseStartMs = null
+            }
+        } else sensorReleaseStartMs = null
+    }
+
+    private fun markSensorUnavailable(now: Long) {
+        lastUsableSensorEvent = null; sensorReleaseStartMs = null; clearanceStartMs = null
+        if (heldSensorRisk == RiskLevel.NONE) return
+        val lossStart = sensorLossStartMs
+        if (lossStart == null) sensorLossStartMs = now
+        else if (now - lossStart > SENSOR_LOSS_HOLD_MS) {
+            heldSensorRisk = RiskLevel.NONE; sensorLossStartMs = null
+        }
+    }
+
+    private fun updateVisionRisk(raw: RiskLevel, now: Long) {
+        if (raw.severity > heldVisionRisk.severity) {
+            heldVisionRisk = raw; visionReleaseStartMs = null
+        } else if (raw.severity < heldVisionRisk.severity) {
+            val started = visionReleaseStartMs
+            if (started == null) visionReleaseStartMs = now
+            else if (now - started >= RELEASE_HOLD_MS) {
+                heldVisionRisk = raw; visionReleaseStartMs = null
+            }
+        } else visionReleaseStartMs = null
+    }
+
+    private fun associateLabel(tracks: List<FusionVisionTrackStore.Track>, cameraCaptureMs: Long): String? {
+        if (tracks.size != 1) return null
+        val sensor = lastUsableSensorEvent ?: return null
+        if (abs(sensor.receiptMonotonicMs - cameraCaptureMs) > ASSOCIATION_WINDOW_MS) return null
+        return tracks.single().label
+    }
+
+    private fun buildResult(now: Long): RiskEvaluationResult {
+        val combined = RiskLevel.max(heldSensorRisk, heldVisionRisk)
+        val source = when {
+            heldSensorRisk.severity >= heldVisionRisk.severity && heldSensorRisk != RiskLevel.NONE -> RiskSource.SENSOR
+            heldVisionRisk != RiskLevel.NONE -> RiskSource.VISION
             else -> null
         }
-        lastPrimaryHazardSource = primarySource
-
-        val pathStatus = evaluatePathStatus(combinedRisk, currentMonotonicMs)
-        val isEscalation = combinedRisk.severity > previousCombinedRisk.severity
-        previousCombinedRisk = combinedRisk
-
-        return RiskEvaluationResult(
-            combinedRisk = combinedRisk,
-            sensorRisk = heldSensorRisk,
-            visionRisk = heldVisionRisk,
-            pathStatus = pathStatus,
-            primaryHazardSource = primarySource,
-            associatedObjectLabel = lastAssociatedObjectLabel,
-            isEscalation = isEscalation,
-            timestampMonotonicMs = currentMonotonicMs,
-            isApproachingHazard = lastIsApproachingHazard,
-            expansionRate = lastExpansionRate
-        )
+        val path = evaluatePathStatus(combined, now)
+        val escalated = combined.severity > previousCombinedRisk.severity
+        previousCombinedRisk = combined
+        return RiskEvaluationResult(combined, heldSensorRisk, heldVisionRisk, path, source,
+            associatedObjectLabel, escalated, now, approachingHazard, expansionRate)
     }
 
-    private fun evaluatePathStatus(combinedRisk: RiskLevel, currentMonotonicMs: Long): PathStatus {
-        if (combinedRisk != RiskLevel.NONE) {
-            clearanceStartTimeMs = null
-            return PathStatus.BLOCKED
-        }
+    private fun evaluatePathStatus(combined: RiskLevel, now: Long): PathStatus {
+        if (combined != RiskLevel.NONE) { clearanceStartMs = null; return PathStatus.BLOCKED }
+        val sensor = lastUsableSensorEvent
+        val sensorClear = sensor != null && sensor.sensorHealth == SensorHealth.STREAMING &&
+            sensor.wireRecord.distanceCm > 150 && now - sensor.receiptMonotonicMs <= SENSOR_FRESH_MS
+        val cameraClear = lastPerceptionEvent?.let {
+            it.mode == AppVisionMode.MOBILITY && it.qualityStatus == FrameQualityStatus.USABLE &&
+                it.errorMessage == null && lastUsableCameraDeliveryMs != null &&
+                now - lastUsableCameraDeliveryMs!! <= CAMERA_DELIVERY_DEADLINE_MS
+        } == true
+        val noHolds = sensorReleaseStartMs == null && visionReleaseStartMs == null && sensorLossStartMs == null
+        if (sensorClear && cameraClear && !tentativeCorridorCandidate && noHolds) {
+            val started = clearanceStartMs
+            if (started == null) clearanceStartMs = now
+            else if (now - started >= CLEAR_HOLD_MS) return PathStatus.CLEAR_OBSERVED
+        } else clearanceStartMs = null
+        return PathStatus.UNKNOWN
+    }
 
-        // PRD §17.2: CLEAR_OBSERVED requirements
-        val sensor = lastSensorEvent
-        val sensorFreshAndClear = sensor != null &&
-                sensor.wireRecord.isValid &&
-                sensor.wireRecord.distanceCm > 150 &&
-                (currentMonotonicMs - sensor.receiptMonotonicMs <= 500L)
+    private fun rawSensorRisk(distanceCm: Int) = when (distanceCm) {
+        in 2..50 -> RiskLevel.STOP; in 51..100 -> RiskLevel.SLOW
+        in 101..150 -> RiskLevel.AWARENESS; else -> RiskLevel.NONE
+    }
+    private fun validBox(box: NormalizedRect) = box.left.isFinite() && box.top.isFinite() &&
+        box.right.isFinite() && box.bottom.isFinite() && box.left >= 0f && box.top >= 0f &&
+        box.right <= 1f && box.bottom <= 1f && box.area > 0f
+    private fun unsignedDelta(current: Long, previous: Long) = (current - previous).mod(UINT32)
 
-        val camera = lastPerceptionEvent
-        val cameraFreshAndUsable = camera != null &&
-                camera.qualityStatus == FrameQualityStatus.USABLE &&
-                (currentMonotonicMs - camera.captureMonotonicMs <= 1000L)
-
-        val noCorridorHazard = heldVisionRisk == RiskLevel.NONE
-
-        if (sensorFreshAndClear && cameraFreshAndUsable && noCorridorHazard) {
-            if (clearanceStartTimeMs == null) {
-                clearanceStartTimeMs = currentMonotonicMs
-                return PathStatus.UNKNOWN
-            } else if (currentMonotonicMs - clearanceStartTimeMs!! >= 1000L) {
-                return PathStatus.CLEAR_OBSERVED
-            } else {
-                return PathStatus.UNKNOWN
-            }
-        } else {
-            clearanceStartTimeMs = null
-            return PathStatus.UNKNOWN
-        }
+    private companion object {
+        const val UINT32 = 1L shl 32; const val HALF_UINT32 = 1L shl 31
+        const val SENSOR_FRESH_MS = 300L; const val CAMERA_CAPTURE_FRESH_MS = 500L
+        const val CAMERA_DELIVERY_DEADLINE_MS = 1_000L; const val ASSOCIATION_WINDOW_MS = 200L
+        const val RELEASE_HOLD_MS = 1_000L; const val SENSOR_LOSS_HOLD_MS = 1_000L
+        const val CLEAR_HOLD_MS = 1_000L; const val MIN_VISION_CONFIDENCE = 0.40f
+        const val MIN_AREA_GROWTH = 0.25f; const val NEAR_BOTTOM = 0.85f
+        const val NEAR_AREA = 0.20f
     }
 }

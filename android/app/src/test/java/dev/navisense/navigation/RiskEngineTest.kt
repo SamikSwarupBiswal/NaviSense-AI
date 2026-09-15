@@ -24,7 +24,7 @@ class RiskEngineTest {
             receiptMonotonicMs = timestampMs,
             wireRecord = SensorWireRecord(
                 version = 1,
-                sequenceNumber = 100L,
+                sequenceNumber = timestampMs,
                 deviceUptimeMs = timestampMs,
                 distanceCm = distanceCm,
                 isValid = isValid
@@ -41,13 +41,15 @@ class RiskEngineTest {
         return MobilePerceptionEvent(
             sessionGeneration = 1L,
             mode = AppVisionMode.MOBILITY,
-            frameId = 1L,
+            frameId = timestampMs,
             captureMonotonicMs = timestampMs,
             deliveryMonotonicMs = timestampMs,
             geometryVersion = 1,
             modelIdentity = "mobility_model_v1",
             qualityStatus = quality,
-            detections = detections
+            detections = detections.mapIndexed { index, detection ->
+                detection.copy(trackId = detection.trackId ?: index.toLong() + 1L)
+            }
         )
     }
 
@@ -112,7 +114,7 @@ class RiskEngineTest {
         assertNotNull(result.expansionRate)
         assertTrue(result.expansionRate!! >= 0.50f)
         assertEquals(RiskLevel.SLOW, result.visionRisk)
-        assertEquals("person approaching", result.associatedObjectLabel)
+        assertNull("Vision-only risk must not claim sensor association", result.associatedObjectLabel)
         assertEquals(PathStatus.BLOCKED, result.pathStatus)
     }
 
@@ -139,7 +141,7 @@ class RiskEngineTest {
         assertEquals(RiskLevel.STOP, result.visionRisk)
         assertEquals(RiskLevel.STOP, result.combinedRisk)
         assertTrue(result.isApproachingHazard)
-        assertEquals("person approaching", result.associatedObjectLabel)
+        assertNull("Vision-only risk must not claim sensor association", result.associatedObjectLabel)
     }
 
     @Test
@@ -203,15 +205,69 @@ class RiskEngineTest {
     }
 
     @Test
-    fun testWatchdogResetsHeldHazardsOnSustainedStaleness() {
+    fun testWatchdogRetainsHazardForOneSecondAfterSensorLoss() {
         // Emergency STOP at t=1000 ms
         riskEngine.onSensorEvent(createSensorEvent(distanceCm = 30, timestampMs = 1000L))
 
         // Watchdog at t=1600 ms (> 500 ms since last sensor reading)
         val watchdogResult = riskEngine.onWatchdogTick(currentTimeMonotonicMs = 1600L)
 
-        assertEquals(RiskLevel.NONE, watchdogResult.sensorRisk)
-        assertEquals(RiskLevel.NONE, watchdogResult.combinedRisk)
-        assertEquals("Stale sensor cannot confirm clearance", PathStatus.UNKNOWN, watchdogResult.pathStatus)
+        assertEquals(RiskLevel.STOP, watchdogResult.sensorRisk)
+        assertEquals(RiskLevel.STOP, watchdogResult.combinedRisk)
+        assertEquals(PathStatus.BLOCKED, watchdogResult.pathStatus)
+
+        val released = riskEngine.onWatchdogTick(currentTimeMonotonicMs = 2601L)
+        assertEquals(RiskLevel.NONE, released.sensorRisk)
+        assertEquals("Loss release cannot establish clearance", PathStatus.UNKNOWN, released.pathStatus)
+    }
+
+    @Test
+    fun testExactSensorDistanceBandsAndEqualityReleaseBoundary() {
+        assertEquals(RiskLevel.STOP, riskEngine.onSensorEvent(createSensorEvent(50, 1000L)).sensorRisk)
+        riskEngine.reset()
+        assertEquals(RiskLevel.SLOW, riskEngine.onSensorEvent(createSensorEvent(51, 1000L)).sensorRisk)
+        riskEngine.reset()
+        assertEquals(RiskLevel.AWARENESS, riskEngine.onSensorEvent(createSensorEvent(101, 1000L)).sensorRisk)
+        riskEngine.reset()
+        assertEquals(RiskLevel.NONE, riskEngine.onSensorEvent(createSensorEvent(151, 1000L)).sensorRisk)
+
+        riskEngine.reset()
+        riskEngine.onSensorEvent(createSensorEvent(40, 1000L))
+        riskEngine.onSensorEvent(createSensorEvent(65, 1500L))
+        val equalityDoesNotRelease = riskEngine.onSensorEvent(createSensorEvent(65, 2600L))
+        assertEquals(RiskLevel.STOP, equalityDoesNotRelease.sensorRisk)
+    }
+
+    @Test
+    fun testSingleAlignedTrackMayLabelButCannotChangeSeverity() {
+        riskEngine.onSensorEvent(createSensorEvent(80, 600L))
+        val box = NormalizedRect(0.40f, 0.40f, 0.60f, 0.60f)
+        val detection = DetectedObject(1, "chair", 0.90f, box)
+        riskEngine.onPerceptionEvent(createPerceptionEvent(listOf(detection), 400L))
+        riskEngine.onPerceptionEvent(createPerceptionEvent(listOf(detection), 500L))
+        val aligned = riskEngine.onPerceptionEvent(createPerceptionEvent(listOf(detection), 600L))
+
+        assertEquals("chair", aligned.associatedObjectLabel)
+        assertEquals("Sensor SLOW remains dominant", RiskLevel.SLOW, aligned.combinedRisk)
+
+        val staleAssociation = riskEngine.onPerceptionEvent(createPerceptionEvent(listOf(detection), 901L))
+        assertNull(staleAssociation.associatedObjectLabel)
+        assertEquals(RiskLevel.SLOW, staleAssociation.combinedRisk)
+    }
+
+    @Test
+    fun testDuplicateSensorAndCameraEventsAreIgnored() {
+        val sensor = createSensorEvent(40, 1000L)
+        assertEquals(RiskLevel.STOP, riskEngine.onSensorEvent(sensor).combinedRisk)
+        val duplicateWithDifferentDistance = sensor.copy(
+            wireRecord = sensor.wireRecord.copy(distanceCm = 200)
+        )
+        assertEquals(RiskLevel.STOP, riskEngine.onSensorEvent(duplicateWithDifferentDistance).combinedRisk)
+
+        val box = NormalizedRect(0.4f, 0.4f, 0.6f, 0.6f)
+        val frame = createPerceptionEvent(listOf(DetectedObject(0, "person", 0.9f, box)), 1200L)
+        riskEngine.onPerceptionEvent(frame)
+        val duplicateFrame = frame.copy(detections = emptyList())
+        assertEquals(RiskLevel.STOP, riskEngine.onPerceptionEvent(duplicateFrame).combinedRisk)
     }
 }

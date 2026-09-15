@@ -339,7 +339,9 @@ class SessionCoordinator(
     @Synchronized
     fun onPerceptionEvent(event: MobilePerceptionEvent) {
         if (!sessionGeneration.isValid(event.sessionGeneration)) return
-        if (currentMode != AppMode.MOBILITY && currentMode != AppMode.FINAL_SEARCH) return
+        // Locate detections in FinalSearch belong exclusively to TargetSearchEngine.
+        // They must never drive Mobility corridor or visual-risk rules.
+        if (currentMode != AppMode.MOBILITY) return
         val result = riskEngine.onPerceptionEvent(event)
         handleRiskEvaluation(result)
     }

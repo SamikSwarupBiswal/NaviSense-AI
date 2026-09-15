@@ -371,7 +371,8 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
 
         try {
             val transport = AndroidUsbCdcTransport(usbManager, device)
-            val adapter = UsbSensorAdapter(
+            lateinit var adapter: UsbSensorAdapter
+            adapter = UsbSensorAdapter(
                 transport = transport,
                 clock = { SystemClock.elapsedRealtime() },
                 onRecordReceived = { record: SensorRecord ->
@@ -382,10 +383,12 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                         distanceCm = record.distanceCm,
                         isValid = record.isValid
                     )
-                    val sensorHealth = if (record.isValid) {
-                        SensorHealth.STREAMING
-                    } else {
-                        SensorHealth.INVALID_DATA
+                    val sensorHealth = when (adapter.currentHealth) {
+                        UsbSensorHealth.HEALTHY -> SensorHealth.STREAMING
+                        UsbSensorHealth.STALE -> SensorHealth.STALE
+                        UsbSensorHealth.DEGRADED_INVALID -> SensorHealth.INVALID_DATA
+                        UsbSensorHealth.DISCONNECTED -> SensorHealth.DETACHED
+                        UsbSensorHealth.CONNECTING, UsbSensorHealth.RECOVERING -> SensorHealth.ERROR
                     }
                     val event = SensorEvent(
                         connectionId = device.deviceId.toLong(),

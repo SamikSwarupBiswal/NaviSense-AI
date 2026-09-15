@@ -21,7 +21,8 @@ data class RiskEvaluationResult(
 )
 
 /**
- * Deterministic Risk Engine interface owned by Rishav.
+ * Samik-owned deterministic multimodal fusion/risk engine interface.
+ * Rishav's coordinator consumes these decisions for app and speech behavior.
  */
 interface IRiskEngine {
     /** Processes incoming ultrasonic sensor event. */
