@@ -97,4 +97,7 @@ class SpeechArbiter(
         cancelAll()
         lastSpokenTimestamps.clear()
     }
+
+    override val isSpeaking: Boolean
+        get() = ttsPlayer.isSpeaking()
 }
