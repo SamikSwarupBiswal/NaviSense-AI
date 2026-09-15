@@ -49,7 +49,7 @@ class RiskEngine(
         lastSensorEvent = event
         val valid = event.wireRecord.version == 1 && event.wireRecord.isValid &&
             event.wireRecord.distanceCm in 2..400
-        val critical = valid && event.wireRecord.distanceCm <= 100
+        val critical = valid && event.wireRecord.distanceCm <= 50
         val normallyUsable = valid && event.sensorHealth == SensorHealth.STREAMING
         if (normallyUsable || critical) {
             lastUsableSensorEvent = event
@@ -187,8 +187,8 @@ class RiskEngine(
         }
         if (raw.severity == heldSensorRisk.severity) { sensorReleaseStartMs = null; return }
         val releaseDistance = when (heldSensorRisk) {
-            RiskLevel.STOP -> 115; RiskLevel.SLOW -> 165
-            RiskLevel.AWARENESS -> 215; RiskLevel.NONE -> 0
+            RiskLevel.STOP -> 65; RiskLevel.SLOW -> 115
+            RiskLevel.AWARENESS -> 165; RiskLevel.NONE -> 0
         }
         if (event.wireRecord.distanceCm > releaseDistance) {
             val started = sensorReleaseStartMs
@@ -291,9 +291,8 @@ class RiskEngine(
     }
 
     private fun rawSensorRisk(distanceCm: Int) = when (distanceCm) {
-        in 2..100 -> RiskLevel.STOP
-        in 101..150 -> RiskLevel.SLOW
-        else -> RiskLevel.NONE
+        in 2..50 -> RiskLevel.STOP; in 51..100 -> RiskLevel.SLOW
+        in 101..150 -> RiskLevel.AWARENESS; else -> RiskLevel.NONE
     }
     private fun validBox(box: NormalizedRect) = box.left.isFinite() && box.top.isFinite() &&
         box.right.isFinite() && box.bottom.isFinite() && box.left >= 0f && box.top >= 0f &&

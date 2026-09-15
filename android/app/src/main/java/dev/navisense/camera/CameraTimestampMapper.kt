@@ -56,6 +56,7 @@ class CameraTimestampMapper(
 
         val futureToleranceNanos = futureToleranceMs * NANOS_PER_MILLISECOND
         if (mappedNanos > observedLocalNanos + futureToleranceNanos) {
+            reanchor(sourceTimestampNanos, observedLocalNanos)
             return Mapping.Rejected(
                 reason = "Camera timestamp mapping moved into the future",
                 mappedCaptureMonotonicMs = mappedNanos / NANOS_PER_MILLISECOND
@@ -64,6 +65,7 @@ class CameraTimestampMapper(
 
         val ageNanos = observedLocalNanos - mappedNanos
         if (ageNanos > maxCaptureAgeMs * NANOS_PER_MILLISECOND) {
+            reanchor(sourceTimestampNanos, observedLocalNanos)
             return Mapping.Rejected(
                 reason = "Camera frame is stale (${ageNanos / NANOS_PER_MILLISECOND} ms old)",
                 mappedCaptureMonotonicMs = mappedNanos / NANOS_PER_MILLISECOND
@@ -71,6 +73,17 @@ class CameraTimestampMapper(
         }
 
         return Mapping.Usable(mappedNanos / NANOS_PER_MILLISECOND)
+    }
+
+    /**
+     * CameraX KEEP_ONLY_LATEST may create a clock-domain gap after a slow model
+     * forward pass. Reject the affected frame, then re-anchor so the next frame
+     * can recover instead of remaining permanently stale.
+     */
+    private fun reanchor(sourceTimestampNanos: Long, observedLocalNanos: Long) {
+        sourceAnchorNanos = sourceTimestampNanos
+        localAnchorNanos = observedLocalNanos
+        lastSourceNanos = sourceTimestampNanos
     }
 
     private companion object {

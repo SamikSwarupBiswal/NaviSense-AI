@@ -295,10 +295,12 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                     clock = app.clock,
                     onPerceptionEvent = { event ->
                         coordinator.onPerceptionEvent(event)
-                        detectionOverlay.setDetections(event.detections)
                     },
                     onSearchEvent = { event ->
                         coordinator.onSearchEvent(event)
+                    },
+                    onOverlayDetections = { detections ->
+                        detectionOverlay.setDetections(detections)
                     }
                 )
                 cameraAnalyzer = analyzer
@@ -310,8 +312,6 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                 cameraProvider?.bindToLifecycle(this, cameraSelector, preview, imageAnalysis)
                 Log.i(TAG, "CameraX preview and analyzer successfully bound to lifecycle")
 
-                // Pre-activate local mobility vision model for live YOLO bounding boxes
-                activateLocalModel(coordinator.sessionGeneration.createToken(AppMode.MOBILITY), AppVisionMode.MOBILITY, null)
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to initialize CameraX", e)
                 coordinator.fatalPause()
@@ -412,7 +412,7 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                     runOnUiThread {
                         if (record.isValid) {
                             tvSensorStatus.text = "Ultrasonic: ${record.distanceCm} cm"
-                            if (record.isImmediateStopCandidate) {
+                            if (coordinator.currentMode == AppMode.MOBILITY && record.isImmediateStopCandidate) {
                                 hapticFeedback.triggerEmergencyStopVibration()
                             }
                         } else {
@@ -430,7 +430,9 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                     coordinator.updateSensorHealth(h)
                 },
                 onImmediateStopCandidate = { _ ->
-                    hapticFeedback.triggerEmergencyStopVibration()
+                    if (coordinator.currentMode == AppMode.MOBILITY) {
+                        hapticFeedback.triggerEmergencyStopVibration()
+                    }
                 }
             )
 
@@ -482,11 +484,7 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                 AppMode.FINAL_SEARCH -> {
                     activateLocalModel(token, AppVisionMode.LOCATE_SEARCH, coordinator.activeTargetClass)
                 }
-                AppMode.IDLE -> {
-                    // Keep mobility vision active for live camera bounding box preview
-                    activateLocalModel(token, AppVisionMode.MOBILITY, null)
-                }
-                AppMode.PAUSED, AppMode.FOUND -> {
+                AppMode.IDLE, AppMode.PAUSED, AppMode.FOUND -> {
                     cameraAnalyzer?.stopSession()
                     releaseActiveVisionRunnerAsync()
                     detectionOverlay.clearDetections()
@@ -514,7 +512,9 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                         assetName = "models/mobility_smoke.ptl",
                         identity = "mobility-v0.2.0-finetuned-d76302b6",
                         labels = listOf("person", "chair", "table", "backpack", "bottle"),
-                        confidenceThreshold = 0.40f,
+                        // Render/export contract candidates start at 0.25. The risk engine
+                        // independently enforces the PRD's >= 0.40 qualification threshold.
+                        confidenceThreshold = 0.25f,
                         expectedSha256 = "d76302b62ba357a5dfa7531f201a7d7141ce55b1c940d3c6eae3b19d573b4936"
                     )
                     AppVisionMode.LOCATE_SEARCH -> LocalModelConfiguration(
@@ -610,7 +610,9 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                 PathStatus.BLOCKED -> {
                     tvPathStatus.text = getString(R.string.status_path_blocked)
                     tvPathStatus.setTextColor(getColor(R.color.status_stop))
-                    hapticFeedback.triggerEmergencyStopVibration()
+                    if (coordinator.currentMode == AppMode.MOBILITY) {
+                        hapticFeedback.triggerEmergencyStopVibration()
+                    }
                 }
                 PathStatus.UNKNOWN -> {
                     tvPathStatus.text = getString(R.string.status_path_unknown)

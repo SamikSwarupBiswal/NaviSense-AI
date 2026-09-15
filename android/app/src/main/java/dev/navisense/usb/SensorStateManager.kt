@@ -17,7 +17,7 @@ class SensorStateManager(
         const val RECOVERY_MIN_SPAN_MS = 150L
         const val RECOVERY_MAX_GAP_MS = 300L
         const val MAX_DELAY_DRIFT_MS = 200L
-        const val IMMEDIATE_STOP_THRESHOLD_CM = 100
+        const val IMMEDIATE_STOP_THRESHOLD_CM = 50
     }
 
     private val sessionGeneration = AtomicLong(0)

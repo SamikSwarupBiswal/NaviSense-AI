@@ -26,6 +26,10 @@ class DetectionOverlayView @JvmOverloads constructor(
 
     private val lock = Any()
     private var currentDetections: List<DetectedObject> = emptyList()
+    private val expireDetections = Runnable {
+        synchronized(lock) { currentDetections = emptyList() }
+        invalidate()
+    }
 
     private val density = context.resources.displayMetrics.density
     private val scaledDensity = context.resources.displayMetrics.scaledDensity
@@ -79,6 +83,10 @@ class DetectionOverlayView @JvmOverloads constructor(
         synchronized(lock) {
             currentDetections = detections
         }
+        removeCallbacks(expireDetections)
+        if (detections.isNotEmpty()) {
+            postDelayed(expireDetections, OVERLAY_EXPIRY_MS)
+        }
         postInvalidate()
     }
 
@@ -89,6 +97,7 @@ class DetectionOverlayView @JvmOverloads constructor(
         synchronized(lock) {
             currentDetections = emptyList()
         }
+        removeCallbacks(expireDetections)
         postInvalidate()
     }
 
@@ -156,5 +165,9 @@ class DetectionOverlayView @JvmOverloads constructor(
             textPaint.color = 0xFF000000.toInt()
             canvas.drawText(labelText, textX, textY, textPaint)
         }
+    }
+
+    private companion object {
+        const val OVERLAY_EXPIRY_MS = 750L
     }
 }

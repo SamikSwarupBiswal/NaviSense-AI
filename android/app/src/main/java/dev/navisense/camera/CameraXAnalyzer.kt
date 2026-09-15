@@ -1,6 +1,7 @@
 package dev.navisense.camera
 
 import android.graphics.ImageFormat
+import android.util.Log
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
 import dev.navisense.contracts.AppVisionMode
@@ -26,6 +27,7 @@ class CameraXAnalyzer(
     private val clock: IClock,
     private val onPerceptionEvent: (MobilePerceptionEvent) -> Unit,
     private val onSearchEvent: (SearchEvent) -> Unit,
+    private val onOverlayDetections: (List<dev.navisense.contracts.DetectedObject>) -> Unit = {},
     private val trackerFactory: () -> VisualTracker = { VisualTracker() },
     private val searchEngineFactory: () -> TargetSearchEngine = { TargetSearchEngine() }
 ) : ImageAnalysis.Analyzer, AutoCloseable {
@@ -251,6 +253,9 @@ class CameraXAnalyzer(
                 sessionGeneration = session.sessionGeneration,
                 geometryVersion = geometryVersion
             )
+            // Overlay output is informational only. Safety consumers still receive
+            // the freshness-filtered event below and must never use stale boxes.
+            onOverlayDetections(runnerEvent.detections)
             val deliveredMs = clock.nowMonotonicNanos() / NANOS_PER_MILLISECOND
             val event = if (deliveredMs < captureMonotonicMs || deliveredMs - captureMonotonicMs > MAX_CAPTURE_AGE_MS) {
                 errorEvent(
@@ -266,8 +271,17 @@ class CameraXAnalyzer(
             }
 
             processedFrames.incrementAndGet()
+            if (frameId % DIAGNOSTIC_FRAME_INTERVAL == 0L) {
+                Log.d(
+                    TAG,
+                    "frame=$frameId mode=${session.mode} ageMs=${deliveredMs - captureMonotonicMs} " +
+                        "quality=${event.qualityStatus} rawDetections=${runnerEvent.detections.size} " +
+                        "safetyDetections=${event.detections.size} error=${event.errorMessage}"
+                )
+            }
             dispatchCompletedFrameIfCurrent(session, event)
         } catch (failure: Exception) {
+            Log.e(TAG, "Camera frame processing failed", failure)
             val session = processingSession
             if (session != null) {
                 val nowMs = clock.nowMonotonicNanos() / NANOS_PER_MILLISECOND
@@ -385,6 +399,8 @@ class CameraXAnalyzer(
     private companion object {
         const val NANOS_PER_MILLISECOND = 1_000_000L
         const val MAX_CAPTURE_AGE_MS = 500L
+        const val DIAGNOSTIC_FRAME_INTERVAL = 30L
+        const val TAG = "NaviSenseCameraAnalyzer"
         val VALID_ROTATIONS = setOf(0, 90, 180, 270)
     }
 }

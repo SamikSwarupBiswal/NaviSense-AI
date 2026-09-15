@@ -1,6 +1,7 @@
 package dev.navisense.inference
 
 import android.content.Context
+import android.util.Log
 import org.pytorch.IValue
 import org.pytorch.LiteModuleLoader
 import org.pytorch.Module
@@ -52,6 +53,7 @@ class PyTorchLiteInferenceBackend(
         val numChannels = shape[1].toInt()
         val numAnchors = shape[2].toInt()
         val candidates = mutableListOf<RawDetection>()
+        var maximumScore = -Float.MAX_VALUE
 
         for (i in 0 until numAnchors) {
             var bestClass = -1
@@ -64,6 +66,7 @@ class PyTorchLiteInferenceBackend(
                     bestClass = c
                 }
             }
+            if (bestScore > maximumScore) maximumScore = bestScore
 
             if (bestScore >= confThreshold && bestClass >= 0) {
                 val cx = outData[0 * numAnchors + i]
@@ -78,6 +81,10 @@ class PyTorchLiteInferenceBackend(
 
                 candidates.add(RawDetection(bestClass, bestScore, x1, y1, x2, y2))
             }
+        }
+
+        if (completedForwardPasses % 15 == 0) {
+            Log.d(TAG, "forward=$completedForwardPasses maxScore=$maximumScore candidates=${candidates.size}")
         }
 
         return applyNms(candidates, iouThreshold)
@@ -127,6 +134,7 @@ class PyTorchLiteInferenceBackend(
     }
 
     companion object {
+        private const val TAG = "NaviSenseYoloBackend"
         @Synchronized
         fun copyAssetToCache(context: Context, assetName: String): String {
             val file = File(context.cacheDir, assetName)

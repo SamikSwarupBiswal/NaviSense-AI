@@ -28,6 +28,8 @@ class CameraPipelineSupportTest {
         val stale = staleMapper.map(1_100_000_000L, 2_700_000_000L)
         assertTrue(stale is CameraTimestampMapper.Mapping.Rejected)
         assertTrue((stale as CameraTimestampMapper.Mapping.Rejected).reason.contains("stale"))
+        val recovered = staleMapper.map(1_200_000_000L, 2_800_000_000L)
+        assertEquals(CameraTimestampMapper.Mapping.Usable(2_800L), recovered)
 
         val futureMapper = CameraTimestampMapper()
         futureMapper.map(1_000_000_000L, 2_000_000_000L)
