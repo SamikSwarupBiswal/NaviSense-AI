@@ -20,6 +20,8 @@ datasets/raw/*
 *.zip
 *.db
 models/checkpoints/
+models/locate/
+datasets/locate_roboflow/
 runs/
 yolov8n.pt
 

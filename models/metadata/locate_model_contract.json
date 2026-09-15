@@ -1,6 +1,6 @@
 {
   "model_name": "NaviSense-Locate-YOLO",
-  "version": "v0.1.0-smoke",
+  "version": "v0.2.0-finetuned",
   "phase": "Phase 0",
   "task": "locate_object_detection",
   "intended_receivers": [
@@ -9,9 +9,9 @@
   ],
   "provenance": {
     "base_architecture": "YOLOv8n / YOLO11n",
-    "status": "smoke_placeholder_weights",
-    "qualification": "UNQUALIFIED_SMOKE_ONLY",
-    "note": "For adapter interface validation and shape compliance only; not trained on custom dataset."
+    "status": "finetuned_tabletop_phone",
+    "qualification": "QUALIFIED_LOCATE_CANDIDATE",
+    "note": "Fine-tuned on Roboflow tabletop and phone dataset (keys, wallet)."
   },
   "input_specification": {
     "tensor_name": "images",
@@ -108,24 +108,24 @@
   },
   "artifact": {
     "file_path": "models/smoke/locate_smoke.pt",
-    "sha256": "02bbdf0758c1f9344802b71d9c924c7385740f6e4ed48df17c6136aa29334dac",
+    "sha256": "6422ac4e86263a1b5c249169d74b00d157625af0535914cc386611cfb803710e",
     "format": "torchscript_pt",
-    "size_bytes": 1098679
+    "size_bytes": 12651593
   },
   "artifacts": {
     "laptop_torchscript": {
       "path": "models/smoke/locate_smoke.pt",
-      "sha256": "02bbdf0758c1f9344802b71d9c924c7385740f6e4ed48df17c6136aa29334dac",
+      "sha256": "6422ac4e86263a1b5c249169d74b00d157625af0535914cc386611cfb803710e",
       "format": "torchscript_pt"
     },
     "android_mobile_ptl": {
       "path": "android/app/src/main/assets/models/locate_smoke.ptl",
-      "sha256": "6b10accfabb7c7efbcb56fbb6b3198283bee56790987a5b87e403644746a8197",
+      "sha256": "85a6d1cfce3daf55abafa0a341f129426af493bcd5592a059dbe1e8eb60db23a",
       "format": "pytorch_lite_ptl"
     },
     "android_assets_pt": {
       "path": "android/app/src/main/assets/models/locate_smoke.pt",
-      "sha256": "eb3ed250b7fe4f2a5d6a2bd92ade0da5e372aa988d75fb8e9d4461eeaf3431e5",
+      "sha256": "6422ac4e86263a1b5c249169d74b00d157625af0535914cc386611cfb803710e",
       "format": "torchscript_pt"
     }
   }

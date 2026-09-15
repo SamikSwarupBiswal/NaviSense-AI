@@ -506,10 +506,10 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                     )
                     AppVisionMode.LOCATE_SEARCH -> LocalModelConfiguration(
                         assetName = "models/locate_smoke.ptl",
-                        identity = "locate-v0.1.0-smoke-6b10accf",
+                        identity = "locate-v0.2.0-finetuned-85a6d1cf",
                         labels = listOf("keys", "wallet"),
                         confidenceThreshold = 0.25f,
-                        expectedSha256 = "6b10accfabb7c7efbcb56fbb6b3198283bee56790987a5b87e403644746a8197"
+                        expectedSha256 = "85a6d1cfce3daf55abafa0a341f129426af493bcd5592a059dbe1e8eb60db23a"
                     )
                     AppVisionMode.OFF -> throw IllegalArgumentException("OFF has no local model")
                 }
