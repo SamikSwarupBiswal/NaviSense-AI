@@ -2268,3 +2268,30 @@ Source revision and evidence reference: main bf62a89; MainActivity.kt, SessionCo
 Recipient(s): Rishav, Rohan, Spandan, Subham
 For response: Rishav review UI status preservation fix; team ACK successful physical device directional verification.
 ```
+
+```text
+Entry ID: RISHAV-2026-09-16-022 / 2026-09-16T04:35:00+05:30 / T+ unverified
+Author and type: Rishav | PROGRESS, IMPLEMENTATION & TEST
+Phase / step / S-instance / H-contract: Phase 7 / Voice UX / Hands-Free Voice Commands & Intent Launch
+Message and requested action:
+1. Implemented User Voice Command Operation & Voice Launch Greeting:
+   - Addressed user requirement: Users can open the app hands-free via voice commands ("open Navi sense" -> app replies "opened") and operate the app by voice (e.g., "find wallet" -> initiates Search Nearby and selects Wallet; "find keys" -> selects Keys; "start walking", "stop").
+2. Core Voice Engine Implementation:
+   - VoiceCommand (dev.navisense.voice.VoiceCommand): Sealed domain model for FindTarget(target), StartWalking, Stop, ConfirmArrival, Help, AppStatus, and Unknown.
+   - VoiceCommandParser (dev.navisense.voice.VoiceCommandParser): Pure Kotlin natural language intent extractor handling contractions, filler words, and spoken synonyms for keys, wallet, walking, stop, arrival ("i am here"), help, and status.
+   - VoiceCommandManager (dev.navisense.voice.VoiceCommandManager): Android SpeechRecognizer lifecycle manager featuring continuous restart loop, partial result emergency STOP detection, and TTS echo-loop avoidance via SpeechArbiter.isSpeaking.
+   - ISpeechArbiter & SpeechArbiter: Added isSpeaking query property to track active TTS playback.
+3. Android Integration & Voice Intents:
+   - AndroidManifest.xml: Added RECORD_AUDIO permission, microphone feature declaration, and android.intent.action.VOICE_COMMAND / android.intent.action.ASSIST intent filters on MainActivity.
+   - MainActivity: Added voice launch detection ("opened" audible greeting via SpeechArbiter on voice intents), voice status banner (tvVoiceStatus), accessible microphone button (btnVoiceCommand), dynamic audio permission handling, and command execution hooks wiring FindTarget to SessionCoordinator.startNearbySearch, StartWalking to SessionCoordinator.startWalkingMode, and Stop to SessionCoordinator.stopNavigation.
+4. Verification & Build Evidence:
+   - VoiceCommandParserTest: 7/7 unit tests PASS.
+   - Android Unit Tests: 99/99 JVM unit tests PASS across the entire project (.\gradlew.bat testDebugUnitTest).
+   - Debug APK Assembly: .\gradlew.bat assembleDebug produced app-debug.apk (269 MB) with BUILD SUCCESSFUL.
+5. Frozen File Hashes:
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Source revision and evidence reference: commit 325f0d8 on main; VoiceCommand.kt, VoiceCommandParser.kt, VoiceCommandManager.kt, VoiceCommandParserTest.kt, MainActivity.kt, AndroidManifest.xml, activity_main.xml, strings.xml
+Recipient(s): Samik, Subham, Rohan, Spandan
+For response: Samik ACK VoiceCommand integration and physical device verification; team review.
+```
