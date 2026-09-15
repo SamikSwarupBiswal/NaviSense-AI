@@ -1846,3 +1846,38 @@ Message and requested action:
 Source revision and evidence reference: main 24c522d; datasets/raw/laptop/SES_04_LAPTOP_WOOD/, docs/implementation-state.md
 Recipient(s): Spandan, Samik, Rishav, Rohan
 For response: Spandan / Samik acknowledge SES_04 delivery for Locate YOLO dataset pipeline.
+
+```text
+Entry ID: SPANDAN-2026-09-15-020 / 2026-09-15T23:55:00+05:30 / T+ unverified
+Author and type: Spandan (with Codex) | PROGRESS & HANDOFF
+Phase / step / S-instance / H-contract: Phase 1 & 2 / Step 03 / Handoff S09 candidate weights / H1 Locate Model
+Message and requested action:
+1. Locate Dataset Ingestion & Partitioning:
+   - Ingested 255-image annotated Roboflow dataset (spandanjit-mishra/navisense-locate/1) under datasets/locate_roboflow/.
+   - Partitions: 179 train, 51 val, 25 test.
+   - Classes strictly mapped to canonical IDs: 0: keys, 1: wallet.
+   - Ground truth totals: 122 keys, 130 wallets, 61 empty negative frames.
+2. Fine-Tuning Execution & Results (scripts/train_locate.py):
+   - Fine-tuned YOLOv8n for 25 epochs on Apple M2 (MPS).
+   - Validation Metrics (51 images, 43 instances):
+     * Overall: mAP50 = 93.7%, Precision = 87.4%, Recall = 95.1%
+     * keys: Precision = 100.0%, Recall = 98.4%, mAP50 = 99.5%
+     * wallet: Precision = 74.8%, Recall = 91.7%, mAP50 = 87.9%
+   - Test Split Evaluation (25 images, 26 instances, 6 backgrounds):
+     * Overall: mAP50 = 95.0%, Precision = 92.0%, Recall = 91.7%
+     * keys: Precision = 90.3%, Recall = 84.5%
+     * wallet: Precision = 93.7%, Recall = 99.0%
+     * Meets AC-02 precision (>=90%) and recall (>=85%) targets on held-out split.
+3. Dual-Runtime Model Export & Packaging (scripts/export_locate_model.py):
+   - Laptop TorchScript: models/smoke/locate_smoke.pt (SHA-256: 6422ac4e86263a1b5c249169d74b00d157625af0535914cc386611cfb803710e)
+   - Android Mobile Lite: android/app/src/main/assets/models/locate_smoke.ptl (SHA-256: 85a6d1cfce3daf55abafa0a341f129426af493bcd5592a059dbe1e8eb60db23a)
+   - Models verified with verify_smoke.py: 100% PASS (input [1, 3, 640, 640] -> output [1, 6, 8400]).
+   - Updated models/metadata/locate_model_contract.json to v0.2.0-finetuned / QUALIFIED_LOCATE_CANDIDATE.
+   - Updated MainActivity.kt expectedSha256 and identity for LOCATE_SEARCH mode.
+4. Frozen Contract Check:
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Source revision and evidence reference: main b03cba4; scripts/train_locate.py, scripts/export_locate_model.py, models/metadata/locate_model_contract.json, android/app/src/main/assets/models/locate_smoke.ptl, docs/implementation-state.md
+Recipient(s): Subham, Samik, Rishav, Rohan
+For response: Subham wire locate_smoke.pt into Hard Scan; Samik / Rishav run Locate detection on OPPO CPH2753.
+```
