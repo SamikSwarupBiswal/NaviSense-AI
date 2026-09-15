@@ -108,24 +108,24 @@
   },
   "artifact": {
     "file_path": "models/smoke/locate_smoke.pt",
-    "sha256": "6422ac4e86263a1b5c249169d74b00d157625af0535914cc386611cfb803710e",
+    "sha256": "340851a7d87b0df47404b988b8d87f992288992723e814fa93897512547ae97b",
     "format": "torchscript_pt",
-    "size_bytes": 12651593
+    "size_bytes": 12651705
   },
   "artifacts": {
     "laptop_torchscript": {
       "path": "models/smoke/locate_smoke.pt",
-      "sha256": "6422ac4e86263a1b5c249169d74b00d157625af0535914cc386611cfb803710e",
+      "sha256": "340851a7d87b0df47404b988b8d87f992288992723e814fa93897512547ae97b",
       "format": "torchscript_pt"
     },
     "android_mobile_ptl": {
       "path": "android/app/src/main/assets/models/locate_smoke.ptl",
-      "sha256": "85a6d1cfce3daf55abafa0a341f129426af493bcd5592a059dbe1e8eb60db23a",
+      "sha256": "0640015d1266c2574a52faf0c9646e1a43dec9fa4e8cf5c2bd923a11c115c84a",
       "format": "pytorch_lite_ptl"
     },
     "android_assets_pt": {
       "path": "android/app/src/main/assets/models/locate_smoke.pt",
-      "sha256": "6422ac4e86263a1b5c249169d74b00d157625af0535914cc386611cfb803710e",
+      "sha256": "340851a7d87b0df47404b988b8d87f992288992723e814fa93897512547ae97b",
       "format": "torchscript_pt"
     }
   }

@@ -6,6 +6,7 @@ import dev.navisense.contracts.MobilePerceptionEvent
 import dev.navisense.contracts.PathStatus
 import dev.navisense.contracts.SearchEvent
 import dev.navisense.contracts.SearchStatus
+import dev.navisense.contracts.SearchUiState
 import dev.navisense.contracts.SensorEvent
 import dev.navisense.contracts.SensorHealth
 import dev.navisense.contracts.SessionGeneration
@@ -51,6 +52,10 @@ class SessionCoordinator(
     var activeTargetZone: String? = null
         private set
 
+    @Volatile
+    var currentSearchState: SearchUiState = SearchUiState.NONE
+        private set
+
     private val stateListeners = mutableListOf<StateChangeListener>()
 
     interface StateChangeListener {
@@ -58,6 +63,12 @@ class SessionCoordinator(
         fun onPathStatusChanged(newStatus: PathStatus)
         fun onSensorHealthChanged(newHealth: SensorHealth)
         fun onRiskEvaluated(result: RiskEvaluationResult) {}
+        fun onSearchStateChanged(newState: SearchUiState, event: SearchEvent? = null) {}
+    }
+
+    private fun notifySearchStateChanged(newState: SearchUiState, event: SearchEvent? = null) {
+        currentSearchState = newState
+        stateListeners.forEach { it.onSearchStateChanged(newState, event) }
     }
 
     @Synchronized
@@ -80,6 +91,7 @@ class SessionCoordinator(
     fun startMobility(): SessionToken {
         val newGen = sessionGeneration.advance()
         currentMode = AppMode.MOBILITY
+        currentSearchState = SearchUiState.NONE
         activeTargetClass = null
         activeTargetZone = null
         currentPathStatus = PathStatus.UNKNOWN
@@ -96,6 +108,7 @@ class SessionCoordinator(
         )
         val token = SessionToken(newGen, currentMode)
         notifyModeChanged(token)
+        notifySearchStateChanged(SearchUiState.NONE)
         return token
     }
 
@@ -109,6 +122,7 @@ class SessionCoordinator(
         activeTargetClass = targetClass
         activeTargetZone = null
         currentPathStatus = PathStatus.UNKNOWN
+        currentSearchState = SearchUiState.LOADING_MODEL
         riskEngine.reset()
         speechArbiter?.invalidateSession(newGen)
         speechArbiter?.speak(
@@ -122,7 +136,58 @@ class SessionCoordinator(
         )
         val token = SessionToken(newGen, currentMode)
         notifyModeChanged(token)
+        notifySearchStateChanged(SearchUiState.LOADING_MODEL)
         return token
+    }
+
+    /**
+     * Confirms that the local Locate model has been loaded and the camera analyzer is actively scanning.
+     */
+    @Synchronized
+    fun markNearbySearchReady(expectedGeneration: Long): Boolean {
+        if (!sessionGeneration.isValid(expectedGeneration) || currentMode != AppMode.FINAL_SEARCH) {
+            return false
+        }
+        notifySearchStateChanged(SearchUiState.SEARCHING)
+        return true
+    }
+
+    /**
+     * Reports an unrecoverable failure during nearby search (e.g. model loading error or permission denial).
+     */
+    @Synchronized
+    fun failNearbySearch(reason: String? = null): SessionToken {
+        val newGen = sessionGeneration.advance()
+        currentMode = AppMode.IDLE
+        activeTargetClass = null
+        activeTargetZone = null
+        currentPathStatus = PathStatus.UNKNOWN
+        riskEngine.reset()
+        speechArbiter?.invalidateSession(newGen)
+        speechArbiter?.cancelAll()
+        memoryClient?.cancelPending()
+        speechArbiter?.speak(
+            SpeechRequest(
+                utteranceId = "search_fail_$newGen",
+                phrase = "Nearby search is unavailable.",
+                priority = AlertPriority.INFORMATIONAL,
+                sessionGeneration = newGen,
+                requestMonotonicMs = clock.nowMonotonicMs()
+            )
+        )
+        val token = SessionToken(newGen, currentMode)
+        notifyModeChanged(token)
+        notifySearchStateChanged(SearchUiState.ERROR)
+        return token
+    }
+
+    /**
+     * Retries nearby search for the active target class.
+     */
+    @Synchronized
+    fun retryNearbySearch(): SessionToken? {
+        val target = activeTargetClass ?: return null
+        return startNearbySearch(target)
     }
 
     /**
@@ -256,6 +321,7 @@ class SessionCoordinator(
         val target = activeTargetClass ?: return null
         val newGen = sessionGeneration.advance()
         currentMode = AppMode.FINAL_SEARCH
+        currentSearchState = SearchUiState.LOADING_MODEL
         riskEngine.reset()
         speechArbiter?.invalidateSession(newGen)
         speechArbiter?.speak(
@@ -269,6 +335,7 @@ class SessionCoordinator(
         )
         val token = SessionToken(newGen, currentMode)
         notifyModeChanged(token)
+        notifySearchStateChanged(SearchUiState.LOADING_MODEL)
         return token
     }
 
@@ -301,12 +368,14 @@ class SessionCoordinator(
         activeTargetClass = null
         activeTargetZone = null
         currentPathStatus = PathStatus.UNKNOWN
+        currentSearchState = SearchUiState.NONE
         riskEngine.reset()
         speechArbiter?.invalidateSession(newGen)
         speechArbiter?.cancelAll()
         memoryClient?.cancelPending()
         val token = SessionToken(newGen, currentMode)
         notifyModeChanged(token)
+        notifySearchStateChanged(SearchUiState.NONE)
         return token
     }
 
@@ -320,12 +389,14 @@ class SessionCoordinator(
         activeTargetClass = null
         activeTargetZone = null
         currentPathStatus = PathStatus.UNKNOWN
+        currentSearchState = SearchUiState.NONE
         riskEngine.reset()
         speechArbiter?.invalidateSession(newGen)
         speechArbiter?.cancelAll()
         memoryClient?.cancelPending()
         val token = SessionToken(newGen, currentMode)
         notifyModeChanged(token)
+        notifySearchStateChanged(SearchUiState.NONE)
         return token
     }
 
@@ -352,30 +423,45 @@ class SessionCoordinator(
         if (!sessionGeneration.isValid(event.sessionGeneration)) return
         if (currentMode != AppMode.FINAL_SEARCH) return
 
-        if (event.status == SearchStatus.CONFIRMED) {
-            onTargetFound()
-            val dirStr = event.direction?.name?.lowercase() ?: "center"
-            val phrase = "Target found $dirStr"
-            speechArbiter?.speak(
-                SpeechRequest(
-                    utteranceId = "found_${clock.nowMonotonicMs()}",
-                    phrase = phrase,
-                    priority = AlertPriority.DIRECTIONAL,
-                    sessionGeneration = sessionGeneration.get(),
-                    requestMonotonicMs = clock.nowMonotonicMs()
+        when (event.status) {
+            SearchStatus.CONFIRMED -> {
+                notifySearchStateChanged(SearchUiState.FOUND, event)
+                onTargetFound()
+                val dirStr = event.direction?.name?.lowercase() ?: "center"
+                val phrase = "Target found $dirStr"
+                speechArbiter?.speak(
+                    SpeechRequest(
+                        utteranceId = "found_${clock.nowMonotonicMs()}",
+                        phrase = phrase,
+                        priority = AlertPriority.DIRECTIONAL,
+                        sessionGeneration = sessionGeneration.get(),
+                        requestMonotonicMs = clock.nowMonotonicMs()
+                    )
                 )
-            )
-        } else if (event.status == SearchStatus.TIMEOUT) {
-            userStop()
-            speechArbiter?.speak(
-                SpeechRequest(
-                    utteranceId = "timeout_${clock.nowMonotonicMs()}",
-                    phrase = "Search timed out",
-                    priority = AlertPriority.INFORMATIONAL,
-                    sessionGeneration = sessionGeneration.get(),
-                    requestMonotonicMs = clock.nowMonotonicMs()
+            }
+            SearchStatus.TIMEOUT -> {
+                notifySearchStateChanged(SearchUiState.TIMED_OUT, event)
+                speechArbiter?.speak(
+                    SpeechRequest(
+                        utteranceId = "timeout_${clock.nowMonotonicMs()}",
+                        phrase = "Search timed out",
+                        priority = AlertPriority.INFORMATIONAL,
+                        sessionGeneration = sessionGeneration.get(),
+                        requestMonotonicMs = clock.nowMonotonicMs()
+                    )
                 )
-            )
+            }
+            SearchStatus.MULTIPLE_CANDIDATES -> {
+                notifySearchStateChanged(SearchUiState.MULTIPLE_CANDIDATES, event)
+            }
+            SearchStatus.SEARCHING -> {
+                if (currentSearchState != SearchUiState.SEARCHING) {
+                    notifySearchStateChanged(SearchUiState.SEARCHING, event)
+                }
+            }
+            SearchStatus.ERROR -> {
+                notifySearchStateChanged(SearchUiState.ERROR, event)
+            }
         }
     }
 

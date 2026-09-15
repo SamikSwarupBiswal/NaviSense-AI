@@ -55,4 +55,107 @@ class SearchRegressionTest {
         engine.processFrame(frame(2, listOf(detection, other)))
         assertEquals(SearchStatus.MULTIPLE_CANDIDATES, engine.processFrame(frame(3, listOf(detection, other)))?.status)
     }
+
+    @Test fun searchTargetNormalizationAndInvalidTarget() {
+        assertEquals(SearchTarget.KEYS, SearchTarget.fromValue("keys"))
+        assertEquals(SearchTarget.KEYS, SearchTarget.fromValue("Keys"))
+        assertEquals(SearchTarget.KEYS, SearchTarget.fromValue("keychain"))
+        assertEquals(SearchTarget.WALLET, SearchTarget.fromValue("wallet"))
+        assertEquals(SearchTarget.WALLET, SearchTarget.fromValue("Purse"))
+        assertNull(SearchTarget.fromValue("unknown_item"))
+
+        val engine = TargetSearchEngine()
+        engine.startSearch("keychain", 1L, 1000L)
+        assertTrue(engine.isSearchActive)
+
+        assertThrows(IllegalArgumentException::class.java) {
+            engine.startSearch("chair", 2L, 1000L)
+        }
+    }
+
+    @Test fun watchdogOnTickEmitsTimeoutWithoutFrames() {
+        val engine = TargetSearchEngine(searchTimeoutMs = 15000L)
+        engine.startSearch("keys", 1L, 1000L)
+
+        // Before 15 seconds: null
+        assertNull(engine.onTick(1000L + 5000L))
+        assertNull(engine.onTick(1000L + 14999L))
+
+        // At 15 seconds: TIMEOUT event emitted
+        val event = engine.onTick(1000L + 15000L)
+        assertNotNull(event)
+        assertEquals(SearchStatus.TIMEOUT, event?.status)
+        assertEquals("keys", event?.targetClass)
+
+        // Subsequent onTick calls do not duplicate timeout
+        assertNull(engine.onTick(1000L + 16000L))
+    }
+
+    @Test fun sessionCoordinatorNearbySearchLifecycle() {
+        val fakeClock = FakeClock(1000L)
+        val sessionGen = SessionGeneration(1L)
+        val spokenPhrases = mutableListOf<String>()
+        val mockSpeechArbiter = object : dev.navisense.voice.ISpeechArbiter {
+            override fun speak(request: dev.navisense.voice.SpeechRequest): Boolean {
+                spokenPhrases.add(request.phrase)
+                return true
+            }
+            override fun cancelAll() {
+                spokenPhrases.add("CANCEL_ALL")
+            }
+            override fun invalidateSession(newGeneration: Long) {}
+        }
+
+        val coordinator = dev.navisense.app.SessionCoordinator(
+            sessionGeneration = sessionGen,
+            clock = fakeClock,
+            speechArbiter = mockSpeechArbiter
+        )
+
+        var observedSearchState: SearchUiState = SearchUiState.NONE
+        coordinator.addListener(object : dev.navisense.app.SessionCoordinator.StateChangeListener {
+            override fun onModeChanged(newMode: AppMode, token: SessionToken) {}
+            override fun onPathStatusChanged(newStatus: PathStatus) {}
+            override fun onSensorHealthChanged(newHealth: SensorHealth) {}
+            override fun onSearchStateChanged(newState: SearchUiState, event: SearchEvent?) {
+                observedSearchState = newState
+            }
+        })
+
+        // 1. Start nearby search
+        val token = coordinator.startNearbySearch("keys")
+        assertEquals(AppMode.FINAL_SEARCH, coordinator.currentMode)
+        assertEquals(SearchUiState.LOADING_MODEL, observedSearchState)
+        assertEquals(SearchUiState.LOADING_MODEL, coordinator.currentSearchState)
+        assertTrue(spokenPhrases.contains("Searching for keys"))
+
+        // 2. Mark ready when model loaded
+        assertTrue(coordinator.markNearbySearchReady(token.generation))
+        assertEquals(SearchUiState.SEARCHING, observedSearchState)
+
+        // 3. Confirm target found
+        val confirmEvent = SearchEvent(
+            sessionGeneration = token.generation,
+            targetClass = "keys",
+            status = SearchStatus.CONFIRMED,
+            direction = TargetDirection.LEFT,
+            candidateCount = 1,
+            timestampMonotonicMs = 2000L
+        )
+        coordinator.onSearchEvent(confirmEvent)
+        assertEquals(AppMode.FOUND, coordinator.currentMode)
+        assertEquals(SearchUiState.FOUND, observedSearchState)
+        assertTrue(spokenPhrases.any { it.contains("Target found left") })
+
+        // 4. Retry search
+        coordinator.retryNearbySearch()
+        assertEquals(AppMode.FINAL_SEARCH, coordinator.currentMode)
+        assertEquals(SearchUiState.LOADING_MODEL, coordinator.currentSearchState)
+
+        // 5. Fail search
+        coordinator.failNearbySearch("Model error")
+        assertEquals(AppMode.IDLE, coordinator.currentMode)
+        assertEquals(SearchUiState.ERROR, observedSearchState)
+        assertTrue(spokenPhrases.contains("Nearby search is unavailable."))
+    }
 }

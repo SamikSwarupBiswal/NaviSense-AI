@@ -43,8 +43,10 @@ class TargetSearchEngine(
         sessionGeneration: Long,
         startMonotonicMs: Long
     ) {
+        val normalizedTarget = SearchTarget.fromValue(targetClass)
+            ?: throw IllegalArgumentException("Unsupported nearby-search target: $targetClass")
         currentSessionGen = sessionGeneration
-        currentTargetClass = targetClass
+        currentTargetClass = normalizedTarget.canonicalName
         searchStartMonotonicMs = startMonotonicMs
         isConfirmed = false
         isTimeoutEmitted = false
@@ -68,6 +70,26 @@ class TargetSearchEngine(
     }
 
     /**
+     * Emits the single timeout event independently of camera frame delivery.
+     * The caller invokes this from the app's monotonic watchdog.
+     */
+    fun onTick(currentTimeMs: Long): SearchEvent? {
+        if (!isSearchActive || currentTimeMs < searchStartMonotonicMs) return null
+        if (currentTimeMs - searchStartMonotonicMs < searchTimeoutMs || isTimeoutEmitted) return null
+        isTimeoutEmitted = true
+        recentFrames.clear()
+        return SearchEvent(
+            sessionGeneration = currentSessionGen,
+            targetClass = currentTargetClass,
+            status = SearchStatus.TIMEOUT,
+            direction = null,
+            candidateCount = 0,
+            timestampMonotonicMs = currentTimeMs,
+            errorMessage = "Target not found in view within 15 seconds"
+        )
+    }
+
+    /**
      * Processes an incoming perception event against the target search state machine.
      */
     fun processFrame(event: MobilePerceptionEvent): SearchEvent? {
@@ -82,6 +104,7 @@ class TargetSearchEngine(
         }
 
         val currentTimeMs = event.deliveryMonotonicMs
+        onTick(currentTimeMs)?.let { return it }
         if (event.mode != AppVisionMode.LOCATE_SEARCH || event.modelIdentity.isBlank()) return null
         if (model != null && model != event.modelIdentity) return null
         if (event.frameId <= lastFrameId || event.captureMonotonicMs <= lastCapture || currentTimeMs < lastDelivery) return null
@@ -92,23 +115,6 @@ class TargetSearchEngine(
         if (geometry != event.geometryVersion) recentFrames.clear()
         geometry = event.geometryVersion
         model = event.modelIdentity
-
-        // Check 15-second timeout (PRD §20)
-        if (currentTimeMs - searchStartMonotonicMs >= searchTimeoutMs && !isTimeoutEmitted) {
-            if (!isTimeoutEmitted) {
-                isTimeoutEmitted = true
-                return SearchEvent(
-                    sessionGeneration = currentSessionGen,
-                    targetClass = currentTargetClass,
-                    status = SearchStatus.TIMEOUT,
-                    direction = null,
-                    candidateCount = 0,
-                    timestampMonotonicMs = currentTimeMs,
-                    errorMessage = "Target not found in view within 15 seconds"
-                )
-            }
-            return null
-        }
 
         // Only evaluate frames that are usable
         if (event.qualityStatus != FrameQualityStatus.USABLE || event.errorMessage != null) {

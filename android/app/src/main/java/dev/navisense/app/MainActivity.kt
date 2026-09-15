@@ -36,6 +36,10 @@ import dev.navisense.contracts.PathStatus
 import dev.navisense.contracts.SensorEvent
 import dev.navisense.contracts.SensorHealth
 import dev.navisense.contracts.SensorWireRecord
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import dev.navisense.contracts.SearchEvent
+import dev.navisense.contracts.SearchTarget
+import dev.navisense.contracts.SearchUiState
 import dev.navisense.contracts.SessionToken
 import dev.navisense.inference.ModelMetadata
 import dev.navisense.inference.PyTorchLiteInferenceBackend
@@ -192,9 +196,7 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
         }
 
         btnSearchNearby.setOnClickListener {
-            coordinator.startNearbySearch("keys")
-            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-            announce(getString(R.string.phrase_stop_walking_searching))
+            showSearchTargetDialog()
         }
 
         btnConfirmArrival.setOnClickListener {
@@ -482,11 +484,12 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                 AppMode.FINAL_SEARCH -> {
                     activateLocalModel(token, AppVisionMode.LOCATE_SEARCH, coordinator.activeTargetClass)
                 }
-                AppMode.IDLE, AppMode.PAUSED, AppMode.FOUND -> {
+                AppMode.IDLE, AppMode.PAUSED -> {
                     cameraAnalyzer?.stopSession()
                     releaseActiveVisionRunnerAsync()
                     detectionOverlay.clearDetections()
                 }
+                AppMode.FOUND -> {}
                 else -> {}
             }
         }
@@ -517,10 +520,10 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                     )
                     AppVisionMode.LOCATE_SEARCH -> LocalModelConfiguration(
                         assetName = "models/locate_smoke.ptl",
-                        identity = "locate-v0.2.0-finetuned-85a6d1cf",
+                        identity = "locate-v0.2.0-finetuned-0640015d",
                         labels = listOf("keys", "wallet"),
                         confidenceThreshold = 0.25f,
-                        expectedSha256 = "85a6d1cfce3daf55abafa0a341f129426af493bcd5592a059dbe1e8eb60db23a"
+                        expectedSha256 = "0640015d1266c2574a52faf0c9646e1a43dec9fa4e8cf5c2bd923a11c115c84a"
                     )
                     AppVisionMode.OFF -> throw IllegalArgumentException("OFF has no local model")
                 }
@@ -558,11 +561,20 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                 check(result == CameraXAnalyzer.StartResult.Started) {
                     (result as? CameraXAnalyzer.StartResult.Rejected)?.reason ?: "Camera analyzer rejected model"
                 }
+                if (mode == AppVisionMode.LOCATE_SEARCH) {
+                    check(coordinator.markNearbySearchReady(token.generation)) {
+                        "Search session was cancelled before becoming ready"
+                    }
+                }
                 Log.i(TAG, "Activated local $mode model ${configuration.identity}")
             } catch (failure: Throwable) {
                 runner?.close()
                 Log.e(TAG, "Failed to activate local $mode model", failure)
-                coordinator.fatalPause()
+                if (mode == AppVisionMode.LOCATE_SEARCH) {
+                    coordinator.failNearbySearch(failure.message)
+                } else {
+                    coordinator.fatalPause()
+                }
             }
         }
     }
@@ -656,6 +668,83 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
         }
     }
 
+    override fun onSearchStateChanged(newState: SearchUiState, event: SearchEvent?) {
+        runOnUiThread {
+            val target = SearchTarget.fromValue(coordinator.activeTargetClass)
+            when (newState) {
+                SearchUiState.LOADING_MODEL -> {
+                    tvSystemMode.text = getString(
+                        R.string.status_search_loading,
+                        target?.displayName ?: getString(R.string.search_target_generic)
+                    )
+                }
+                SearchUiState.SEARCHING -> {
+                    tvSystemMode.text = getString(
+                        R.string.status_searching_for,
+                        target?.displayName ?: getString(R.string.search_target_generic)
+                    )
+                }
+                SearchUiState.MULTIPLE_CANDIDATES -> {
+                    tvSystemMode.text = getString(
+                        R.string.status_search_multiple,
+                        target?.displayName ?: getString(R.string.search_target_generic)
+                    )
+                }
+                SearchUiState.FOUND -> tvSystemMode.text = getString(
+                    R.string.status_search_found,
+                    target?.displayName ?: getString(R.string.search_target_generic)
+                )
+                SearchUiState.TIMED_OUT -> {
+                    cameraAnalyzer?.stopSession()
+                    releaseActiveVisionRunnerAsync()
+                    tvSystemMode.text = getString(
+                        R.string.status_search_timed_out,
+                        target?.displayName ?: getString(R.string.search_target_generic)
+                    )
+                    showSearchTimeoutDialog(target)
+                }
+                SearchUiState.ERROR -> tvSystemMode.text = getString(R.string.status_search_error)
+                SearchUiState.NONE -> Unit
+            }
+        }
+    }
+
+    private fun showSearchTargetDialog() {
+        val targets = arrayOf(SearchTarget.KEYS, SearchTarget.WALLET)
+        val labels = targets.map { it.displayName }.toTypedArray()
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.search_target_dialog_title)
+            .setItems(labels) { _, which ->
+                val target = targets[which]
+                coordinator.startNearbySearch(target.canonicalName)
+                window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            }
+            .setNegativeButton(R.string.action_cancel, null)
+            .show()
+    }
+
+    private fun showSearchTimeoutDialog(target: SearchTarget?) {
+        if (isFinishing || isDestroyed || coordinator.currentSearchState != SearchUiState.TIMED_OUT) return
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.search_timeout_dialog_title)
+            .setMessage(
+                getString(
+                    R.string.search_timeout_dialog_message,
+                    target?.displayName ?: getString(R.string.search_target_generic)
+                )
+            )
+            .setPositiveButton(R.string.action_retry) { _, _ -> coordinator.retryNearbySearch() }
+            .setNeutralButton(R.string.action_choose_another) { _, _ ->
+                coordinator.userStop()
+                showSearchTargetDialog()
+            }
+            .setNegativeButton(R.string.action_cancel) { _, _ ->
+                coordinator.userStop()
+                window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            }
+            .show()
+    }
+
     private fun updateUiState(mode: AppMode) {
         when (mode) {
             AppMode.IDLE -> {
@@ -675,7 +764,19 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                 }
             }
             AppMode.FINAL_SEARCH -> {
-                tvSystemMode.text = getString(R.string.status_final_search)
+                tvSystemMode.text = when (coordinator.currentSearchState) {
+                    SearchUiState.LOADING_MODEL -> getString(
+                        R.string.status_search_loading,
+                        SearchTarget.fromValue(coordinator.activeTargetClass)?.displayName
+                            ?: getString(R.string.search_target_generic)
+                    )
+                    SearchUiState.TIMED_OUT -> getString(
+                        R.string.status_search_timed_out,
+                        SearchTarget.fromValue(coordinator.activeTargetClass)?.displayName
+                            ?: getString(R.string.search_target_generic)
+                    )
+                    else -> getString(R.string.status_final_search)
+                }
                 btnStartWalking.visibility = View.GONE
                 btnSearchNearby.visibility = View.GONE
                 btnConfirmArrival.visibility = View.GONE

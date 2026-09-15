@@ -1,0 +1,42 @@
+{
+  "accepted_images": 475,
+  "removed_duplicates": 0,
+  "duplicates": [],
+  "counts": {
+    "train": {
+      "images": 332,
+      "keys_instances": 163,
+      "wallet_instances": 170,
+      "negative_images": 98,
+      "capture_groups": 83,
+      "viewpoints": {
+        "stationary": 175,
+        "unknown": 157
+      }
+    },
+    "valid": {
+      "images": 72,
+      "keys_instances": 44,
+      "wallet_instances": 28,
+      "negative_images": 0,
+      "capture_groups": 1,
+      "viewpoints": {
+        "unknown": 72
+      }
+    },
+    "test": {
+      "images": 71,
+      "keys_instances": 38,
+      "wallet_instances": 63,
+      "negative_images": 0,
+      "capture_groups": 5,
+      "viewpoints": {
+        "unknown": 71
+      }
+    }
+  },
+  "limitations": [
+    "Files without explicit WEARABLE/PHONE/SECURITY/LAPTOP/CCTV names retain viewpoint=unknown.",
+    "AC-02 device-specific quotas require a reviewed viewpoint manifest and independent held-out scenes."
+  ]
+}

@@ -16,6 +16,9 @@ __pycache__/
 datasets/mobility_indoor/
 datasets/phone_walking/
 datasets/mobility_combined/
+datasets/locate_combined_v2/train/
+datasets/locate_combined_v2/valid/
+datasets/locate_combined_v2/test/
 datasets/raw/*
 !datasets/raw/laptop/
 *.zip

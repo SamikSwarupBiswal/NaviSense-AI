@@ -163,6 +163,17 @@ class CameraXAnalyzer(
         }
     }
 
+    /** Keeps the 15-second search timeout accurate even if camera frames stop. */
+    fun onWatchdogTick(currentTimeMonotonicMs: Long) {
+        synchronized(dispatchLock) {
+            val session = activeSession.get() ?: return
+            if (!isCurrent(session)) return
+            val event = session.searchEngine?.onTick(currentTimeMonotonicMs) ?: return
+            onSearchEvent(event)
+            emittedSearchEvents.incrementAndGet()
+        }
+    }
+
     override fun analyze(image: ImageProxy) {
         receivedFrames.incrementAndGet()
         if (!processing.compareAndSet(false, true)) {

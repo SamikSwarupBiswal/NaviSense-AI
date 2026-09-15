@@ -1,5 +1,30 @@
 package dev.navisense.contracts
 
+/** Searchable classes packaged in the Android Locate model. */
+enum class SearchTarget(val canonicalName: String, val displayName: String) {
+    KEYS("keys", "Keys"),
+    WALLET("wallet", "Wallet");
+
+    companion object {
+        fun fromValue(value: String?): SearchTarget? = when (value?.trim()?.lowercase()) {
+            "key", "keys", "keychain", "house keys", "car keys" -> KEYS
+            "wallet", "purse", "billfold" -> WALLET
+            else -> null
+        }
+    }
+}
+
+/** Detailed UI state inside the app's FINAL_SEARCH/FOUND modes. */
+enum class SearchUiState {
+    NONE,
+    LOADING_MODEL,
+    SEARCHING,
+    MULTIPLE_CANDIDATES,
+    FOUND,
+    TIMED_OUT,
+    ERROR
+}
+
 /**
  * Coarse image-space position of detected target relative to camera view.
  * PRD §20: box center x < 1/3 -> LEFT, x > 2/3 -> RIGHT, otherwise -> CENTER.
