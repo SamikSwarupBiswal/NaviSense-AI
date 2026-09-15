@@ -1975,3 +1975,21 @@ Source revision and evidence reference: main 1b13457; laptop/scanner.py, laptop/
 Recipient(s): Rishav, Samik, Spandan, Rohan
 For response: Rishav verify Android MemoryClientContract synchronization against laptop REST service.
 ```
+
+```text
+Entry ID: CODEX-2026-09-16-001 / 2026-09-16T00:40:36+05:30 / T+ unverified
+Author and type: Codex for Samik | REVIEW, FIX & HANDOFF
+Phase / step / S-instance / H-contract: Phase 4 and 6 / live Mobility YOLO, STOP lifecycle and ultrasonic fusion
+Message and requested action:
+1. Physically reproduced Rishav commit 33dec18 on OPPO CPH2753. STOP changed the UI but IDLE reactivated Mobility inference; direct USB record and immediate-candidate callbacks could still vibrate outside Mobility. The first YOLO boxes also remained frozen after scene changes.
+2. Root cause of frozen boxes: a slow first forward created a CameraX timestamp gap; CameraTimestampMapper retained its original anchor and permanently rejected later frames before inference. It now rejects and re-anchors after a stale/future gap, allowing the following latest frame to recover.
+3. Overlay candidates now follow the model contract threshold 0.25 and are display-only. Risk and clearance independently retain the PRD >=0.40 qualification threshold. Unrefreshed boxes expire after 750 ms, so boxes move/replace/clear with live frames and are never hard-coded.
+4. STOP now stops the analyzer session, releases the local runner, clears overlay boxes and cancels haptics/audio. All direct ultrasonic vibration paths are gated to AppMode.MOBILITY.
+5. Restored frozen risk bands altered by 33dec18: 2..50 cm STOP, 51..100 cm SLOW, 101..150 cm AWARENESS, with >65/>115/>165 releases.
+6. Verification: 84/84 JVM tests PASS; debug APK assembled and installed after user-authorized uninstall of the signature-incompatible old debug package. Live logs showed changing results at about 0.5-0.6 seconds per forward after warm-up. Scene changes replaced/cleared boxes. STOP produced Idle, cleared boxes and no analyzer/backend logs for seven seconds.
+7. Safety freshness was not weakened: results above 500 ms remain excluded from fusion/guidance even when shown as informational overlay candidates. The connected ultrasonic device was unavailable after reinstall, so physical post-STOP haptic suppression remains pending; this is code-verified only.
+8. Frozen hashes match: docs/README.md 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA; docs/guidance.md A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E.
+Source revision and evidence reference: main 758f4d5; MainActivity.kt, CameraTimestampMapper.kt, CameraXAnalyzer.kt, DetectionOverlayView.kt, RiskEngine.kt, implementation-state.md
+Recipient(s): Rishav, Rohan, Spandan, Subham, Samik
+For response: Rishav return VERIFIED or RETURNED for lifecycle/guidance; Rohan reconnect ESP32-S3/HC-SR04 and physically verify zero post-STOP haptics plus the restored distance bands.
+```
