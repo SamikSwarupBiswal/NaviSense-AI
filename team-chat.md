@@ -356,3 +356,137 @@ Source revision and evidence reference: docs/AGENTS.md (commit e7e8129), AGENTS.
 Recipient(s): Team (Rishav, Subham, Spandan, Rohan)
 For response: All collaborators ACK receipt and adherence to the mandatory workflow rule.
 ```
+
+```text
+Entry ID: ROHAN-2026-09-15-001 / 2026-09-15T11:30:00+05:30 / T+03:40
+Author and type: Rohan | PROGRESS & SETUP ACK
+Phase / step / S-instance / H-contract: Phase 0 / Collaborator Setup & Workflow ACK
+Message and requested action:
+1. Collaborator Access Verified:
+   - Accepted GitHub repository invitation for JeansGit77 / jeans0177 to https://github.com/SamikSwarupBiswal/NaviSense-AI (API status 204 verified).
+   - Write permissions established on main and communication branches.
+2. Frozen File Hash Verification (AGENTS.md §2):
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+3. Workflow & Guidance Acknowledgements:
+   - ACK SAMIK-2026-09-15-009: Formally adhering to Section 1.1 Mandatory Collaborator Git & Relay Workflow (pull from both branches before work, push code to main, relay entries to communication, zero force-pushing).
+   - ACK KICKOFF-2026-09-14-001 (Rishav) & RISHAV-2026-09-14-002 (S01 / H6): Subsystem ownership verified: HC-SR04 ultrasonic sensor + ESP32-S3 assembly, phone mount alignment, electrical/power verification, 10 Hz acquisition loop firmware, Android USB serial adapter (dev.navisense.usb), and leading acceptance gates AC-08, AC-06, AC-09.
+Source revision and evidence reference: commit 8e91a84 on main
+Recipient(s): Team (Rishav, Samik, Subham, Spandan)
+For response: referenced entry ID and ACK
+```
+
+```text
+Entry ID: ROHAN-2026-09-15-002 / 2026-09-15T11:35:00+05:30 / T+03:45
+Author and type: Rohan | HANDOFF
+Phase / step / S-instance / H-contract: Phase 0 / Step 01 / S03 / H3
+Message and requested action:
+Delivering complete Phase 0 S03 / H3 package (Hardware Spec, 10 Hz ESP32 Firmware, Serial Test Harness, Transport Replay Suite, and Android USB Module) committed to main (commit 8e91a84):
+1. Hardware & Electrical Specification (docs/rohan/hardware-spec.md):
+   - Microcontroller: ESP32-S3 DevKit (WROOM-1 / DevKitC-1).
+   - Sensor: HC-SR04 ultrasonic transducer (4-pin: VCC, GND, TRIG, ECHO).
+   - Voltage Protection: Passive 1.0 kΩ (R1) / 2.0 kΩ (R2) ±1% resistor divider on ECHO line stepping down 5.0 V pulse to 3.33 V input for ESP32-S3 GPIO 5 (within 3.3 V CMOS bounds; 1.67 mA draw). Direct 3.3 V trigger pulses emitted from GPIO 4 (10 µs pulse).
+   - Power Budget & USB OTG: Android phone USB-C OTG supplies standard 5.0 V @ 500 mA (up to 1.5 A). ESP32-S3 with Wi-Fi/BT disabled draws ~60 mA; HC-SR04 draws ~15 mA active. Total assembly current < 80 mA (well below 500 mA OTG limit, zero brownout).
+   - Mechanical Alignment: Chest / lanyard rig, 100–120 cm height from ground, transducer plane facing directly forward perpendicular to walking vector, sharing aligned forward axis with phone camera (±5° pitch/yaw deviation).
+2. ESP32-S3 10 Hz Acquisition Firmware (esp32/navisense_sensor/navisense_sensor.ino):
+   - Strictly implements PRD Section 14.1 wire format: V=1,SEQ=<seq>,UP_MS=<uptime_ms>,DIST_CM=<dist>,VALID=<valid>\n.
+   - Non-blocking 10 Hz loop enforcing 100 ms spacing without accumulating drift; bounded 25 ms echo timeout (~430 cm maximum travel).
+   - Zero backlog policy: measurements are never buffered; only fresh unbuffered records emitted.
+   - Integer rounding formula: (duration_us * 343 + 10000) / 20000. Valid range 2..400 cm sets VALID=1; timeouts or out-of-range emit DIST_CM=-1, VALID=0.
+   - Serial: Native USB CDC at 115200 baud, 8N1.
+3. Host Serial Verification Tool (scripts/test_sensor_serial.py):
+   - 20/20 test cases passing: validates 128-byte line bound, CRLF/LF trimming, oversize discard through next \n, schema compliance, invalid range rejection (e.g. 401 cm, 1 cm), duplicate SEQ rejection, 32-bit unsigned wrap, backwards jump session resets.
+   - 5.0s mock 10 Hz stream (50 records) verified: zero packet loss, critical close obstacle flags (<= 50 cm) correctly tagged.
+4. Transport & Freshness Replay Suite (scripts/verify_sensor_fusion_replay.py):
+   - 10/10 test cases passing: verifies 3-valid-record recovery (span >= 150 ms, gap <= 300 ms), 300 ms staleness watchdog expiry, immediate STOP candidate detection (<= 50 cm) during recovery, newer invalid record clearing distance, delay drift detection (> 200 ms), and backwards sequence reset.
+5. Android USB Serial Package (dev.navisense.usb):
+   - SensorRecord.kt: Immutable data class with monotonic receipt timestamp (receiptMonotonicMs) and isImmediateStopCandidate (<= 50 cm).
+   - SensorHealth.kt: States DISCONNECTED, CONNECTING, RECOVERING, HEALTHY, STALE, DEGRADED_INVALID and SensorState snapshot.
+   - SensorParser.kt: Bounded parser (128-byte limit, oversize discard, US-ASCII decoding, regex schema verification).
+   - SensorStateManager.kt: Manages connection lifecycle, 3-record recovery, delay drift tracking, and evaluateHealth() periodic watchdog API for Rishav's Risk Engine.
+   - Unit Tests: SensorParserTest.kt (4 unit tests) & SensorStateManagerTest.kt (4 unit tests).
+Requested action: Rishav review H3 contracts and Android USB package; confirm integration into Android service lifecycle.
+Source revision and evidence reference: commit 8e91a84 on main; docs/rohan/hardware-spec.md, esp32/navisense_sensor/, scripts/, android/app/src/main/java/dev/navisense/usb/
+Recipient(s): Rishav, Samik, Subham, Spandan
+For response: referenced entry ID ROHAN-2026-09-15-002 and VERIFIED / RETURNED
+```
+
+```text
+Entry ID: ROHAN-2026-09-15-003 / 2026-09-15T11:40:00+05:30 / T+03:50
+Author and type: Rohan | PROGRESS & REVIEW
+Phase / step / S-instance / H-contract: Phase 0 / Inter-subsystem Alignment & Inquiries
+Message and requested action:
+Inter-subsystem technical alignment and responses to teammate inquiries:
+1. Response to Rishav (RISHAV-2026-09-15-012, Item 2):
+   - [Hardware Pinout & Divider]: Documented in full in docs/rohan/hardware-spec.md (ESP32-S3 GPIO 4 TRIG, GPIO 5 ECHO with 1k/2k divider to 3.33 V, 5V OTG supply).
+   - [USB Framing & Protocol]: Confirming wire format is PRD §14.1 standard: V=1,SEQ=%lu,UP_MS=%lu,DIST_CM=%ld,VALID=%d\n at 10 Hz (100 ms interval) over CDC ACM 115200 8N1. (Note: PRD §14.1 specifies 10 Hz acquisition loop to balance ultrasonic travel/ring-down and zero backlog; parser handles up to 50 Hz if needed). Status flag mapped directly to PRD: VALID=1 (2..400 cm) and VALID=0 with DIST_CM=-1 for timeouts (> 400 cm) or out-of-range (< 2 cm).
+   - [USB CDC Identification]: ESP32-S3 USB CDC uses Espressif Vendor ID 0x303A, Product ID 0x1001 (ESP32-S3 USB CDC ACM). Android device_filter.xml should specify <usb-device vendor-id="12346" product-id="4097" /> (decimal for 0x303A / 0x1001) or match USB class 0x02 (CDC) / subclass 0x02 (ACM).
+   - [USB Debugging & Phone Screen Prompt]: Phone screen prompt acknowledged. Please authorize the USB debugging prompt on the qualification device (ID: 6545Q8A6X89TW8ZX) so ADB and offline TTS silence verification can proceed.
+2. Response to Subham (SUBHAM-2026-09-15-009, Item 3):
+   - [Network Isolation Confirmed]: Confirmed 100% transport independence and network isolation. The sensor node is hardwired purely over USB CDC / OTG to the Android phone. Wi-Fi and Bluetooth stacks are completely disabled in ESP32-S3 firmware; zero packets touch the Wi-Fi hotspot / HTTP subnet (192.168.43.0/24).
+   - [Error Taxonomy Alignment]: Aligned sensor health states with Rishav's voice arbiter:
+     * DISCONNECTED / CONNECTING: Physical USB cable detached or permission pending. Risk engine flags "sensor unavailable" — walking proceeds under cautious vision-only or issues sensor prompt.
+     * HEALTHY: Fresh valid distance (<= 300 ms). Proximity obstacles <= 50 cm trigger immediate emergency STOP bypassing vision.
+     * STALE: Watchdog age > 300 ms (cable stall or packet dropout). Distance cleared immediately.
+     * DEGRADED_INVALID: Sensor emitted VALID=0 (timeout/no-echo) or delay drift > 200 ms. Distance cleared immediately.
+     * These errors are strictly decoupled from laptop memory errors (HTTP timeout, connection refused, query stale > 60s), ensuring Rishav's Voice UX produces distinct, unambiguous prompts.
+3. Response to Samik (SAMIK-2026-09-15-009):
+   - Workflow rule acknowledged and verified.
+   - Co-axial mount alignment confirmed (±5° pitch/yaw forward axis).
+Source revision and evidence reference: docs/rohan/hardware-spec.md, esp32/navisense_sensor/navisense_sensor.ino, android/app/src/main/java/dev/navisense/usb/
+Recipient(s): Rishav, Subham, Samik
+For response: referenced entry ID and ACK
+```
+
+```text
+Entry ID: ROHAN-2026-09-15-004 / 2026-09-15T11:45:00+05:30 / T+03:55
+Author and type: Rohan | CHAT
+Phase / step / S-instance / H-contract: Phase 0 / Prerequisite & Information Requests (Rohan -> Teammates)
+Message and requested action:
+Detailed and organized breakdown of handoffs and technical prerequisites needed from each teammate for Phase 0 completion and Phase 1 transitions:
+1. To Rishav (Integration, Voice UX & Shell Lead):
+   - [Android Lifecycle Hookup]: Requesting integration of dev.navisense.usb.SensorStateManager into the main Android service lifecycle:
+     * Register USB BroadcastReceiver for ACTION_USB_DEVICE_ATTACHED and ACTION_USB_DEVICE_DETACHED invoking stateManager.onConnected() and stateManager.onDisconnected().
+     * Include ESP32-S3 VID 0x303A / PID 0x1001 in res/xml/device_filter.xml.
+   - [Watchdog Loop Hookup]: Confirm Rishav's 50 ms loop will call stateManager.evaluateHealth() to update SensorHealth and stale state even when no incoming bytes arrive over USB.
+   - [Immediate Proximity STOP Priority]: Confirm Risk Engine prioritizes state.immediateStopCandidate (valid <= 50 cm) to issue STOP within <= 100 ms and audible audio onset <= 500 ms (AC-06), bypassing vision inference and 3-packet recovery.
+2. To Samik (Android Perception & Camera Lead):
+   - [Rig Mechanical Dimensions & Clearance]: Please share physical CAD / 3D-print or rig dimensions for the chest phone clamp. Ensure the phone clamp does not block the phone's USB-C port or put mechanical strain on the right-angle USB-C OTG cable connected to the ESP32-S3.
+   - [AC-06 Co-Benchmarking]: Confirm coordination for AC-06 Physical Obstacle to Audible STOP benchmark (T+19:00–19:30): Samik will ensure full on-device vision inference (Locate + Mobility YOLO) is running concurrently to validate zero missed STOPs under live inference contention.
+3. To Spandan (Models & Datasets Lead):
+   - [Ultrasonic vs Camera FOV Coverage Limits]:
+     * HC-SR04 has a narrow ~15° conical beam facing straight forward, effective from 2 cm to 400 cm.
+     * Mobile camera FOV is ~68°–75° diagonal.
+     * Test scene design must recognize this envelope: obstacles in the direct walking corridor (<= 200 cm ahead) are caught immediately by ultrasonic, but peripheral obstacles (> 10° off-axis) rely entirely on Spandan's Mobility YOLO model.
+   - [Acoustic Material Disclosures]: Note physical ultrasonic limitations for test datasets and AC-12/final demo: angled surfaces (> 45°), sound-absorbing soft fabrics, and drop-offs/downward stairs are acoustically transparent or non-reflective to HC-SR04.
+Source revision and evidence reference: docs/rohan/guidance.md, docs/rohan/implementation-plan.md
+Recipient(s): Rishav, Samik, Spandan
+For response: reply with relevant entry reference and confirmations / specifications.
+```
+
+```text
+Entry ID: ROHAN-2026-09-15-005 / 2026-09-15T11:50:00+05:30 / T+04:00
+Author and type: Rohan | PROGRESS
+Phase / step / S-instance / H-contract: Phase 0 / Subsystem Commitments & Acceptance Gate Roadmap
+Message and requested action:
+Formally logging downstream milestone commitments, freezes, and acceptance gate ownership for Rohan (Hardware, Firmware, Mount, USB):
+1. Milestone Deliverables:
+   - Handoff S13 (T+11:30): Deliver stable Android USB adapter handling bounded line parsing (128-byte limit, CRLF/LF), monotonic receipt timestamps (<= 300 ms validity), sequence loss diagnostics, and 3-valid-packet recovery logic.
+   - S17 Freeze (T+15:30): Physical sensor mount, wiring, and firmware configuration frozen.
+   - Bench Pre-Marking: Pre-mark 6 bench distances (30, 50, 75, 100, 150, 200 cm) and set up dual timestamp recording (physical optical entry beam + external high-speed audio mic).
+2. Acceptance Gates Led:
+   - AC-08 (T+17:00–17:20) — Sensor Bench Calibration: 120 physical readings across 6 pre-marked distances (requires >= 90% validity per distance, median absolute error <= 5 cm).
+   - AC-06 (T+19:00–19:30) — Physical Obstacle to Audible STOP Latency: 20 bench presentations (10 at 30 cm, 10 at 40 cm) under live inference load. Proves risk decision <= 100 ms, audible onset <= 500 ms, and physical entry-to-audio <= 750 ms with zero missed STOPs.
+   - AC-09 (T+19:30–20:00) — USB Transport Stability & Recovery: 10-minute continuous stream without crash or drift, followed by 5 physical cable disconnect/reconnect cycles (recovery <= 2.0 s).
+3. Peer Reviews & Collaboration:
+   - Reviews: AC-05 (Samik mobile inference latency) and AC-14 (Subham full flow integration).
+   - Contributes to: AC-01 (Mobility run), AC-07 (Supervised walking trials), AC-10 (Replay cases), and AC-12 (Sensor disconnect/degradation).
+4. Final Demo & S18 Role (T+23:30–24:00):
+   - Manage physical hardware and mount during live demo.
+   - Demonstrate immediate proximity STOP bypassing vision and sensor disconnect resilience without app crash.
+   - Provide comprehensive documentation of acoustic limitations (angled walls, soft fabrics, drop-offs/steps) for final disclosure.
+Source revision and evidence reference: docs/rohan/guidance.md, docs/rohan/implementation-plan.md, docs/AGENTS.md
+Recipient(s): Team (Rishav, Samik, Subham, Spandan)
+For response: Team review and alignment.
+```
+
