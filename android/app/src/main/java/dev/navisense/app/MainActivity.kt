@@ -27,12 +27,26 @@ import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
 import dev.navisense.R
 import dev.navisense.camera.CameraXAnalyzer
 import dev.navisense.camera.DetectionOverlayView
 import dev.navisense.contracts.AppMode
 import dev.navisense.contracts.AppVisionMode
 import dev.navisense.contracts.PathStatus
+import dev.navisense.navigation.maps.DeviceCompassProvider
+import dev.navisense.navigation.maps.GoogleRoutesService
+import dev.navisense.navigation.maps.models.GeoPoint
+import dev.navisense.navigation.maps.models.NavigationEngineStatus
+import dev.navisense.navigation.maps.models.WalkingRoute
+import dev.navisense.voice.VoiceDestinationRecognizer
+import kotlinx.coroutines.launch
 import dev.navisense.contracts.SensorEvent
 import dev.navisense.contracts.SensorHealth
 import dev.navisense.contracts.SensorWireRecord
@@ -51,8 +65,19 @@ import dev.navisense.usb.AndroidUsbCdcTransport
 import dev.navisense.usb.SensorRecord
 import dev.navisense.usb.UsbSensorAdapter
 import dev.navisense.usb.SensorHealth as UsbSensorHealth
+import dev.navisense.voice.AlertPriority
+import dev.navisense.voice.SpeechRequest
+import dev.navisense.voice.VoiceCommand
+import dev.navisense.voice.VoiceCommandManager
+import dev.navisense.cloud.GeminiFlashClient
+import dev.navisense.cloud.GeminiWalkingAnalyzer
+import dev.navisense.map.LocationTracker
+import dev.navisense.map.MapNavigationCoordinator
+import dev.navisense.map.MapPOI
+import dev.navisense.map.MapRoutingEngine
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import kotlin.math.roundToInt
 
 /**
  * Accessible UI Activity Shell for NaviSense AI MVP (PRD Section 13.6).
@@ -83,10 +108,40 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
     private lateinit var tvSystemMode: TextView
     private lateinit var tvPathStatus: TextView
     private lateinit var tvSensorStatus: TextView
+    private lateinit var tvVoiceStatus: TextView
     private lateinit var btnStartWalking: Button
     private lateinit var btnSearchNearby: Button
+    private lateinit var btnVoiceCommand: Button
+    private lateinit var btnMapDirections: Button
     private lateinit var btnConfirmArrival: Button
     private lateinit var btnStop: Button
+    private lateinit var btnVoiceWalkingNav: Button
+
+    // Pedestrian Maps & Orientation Subsystem
+    private lateinit var compassProvider: DeviceCompassProvider
+    private lateinit var routesService: GoogleRoutesService
+    private var voiceRecognizer: VoiceDestinationRecognizer? = null
+    private lateinit var fusedLocationClient: FusedLocationProviderClient
+    private var locationCallback: LocationCallback? = null
+    private var lastKnownLocation: GeoPoint = GeoPoint(12.8406, 80.1534)
+
+    private var voiceCommandManager: VoiceCommandManager? = null
+
+    private lateinit var geminiClient: GeminiFlashClient
+    private lateinit var geminiWalkingAnalyzer: GeminiWalkingAnalyzer
+    private var mapRoutingEngine: MapRoutingEngine? = null
+    private var locationTracker: LocationTracker? = null
+    private var mapNavigationCoordinator: MapNavigationCoordinator? = null
+
+    private val requestLocationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val fineGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true
+        val coarseGranted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        if (fineGranted || coarseGranted) {
+            locationTracker?.startTracking()
+        }
+    }
 
     private var cameraProvider: ProcessCameraProvider? = null
     private var cameraAnalyzer: CameraXAnalyzer? = null
@@ -119,6 +174,29 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
             setupCamera()
         } else {
             announce(getString(R.string.status_sensor_unavailable))
+        }
+    }
+
+    private val requestAudioPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            startVoiceRecognition()
+            speakVoiceFeedback(getString(R.string.voice_cmd_opened))
+        } else {
+            tvVoiceStatus.text = "Voice Control: Mic Permission Denied"
+        }
+    }
+
+    private val requestNavPermissionsLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val locationGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true
+        val audioGranted = permissions[Manifest.permission.RECORD_AUDIO] == true
+        if (locationGranted && audioGranted) {
+            startVoiceNavigationFlow()
+        } else {
+            announce("Location and microphone permissions are required for voice navigation.")
         }
     }
 
@@ -186,10 +264,73 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
         tvSystemMode = findViewById(R.id.tvSystemMode)
         tvPathStatus = findViewById(R.id.tvPathStatus)
         tvSensorStatus = findViewById(R.id.tvSensorStatus)
+        tvVoiceStatus = findViewById(R.id.tvVoiceStatus)
         btnStartWalking = findViewById(R.id.btnStartWalking)
         btnSearchNearby = findViewById(R.id.btnSearchNearby)
+        btnVoiceCommand = findViewById(R.id.btnVoiceCommand)
+        btnVoiceWalkingNav = findViewById(R.id.btnVoiceWalkingNav)
+        btnMapDirections = findViewById(R.id.btnMapDirections)
         btnConfirmArrival = findViewById(R.id.btnConfirmArrival)
         btnStop = findViewById(R.id.btnStop)
+
+        compassProvider = DeviceCompassProvider(this)
+        routesService = GoogleRoutesService(context = this)
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+
+        voiceRecognizer = VoiceDestinationRecognizer(
+            context = this,
+            onDestinationParsed = { destination ->
+                onDestinationReceived(destination)
+            },
+            onError = { errorMsg ->
+                announce(errorMsg)
+            }
+        )
+
+        btnVoiceCommand.setOnClickListener {
+            toggleVoiceRecognition()
+        }
+
+        btnVoiceWalkingNav.setOnClickListener {
+            checkNavPermissionsAndStart()
+        }
+
+        // Initialize Gemini 1.5 Flash Client & 4-second walking analyzer
+        val prefs = getSharedPreferences("navisense_config", Context.MODE_PRIVATE)
+        val savedApiKey = prefs.getString("gemini_api_key", null)
+            ?: System.getProperty("GEMINI_API_KEY")
+            ?: ""
+        geminiClient = GeminiFlashClient(savedApiKey)
+        geminiWalkingAnalyzer = GeminiWalkingAnalyzer(
+            client = geminiClient,
+            frameProvider = {
+                // Thread-safe capture of current rendered camera viewfinder frame
+                runOnUiThreadSafely { viewFinder.bitmap }
+            },
+            onNarrationReceived = { narration ->
+                coordinator.onGeminiNarrationReceived(narration)
+            }
+        )
+
+        // Load offline VIT Chennai campus walkable map asynchronously
+        cameraExecutor.execute {
+            try {
+                assets.open("maps/vit_chennai_map.json").use { stream ->
+                    mapRoutingEngine = MapRoutingEngine.loadFromStream(stream)
+                    Log.i(TAG, "Loaded offline VIT Chennai map with ${mapRoutingEngine?.pois?.size} POIs")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to load offline map asset", e)
+            }
+        }
+
+        // Initialize Location Tracker and Map Navigation Coordinator
+        mapNavigationCoordinator = MapNavigationCoordinator(
+            speechArbiter = coordinator.speechArbiter
+        )
+        locationTracker = LocationTracker(this) { lat, lon, _, bearing ->
+            mapNavigationCoordinator?.onLocationUpdated(lat, lon, bearing)
+        }
 
         btnStartWalking.setOnClickListener {
             coordinator.startMobility()
@@ -199,6 +340,10 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
 
         btnSearchNearby.setOnClickListener {
             showSearchTargetDialog()
+        }
+
+        btnMapDirections.setOnClickListener {
+            showMapDestinationDialog()
         }
 
         btnConfirmArrival.setOnClickListener {
@@ -211,6 +356,10 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
         // Critical safety button: immediate Stop without confirmation dialog
         btnStop.setOnClickListener {
             hapticFeedback.cancel()
+            stopOutdoorNavigationSensors()
+            geminiWalkingAnalyzer.stop()
+            mapNavigationCoordinator?.stopNavigation()
+            locationTracker?.stopTracking()
             coordinator.userStop()
             window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             announce(getString(R.string.status_idle))
@@ -241,6 +390,9 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
 
         // Probe already connected USB devices on startup
         checkConnectedUsbDevices()
+
+        // Initialize voice commands and recognition
+        initVoiceRecognition()
     }
 
     override fun onResume() {
@@ -263,14 +415,22 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
 
         disconnectUsbSensor()
 
+        geminiWalkingAnalyzer.stop()
+        mapNavigationCoordinator?.stopNavigation()
+        locationTracker?.stopTracking()
+
         cameraAnalyzer?.stopSession()
         cameraAnalyzer?.close()
         releaseActiveVisionRunnerAsync()
         cameraProvider?.unbindAll()
         cameraExecutor.shutdown()
 
+        stopOutdoorNavigationSensors()
+        voiceRecognizer?.destroy()
         detectionOverlay.clearDetections()
         hapticFeedback.cancel()
+        voiceCommandManager?.destroy()
+        voiceCommandManager = null
         coordinator.removeListener(this)
         coordinator.userStop()
     }
@@ -482,16 +642,29 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
             when (newMode) {
                 AppMode.MOBILITY -> {
                     activateLocalModel(token, AppVisionMode.MOBILITY, null)
+                    geminiWalkingAnalyzer.start()
+                }
+                AppMode.MAP_NAVIGATION -> {
+                    activateLocalModel(token, AppVisionMode.MOBILITY, null)
+                    geminiWalkingAnalyzer.start()
                 }
                 AppMode.FINAL_SEARCH -> {
+                    geminiWalkingAnalyzer.stop()
+                    mapNavigationCoordinator?.stopNavigation()
                     activateLocalModel(token, AppVisionMode.LOCATE_SEARCH, coordinator.activeTargetClass)
                 }
                 AppMode.IDLE, AppMode.PAUSED -> {
+                    geminiWalkingAnalyzer.stop()
+                    mapNavigationCoordinator?.stopNavigation()
+                    locationTracker?.stopTracking()
                     cameraAnalyzer?.stopSession()
                     releaseActiveVisionRunnerAsync()
                     detectionOverlay.clearDetections()
                 }
-                AppMode.FOUND -> {}
+                AppMode.FOUND -> {
+                    geminiWalkingAnalyzer.stop()
+                    mapNavigationCoordinator?.stopNavigation()
+                }
                 else -> {}
             }
         }
@@ -645,7 +818,7 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
 
     override fun onRiskEvaluated(result: RiskEvaluationResult) {
         runOnUiThread {
-            if (coordinator.currentMode == AppMode.MOBILITY) {
+            if (coordinator.currentMode == AppMode.MOBILITY || coordinator.currentMode == AppMode.OUTDOOR_WALKING) {
                 val obstacleLabel = result.associatedObjectLabel?.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
                     ?: result.visualObstacleLabel
                 when (result.combinedRisk) {
@@ -798,23 +971,144 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
             .show()
     }
 
+    override fun onNavigationStatusUpdated(status: NavigationEngineStatus) {
+        runOnUiThread {
+            tvSystemMode.text = "Walking to ${status.destinationName} (${status.totalRemainingDistanceMeters.toInt()}m left)"
+            val nextInfo = if (status.nextManeuverStreet.isNotBlank()) {
+                "In ${status.distanceToNextStepMeters.toInt()}m onto ${status.nextManeuverStreet}"
+            } else {
+                status.currentInstruction
+            }
+            tvPathStatus.text = nextInfo
+            tvSensorStatus.text = "We are walking on ${status.currentStreetName}"
+        }
+    }
+
+    private fun checkNavPermissionsAndStart() {
+        val fineLocation = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val audio = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        if (fineLocation && audio) {
+            startVoiceNavigationFlow()
+        } else {
+            requestNavPermissionsLauncher.launch(
+                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.RECORD_AUDIO)
+            )
+        }
+    }
+
+    private fun startVoiceNavigationFlow() {
+        announce("Please say your destination.")
+        voiceRecognizer?.startListening()
+    }
+
+    private fun onDestinationReceived(destination: String) {
+        announce("Calculating walking route to $destination.")
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            fusedLocationClient.lastLocation.addOnSuccessListener { loc ->
+                val origin = if (loc != null) GeoPoint(loc.latitude, loc.longitude) else lastKnownLocation
+                lastKnownLocation = origin
+                fetchAndStartWalkingRoute(origin, destination)
+            }.addOnFailureListener {
+                fetchAndStartWalkingRoute(lastKnownLocation, destination)
+            }
+        } else {
+            fetchAndStartWalkingRoute(lastKnownLocation, destination)
+        }
+    }
+
+    private fun fetchAndStartWalkingRoute(origin: GeoPoint, destination: String) {
+        lifecycleScope.launch {
+            val geocodeResult = routesService.geocodeDestination(destination)
+            val targetPoint = geocodeResult.getOrDefault(GeoPoint(origin.latitude + 0.0005, origin.longitude + 0.0005))
+
+            val routeResult = routesService.computeWalkingRoute(origin, targetPoint, destination)
+            routeResult.onSuccess { route ->
+                coordinator.startOutdoorWalking(route)
+                startOutdoorNavigationSensors()
+                window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            }.onFailure { err ->
+                announce("Unable to find walking route: ${err.message}")
+            }
+        }
+    }
+
+    private fun startOutdoorNavigationSensors() {
+        compassProvider.startListening { azimuth ->
+            coordinator.onHeadingUpdated(azimuth)
+        }
+        startLocationTracking()
+    }
+
+    private fun stopOutdoorNavigationSensors() {
+        compassProvider.stopListening()
+        stopLocationTracking()
+    }
+
+    private fun startLocationTracking() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) return
+
+        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1500L)
+            .setMinUpdateIntervalMillis(1000L)
+            .setMinUpdateDistanceMeters(1.0f)
+            .build()
+
+        val callback = object : LocationCallback() {
+            override fun onLocationResult(result: LocationResult) {
+                val loc = result.lastLocation ?: return
+                val point = GeoPoint(loc.latitude, loc.longitude)
+                lastKnownLocation = point
+                coordinator.onLocationUpdated(point, loc.accuracy)
+            }
+        }
+        locationCallback = callback
+        fusedLocationClient.requestLocationUpdates(locationRequest, callback, Looper.getMainLooper())
+    }
+
+    private fun stopLocationTracking() {
+        locationCallback?.let {
+            fusedLocationClient.removeLocationUpdates(it)
+            locationCallback = null
+        }
+    }
+
     private fun updateUiState(mode: AppMode) {
         when (mode) {
             AppMode.IDLE -> {
                 tvSystemMode.text = getString(R.string.status_idle)
                 btnStartWalking.visibility = View.VISIBLE
                 btnSearchNearby.visibility = View.VISIBLE
+                btnVoiceWalkingNav.visibility = View.VISIBLE
+                btnMapDirections.visibility = View.VISIBLE
                 btnConfirmArrival.visibility = View.GONE
+                stopOutdoorNavigationSensors()
             }
             AppMode.MOBILITY -> {
                 tvSystemMode.text = getString(R.string.status_mobility)
                 btnStartWalking.visibility = View.GONE
                 btnSearchNearby.visibility = View.GONE
+                btnVoiceWalkingNav.visibility = View.GONE
+                btnMapDirections.visibility = View.GONE
                 if (coordinator.activeTargetClass != null) {
                     btnConfirmArrival.visibility = View.VISIBLE
                 } else {
                     btnConfirmArrival.visibility = View.GONE
                 }
+            }
+            AppMode.OUTDOOR_WALKING -> {
+                tvSystemMode.text = getString(R.string.status_outdoor_nav)
+                btnStartWalking.visibility = View.GONE
+                btnSearchNearby.visibility = View.GONE
+                btnVoiceWalkingNav.visibility = View.GONE
+                btnMapDirections.visibility = View.GONE
+                btnConfirmArrival.visibility = View.GONE
+            }
+            AppMode.MAP_NAVIGATION -> {
+                tvSystemMode.text = getString(R.string.status_map_nav)
+                btnStartWalking.visibility = View.GONE
+                btnSearchNearby.visibility = View.GONE
+                btnVoiceWalkingNav.visibility = View.GONE
+                btnMapDirections.visibility = View.GONE
+                btnConfirmArrival.visibility = View.GONE
             }
             AppMode.FINAL_SEARCH -> {
                 tvSystemMode.text = when (coordinator.currentSearchState) {
@@ -832,6 +1126,8 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                 }
                 btnStartWalking.visibility = View.GONE
                 btnSearchNearby.visibility = View.GONE
+                btnVoiceWalkingNav.visibility = View.GONE
+                btnMapDirections.visibility = View.GONE
                 btnConfirmArrival.visibility = View.GONE
             }
             AppMode.FOUND -> {
@@ -840,12 +1136,16 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                 }
                 btnStartWalking.visibility = View.VISIBLE
                 btnSearchNearby.visibility = View.VISIBLE
+                btnVoiceWalkingNav.visibility = View.VISIBLE
+                btnMapDirections.visibility = View.VISIBLE
                 btnConfirmArrival.visibility = View.GONE
             }
             AppMode.PAUSED -> {
                 tvSystemMode.text = getString(R.string.status_paused)
                 btnStartWalking.visibility = View.VISIBLE
                 btnSearchNearby.visibility = View.VISIBLE
+                btnVoiceWalkingNav.visibility = View.VISIBLE
+                btnMapDirections.visibility = View.VISIBLE
                 btnConfirmArrival.visibility = View.GONE
             }
             else -> {
@@ -854,7 +1154,229 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
         }
     }
 
+    private fun showMapDestinationDialog() {
+        val engine = mapRoutingEngine ?: run {
+            announce("Map data is loading. Please try again in a moment.")
+            return
+        }
+
+        val pois = engine.pois
+        val names = pois.map { "${it.name} (${it.category.replaceFirstChar { c -> c.uppercase() }})" }.toTypedArray()
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.map_destination_dialog_title)
+            .setItems(names) { _, which ->
+                val selectedPoi = pois[which]
+                startMapNavigationToPoi(selectedPoi)
+            }
+            .setNegativeButton(R.string.action_cancel, null)
+            .show()
+    }
+
+    private fun startMapNavigationToPoi(poi: MapPOI) {
+        val engine = mapRoutingEngine ?: return
+
+        // Request location permissions if not yet granted
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            requestLocationPermissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                )
+            )
+        }
+
+        // Start GPS tracking
+        locationTracker?.startTracking()
+
+        // Default start coordinate: VIT Chennai Main Gate if indoor / awaiting GPS lock
+        val startLat = 12.8407
+        val startLon = 80.1534
+
+        val route = engine.planRoute(startLat, startLon, poi.id)
+        if (route == null) {
+            announce("Unable to compute walking route to ${poi.name}")
+            return
+        }
+
+        coordinator.startMapNavigation(poi.name)
+        mapNavigationCoordinator?.startNavigation(route)
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        announce("Navigating to ${poi.name}. Route distance is ${route.totalDistanceMeters.roundToInt()} meters.")
+    }
+
+    private fun <T> runOnUiThreadSafely(block: () -> T): T? {
+        return if (Looper.myLooper() == Looper.getMainLooper()) {
+            block()
+        } else {
+            var result: T? = null
+            val latch = java.util.concurrent.CountDownLatch(1)
+            runOnUiThread {
+                try {
+                    result = block()
+                } finally {
+                    latch.countDown()
+                }
+            }
+            latch.await(500, java.util.concurrent.TimeUnit.MILLISECONDS)
+            result
+        }
+    }
+
     private fun announce(text: String) {
         window.decorView.announceForAccessibility(text)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        speakVoiceFeedback(getString(R.string.voice_cmd_opened))
+        startVoiceRecognition()
+    }
+
+    private fun initVoiceRecognition() {
+        val app = application as NaviSenseApp
+        voiceCommandManager = VoiceCommandManager(
+            context = this,
+            isTtsSpeakingProvider = { app.speechArbiter.isSpeaking },
+            onCommandRecognized = { command ->
+                handleVoiceCommand(command)
+            },
+            onStateChanged = { isListening ->
+                runOnUiThread {
+                    if (isListening) {
+                        tvVoiceStatus.text = getString(R.string.voice_cmd_listening)
+                    } else {
+                        tvVoiceStatus.text = "Voice Control: Standby"
+                    }
+                }
+            }
+        )
+
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+            startVoiceRecognition()
+            speakVoiceFeedback(getString(R.string.voice_cmd_opened))
+        } else {
+            requestAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
+
+    private fun startVoiceRecognition() {
+        voiceCommandManager?.startListening()
+    }
+
+    private fun toggleVoiceRecognition() {
+        val mgr = voiceCommandManager ?: return
+        mgr.startListening()
+        speakVoiceFeedback(getString(R.string.voice_cmd_listening))
+    }
+
+    private fun handleVoiceCommand(command: VoiceCommand) {
+        runOnUiThread {
+            when (command) {
+                is VoiceCommand.StartWalking -> {
+                    speakVoiceFeedback(getString(R.string.voice_cmd_walking_started))
+                    coordinator.startMobility()
+                    window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                }
+                is VoiceCommand.StartSearch -> {
+                    speakVoiceFeedback("Starting nearby search. What object are you looking for?")
+                    showSearchTargetDialog()
+                }
+                is VoiceCommand.FindTarget -> {
+                    val target = command.target
+                    val phrase = if (target == "wallet") {
+                        getString(R.string.voice_cmd_searching_wallet)
+                    } else {
+                        getString(R.string.voice_cmd_searching_keys)
+                    }
+                    speakVoiceFeedback(phrase)
+                    coordinator.startNearbySearch(target)
+                    window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                }
+                is VoiceCommand.OpenMapMode -> {
+                    speakVoiceFeedback("Opening campus map mode. Where would you like to go?")
+                    showMapDestinationDialog()
+                }
+                is VoiceCommand.NavigateToDestination -> {
+                    val engine = mapRoutingEngine
+                    if (engine == null) {
+                        speakVoiceFeedback("Map data is still loading. Please try again in a moment.")
+                        return@runOnUiThread
+                    }
+
+                    val q = command.destinationQuery.lowercase(java.util.Locale.ROOT)
+                    val matched = engine.pois.find { poi ->
+                        val name = poi.name.lowercase(java.util.Locale.ROOT)
+                        val desc = poi.description.lowercase(java.util.Locale.ROOT)
+                        name.contains(q) || desc.contains(q) || poi.id.contains(q)
+                    } ?: engine.pois.find { poi ->
+                        if (q.contains("ab1") || q.contains("ab 1")) poi.id == "poi_academic_block_1"
+                        else if (q.contains("ab2") || q.contains("ab 2")) poi.id == "poi_academic_block_2"
+                        else if (q.contains("ab3") || q.contains("ab 3")) poi.id == "poi_academic_block_3"
+                        else if (q.contains("ambrosia") || q.contains("canteen") || q.contains("food")) poi.id == "poi_food_court"
+                        else if (q.contains("library")) poi.id == "poi_library"
+                        else if (q.contains("gate")) poi.id == "poi_main_gate"
+                        else if (q.contains("admin")) poi.id == "poi_admin_block"
+                        else if (q.contains("delta")) poi.id == "poi_hostel_delta"
+                        else if (q.contains("gamma")) poi.id == "poi_hostel_gamma"
+                        else if (q.contains("sports")) poi.id == "poi_sports_complex"
+                        else if (q.contains("bus") || q.contains("kelambakkam")) poi.id == "poi_kelambakkam_road"
+                        else false
+                    }
+
+                    if (matched != null) {
+                        speakVoiceFeedback("Navigating to ${matched.name}")
+                        startMapNavigationToPoi(matched)
+                    } else {
+                        speakVoiceFeedback("Destination ${command.destinationQuery} not recognized on campus map. You can ask for AB1, AB2, AB3, Ambrosia Canteen, Central Library, or Hostels.")
+                    }
+                }
+                is VoiceCommand.NavigateTo -> {
+                    onDestinationReceived(command.destination)
+                }
+                is VoiceCommand.Stop -> {
+                    speakVoiceFeedback(getString(R.string.voice_cmd_stopped))
+                    hapticFeedback.cancel()
+                    geminiWalkingAnalyzer.stop()
+                    mapNavigationCoordinator?.stopNavigation()
+                    locationTracker?.stopTracking()
+                    coordinator.userStop()
+                    window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                }
+                is VoiceCommand.ConfirmArrival -> {
+                    val token = coordinator.confirmArrivalAtZone()
+                    if (token != null) {
+                        speakVoiceFeedback(getString(R.string.voice_cmd_arrival_confirmed))
+                    }
+                }
+                is VoiceCommand.Help -> {
+                    speakVoiceFeedback("Voice commands available: start walking mode, search for keys or wallet, open map mode, or take me to AB1, Ambrosia, or Central Library.")
+                }
+                is VoiceCommand.AppStatus -> {
+                    val status = "${tvSystemMode.text}. ${tvPathStatus.text}."
+                    speakVoiceFeedback(status)
+                }
+                is VoiceCommand.Unknown -> {
+                    Log.d(TAG, "Unrecognized voice command: ${command.rawText}")
+                    speakVoiceFeedback("Command not recognized. Say help for commands.")
+                }
+            }
+        }
+    }
+
+    private fun speakVoiceFeedback(phrase: String) {
+        val app = application as? NaviSenseApp ?: return
+        val now = app.clock.nowMonotonicMs()
+        app.speechArbiter.speak(
+            SpeechRequest(
+                utteranceId = "voice_cmd_$now",
+                phrase = phrase,
+                priority = AlertPriority.INFORMATIONAL,
+                sessionGeneration = coordinator.sessionGeneration.get(),
+                requestMonotonicMs = now
+            )
+        )
+        announce(phrase)
     }
 }

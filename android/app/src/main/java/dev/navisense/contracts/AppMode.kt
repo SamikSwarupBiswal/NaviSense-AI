@@ -22,6 +22,12 @@ enum class AppMode {
     /** Target object confirmed detected by Locate YOLO during stationary search. */
     FOUND,
 
+    /** Outdoor pedestrian navigation using Google Maps walking routes, GPS, and compass orientation with obstacle preemption. */
+    OUTDOOR_WALKING,
+
     /** Fatal error or background state. Processing paused; requires explicit restart. */
-    PAUSED
+    PAUSED,
+
+    /** Outdoor/campus pedestrian turn-by-turn map navigation using offline map and GPS. */
+    MAP_NAVIGATION
 }

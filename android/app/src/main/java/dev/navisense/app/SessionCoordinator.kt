@@ -16,6 +16,11 @@ import dev.navisense.navigation.IRiskEngine
 import dev.navisense.navigation.RiskEngine
 import dev.navisense.navigation.RiskEvaluationResult
 import dev.navisense.navigation.RiskLevel
+import dev.navisense.navigation.maps.PedestrianNavigationEngine
+import dev.navisense.navigation.maps.models.GeoPoint
+import dev.navisense.navigation.maps.models.NavigationEngineStatus
+import dev.navisense.navigation.maps.models.NavigationGuidance
+import dev.navisense.navigation.maps.models.WalkingRoute
 import dev.navisense.networking.LocateResult
 import dev.navisense.networking.MemoryClientContract
 import dev.navisense.voice.AlertPriority
@@ -31,7 +36,8 @@ class SessionCoordinator(
     val clock: IClock,
     val riskEngine: IRiskEngine = RiskEngine(clock = clock),
     val speechArbiter: ISpeechArbiter? = null,
-    val memoryClient: MemoryClientContract? = null
+    val memoryClient: MemoryClientContract? = null,
+    val navigationEngine: PedestrianNavigationEngine = PedestrianNavigationEngine(clock = clock)
 ) {
     @Volatile
     var currentMode: AppMode = AppMode.IDLE
@@ -67,6 +73,40 @@ class SessionCoordinator(
         fun onSensorHealthChanged(newHealth: SensorHealth)
         fun onRiskEvaluated(result: RiskEvaluationResult) {}
         fun onSearchStateChanged(newState: SearchUiState, event: SearchEvent? = null) {}
+        fun onNavigationStatusUpdated(status: NavigationEngineStatus) {}
+    }
+
+    init {
+        navigationEngine.addListener(object : PedestrianNavigationEngine.NavigationListener {
+            override fun onGuidanceGenerated(guidance: NavigationGuidance) {
+                if (currentMode == AppMode.OUTDOOR_WALKING) {
+                    val now = clock.nowMonotonicMs()
+                    speechArbiter?.speak(
+                        SpeechRequest(
+                            utteranceId = "nav_$now",
+                            phrase = guidance.phrase,
+                            priority = guidance.priority,
+                            sessionGeneration = sessionGeneration.get(),
+                            requestMonotonicMs = now
+                        )
+                    )
+                }
+            }
+
+            override fun onStatusUpdated(status: NavigationEngineStatus) {
+                if (currentMode == AppMode.OUTDOOR_WALKING) {
+                    stateListeners.forEach { it.onNavigationStatusUpdated(status) }
+                }
+            }
+
+            override fun onOffRouteDetected() {
+                // Handled via guidance announcement
+            }
+
+            override fun onArrival() {
+                // Handled via guidance announcement
+            }
+        })
     }
 
     private fun notifySearchStateChanged(newState: SearchUiState, event: SearchEvent? = null) {
@@ -113,6 +153,46 @@ class SessionCoordinator(
         notifyModeChanged(token)
         notifySearchStateChanged(SearchUiState.NONE)
         return token
+    }
+
+    /**
+     * Starts outdoor walking navigation using Google Maps walking routes and GPS/compass.
+     */
+    @Synchronized
+    fun startOutdoorWalking(route: WalkingRoute): SessionToken {
+        val newGen = sessionGeneration.advance()
+        currentMode = AppMode.OUTDOOR_WALKING
+        currentSearchState = SearchUiState.NONE
+        activeTargetClass = route.destinationName
+        activeTargetZone = null
+        currentPathStatus = PathStatus.UNKNOWN
+        riskEngine.reset()
+        speechArbiter?.invalidateSession(newGen)
+        navigationEngine.startRoute(route)
+        val token = SessionToken(newGen, currentMode)
+        notifyModeChanged(token)
+        notifySearchStateChanged(SearchUiState.NONE)
+        return token
+    }
+
+    /**
+     * Feeds GPS coordinate update to the pedestrian navigation engine.
+     */
+    @Synchronized
+    fun onLocationUpdated(currentLocation: GeoPoint, accuracyMeters: Float = 5f) {
+        if (currentMode == AppMode.OUTDOOR_WALKING) {
+            navigationEngine.onLocationUpdated(currentLocation, accuracyMeters)
+        }
+    }
+
+    /**
+     * Feeds compass azimuth heading update [0, 360) to the pedestrian navigation engine.
+     */
+    @Synchronized
+    fun onHeadingUpdated(azimuthDegrees: Float) {
+        if (currentMode == AppMode.OUTDOOR_WALKING) {
+            navigationEngine.onHeadingUpdated(azimuthDegrees)
+        }
     }
 
     /**
@@ -191,6 +271,51 @@ class SessionCoordinator(
     fun retryNearbySearch(): SessionToken? {
         val target = activeTargetClass ?: return null
         return startNearbySearch(target)
+    }
+
+    /**
+     * Starts outdoor/campus pedestrian map navigation with turn-by-turn guidance.
+     */
+    @Synchronized
+    fun startMapNavigation(destinationName: String): SessionToken {
+        val newGen = sessionGeneration.advance()
+        currentMode = AppMode.MAP_NAVIGATION
+        activeTargetClass = destinationName
+        activeTargetZone = destinationName
+        currentPathStatus = PathStatus.UNKNOWN
+        riskEngine.reset()
+        speechArbiter?.invalidateSession(newGen)
+        speechArbiter?.speak(
+            SpeechRequest(
+                utteranceId = "start_map_nav_$newGen",
+                phrase = "Starting map directions to $destinationName",
+                priority = AlertPriority.INFORMATIONAL,
+                sessionGeneration = newGen,
+                requestMonotonicMs = clock.nowMonotonicMs()
+            )
+        )
+        val token = SessionToken(newGen, currentMode)
+        notifyModeChanged(token)
+        notifySearchStateChanged(SearchUiState.NONE)
+        return token
+    }
+
+    /**
+     * Speaks Gemini 1.5 Flash walking obstacle description with directional priority.
+     */
+    @Synchronized
+    fun onGeminiNarrationReceived(narration: String) {
+        if (currentMode != AppMode.MOBILITY && currentMode != AppMode.MAP_NAVIGATION) return
+        val currentGen = sessionGeneration.get()
+        speechArbiter?.speak(
+            SpeechRequest(
+                utteranceId = "gemini_narr_${clock.nowMonotonicMs()}",
+                phrase = narration,
+                priority = AlertPriority.DIRECTIONAL,
+                sessionGeneration = currentGen,
+                requestMonotonicMs = clock.nowMonotonicMs()
+            )
+        )
     }
 
     /**
@@ -373,6 +498,7 @@ class SessionCoordinator(
         currentPathStatus = PathStatus.UNKNOWN
         currentSearchState = SearchUiState.NONE
         riskEngine.reset()
+        navigationEngine.stopNavigation()
         speechArbiter?.invalidateSession(newGen)
         speechArbiter?.cancelAll()
         memoryClient?.cancelPending()
@@ -394,6 +520,7 @@ class SessionCoordinator(
         currentPathStatus = PathStatus.UNKNOWN
         currentSearchState = SearchUiState.NONE
         riskEngine.reset()
+        navigationEngine.stopNavigation()
         speechArbiter?.invalidateSession(newGen)
         speechArbiter?.cancelAll()
         memoryClient?.cancelPending()
@@ -416,7 +543,7 @@ class SessionCoordinator(
         if (!sessionGeneration.isValid(event.sessionGeneration)) return
         // Locate detections in FinalSearch belong exclusively to TargetSearchEngine.
         // They must never drive Mobility corridor or visual-risk rules.
-        if (currentMode != AppMode.MOBILITY) return
+        if (currentMode != AppMode.MOBILITY && currentMode != AppMode.OUTDOOR_WALKING && currentMode != AppMode.MAP_NAVIGATION) return
         val result = riskEngine.onPerceptionEvent(event)
         handleRiskEvaluation(result)
     }
@@ -517,7 +644,7 @@ class SessionCoordinator(
 
     @Synchronized
     fun onWatchdogTick(currentTimeMonotonicMs: Long) {
-        if (currentMode == AppMode.MOBILITY) {
+        if (currentMode == AppMode.MOBILITY || currentMode == AppMode.OUTDOOR_WALKING) {
             val result = riskEngine.onWatchdogTick(currentTimeMonotonicMs)
             handleRiskEvaluation(result)
         }
@@ -526,7 +653,7 @@ class SessionCoordinator(
     private fun handleRiskEvaluation(result: RiskEvaluationResult) {
         updatePathStatus(result.pathStatus)
         val now = clock.nowMonotonicMs()
-        if (currentMode == AppMode.MOBILITY) {
+        if (currentMode == AppMode.MOBILITY || currentMode == AppMode.OUTDOOR_WALKING) {
             val obstacleLabel = result.associatedObjectLabel?.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
                 ?: result.visualObstacleLabel
             when (result.combinedRisk) {
@@ -607,7 +734,7 @@ class SessionCoordinator(
         if (currentPathStatus != newStatus) {
             currentPathStatus = newStatus
             stateListeners.forEach { it.onPathStatusChanged(newStatus) }
-            if (currentMode == AppMode.MOBILITY) {
+            if (currentMode == AppMode.MOBILITY || currentMode == AppMode.OUTDOOR_WALKING) {
                 val now = clock.nowMonotonicMs()
                 val phrase = when (newStatus) {
                     PathStatus.CLEAR_OBSERVED -> "No obstacle detected ahead."
