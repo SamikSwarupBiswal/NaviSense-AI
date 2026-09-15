@@ -25,14 +25,20 @@ data class RiskEvaluationResult(
  * Rishav's coordinator consumes these decisions for app and speech behavior.
  */
 interface IRiskEngine {
+    /** Serializes and atomically reduces one sensor, vision, or watchdog input. */
+    fun reduce(input: FusionInput): FusionTransition
+
     /** Processes incoming ultrasonic sensor event. */
-    fun onSensorEvent(event: SensorEvent): RiskEvaluationResult
+    fun onSensorEvent(event: SensorEvent): RiskEvaluationResult =
+        reduce(FusionInput.Sensor(event)).result
 
     /** Processes incoming mobile camera perception event. */
-    fun onPerceptionEvent(event: PerceptionFrameEvent): RiskEvaluationResult
+    fun onPerceptionEvent(event: PerceptionFrameEvent): RiskEvaluationResult =
+        reduce(FusionInput.Vision(event)).result
 
     /** Periodic watchdog tick (called at least every 50 ms). */
-    fun onWatchdogTick(currentTimeMonotonicMs: Long): RiskEvaluationResult
+    fun onWatchdogTick(currentTimeMonotonicMs: Long): RiskEvaluationResult =
+        reduce(FusionInput.Watchdog(currentTimeMonotonicMs)).result
 
     /** Resets all source holds, clearance timers, and visual tracking histories. */
     fun reset()

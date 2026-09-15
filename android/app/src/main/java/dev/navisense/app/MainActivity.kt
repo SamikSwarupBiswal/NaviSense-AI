@@ -36,6 +36,8 @@ import dev.navisense.contracts.SensorEvent
 import dev.navisense.contracts.SensorHealth
 import dev.navisense.contracts.SensorWireRecord
 import dev.navisense.contracts.SessionToken
+import dev.navisense.inference.ModelMetadata
+import dev.navisense.inference.PyTorchLiteInferenceBackend
 import dev.navisense.inference.YoloModelRunner
 import dev.navisense.usb.AndroidUsbCdcTransport
 import dev.navisense.usb.SensorRecord
@@ -81,8 +83,8 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
     private var cameraAnalyzer: CameraXAnalyzer? = null
     private val cameraExecutor: ExecutorService = Executors.newSingleThreadExecutor()
 
-    private var mobilityRunner: YoloModelRunner? = null
-    private var locateRunner: YoloModelRunner? = null
+    @Volatile
+    private var activeVisionRunner: YoloModelRunner? = null
 
     // USB Sensor Subsystem
     private lateinit var usbManager: UsbManager
@@ -253,6 +255,7 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
 
         cameraAnalyzer?.stopSession()
         cameraAnalyzer?.close()
+        releaseActiveVisionRunnerAsync()
         cameraProvider?.unbindAll()
         cameraExecutor.shutdown()
 
@@ -466,29 +469,123 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
             updateUiState(newMode)
             when (newMode) {
                 AppMode.MOBILITY -> {
-                    val runner = mobilityRunner ?: YoloModelRunner().also { mobilityRunner = it }
-                    cameraAnalyzer?.startSession(
-                        sessionGeneration = token.generation,
-                        mode = AppVisionMode.MOBILITY,
-                        runner = runner
-                    )
+                    activateLocalModel(token, AppVisionMode.MOBILITY, null)
                 }
                 AppMode.FINAL_SEARCH -> {
-                    val runner = locateRunner ?: YoloModelRunner().also { locateRunner = it }
-                    cameraAnalyzer?.startSession(
-                        sessionGeneration = token.generation,
-                        mode = AppVisionMode.LOCATE_SEARCH,
-                        runner = runner,
-                        targetClass = coordinator.activeTargetClass
-                    )
+                    activateLocalModel(token, AppVisionMode.LOCATE_SEARCH, coordinator.activeTargetClass)
                 }
                 AppMode.IDLE, AppMode.PAUSED, AppMode.FOUND -> {
                     cameraAnalyzer?.stopSession()
+                    releaseActiveVisionRunnerAsync()
                 }
                 else -> {}
             }
         }
     }
+
+    /** Loads and activates the packaged local YOLO model; no network path exists. */
+    private fun activateLocalModel(token: SessionToken, mode: AppVisionMode, targetClass: String?) {
+        val analyzer = cameraAnalyzer
+        if (analyzer == null) {
+            Log.e(TAG, "Cannot activate $mode before CameraX analyzer is ready")
+            coordinator.fatalPause()
+            return
+        }
+        analyzer.stopSession()
+        cameraExecutor.execute {
+            val startedAt = SystemClock.elapsedRealtime()
+            var runner: YoloModelRunner? = null
+            try {
+                val configuration = when (mode) {
+                    AppVisionMode.MOBILITY -> LocalModelConfiguration(
+                        assetName = "models/mobility_smoke.ptl",
+                        identity = "mobility-v0.2.0-finetuned-d76302b6",
+                        labels = listOf("person", "chair", "table", "backpack", "bottle"),
+                        confidenceThreshold = 0.40f,
+                        expectedSha256 = "d76302b62ba357a5dfa7531f201a7d7141ce55b1c940d3c6eae3b19d573b4936"
+                    )
+                    AppVisionMode.LOCATE_SEARCH -> LocalModelConfiguration(
+                        assetName = "models/locate_smoke.ptl",
+                        identity = "locate-v0.1.0-smoke-6b10accf",
+                        labels = listOf("keys", "wallet"),
+                        confidenceThreshold = 0.25f,
+                        expectedSha256 = "6b10accfabb7c7efbcb56fbb6b3198283bee56790987a5b87e403644746a8197"
+                    )
+                    AppVisionMode.OFF -> throw IllegalArgumentException("OFF has no local model")
+                }
+                val modelPath = PyTorchLiteInferenceBackend.copyAssetToCache(this, configuration.assetName)
+                verifyFileSha256(modelPath, configuration.expectedSha256)
+                val backend = PyTorchLiteInferenceBackend(
+                    modelPath = modelPath,
+                    numClasses = configuration.labels.size,
+                    confThreshold = 0.25f,
+                    iouThreshold = 0.45f
+                )
+                runner = YoloModelRunner(backend)
+                check(runner.load(
+                    ModelMetadata(
+                        modelIdentity = configuration.identity,
+                        mode = mode,
+                        inputWidth = 640,
+                        inputHeight = 640,
+                        classLabels = configuration.labels,
+                        confidenceThreshold = configuration.confidenceThreshold,
+                        nmsIouThreshold = 0.45f,
+                        modelHashSha256 = configuration.expectedSha256
+                    )
+                )) { "Local model load failed" }
+                check(SystemClock.elapsedRealtime() - startedAt <= 5_000L) { "Local model load exceeded 5 seconds" }
+                if (!coordinator.sessionGeneration.isValid(token.generation)) {
+                    runner.close()
+                    return@execute
+                }
+                synchronized(this@MainActivity) {
+                    activeVisionRunner?.close()
+                    activeVisionRunner = runner
+                }
+                val result = analyzer.startSession(token.generation, mode, runner, targetClass)
+                check(result == CameraXAnalyzer.StartResult.Started) {
+                    (result as? CameraXAnalyzer.StartResult.Rejected)?.reason ?: "Camera analyzer rejected model"
+                }
+                Log.i(TAG, "Activated local $mode model ${configuration.identity}")
+            } catch (failure: Throwable) {
+                runner?.close()
+                Log.e(TAG, "Failed to activate local $mode model", failure)
+                coordinator.fatalPause()
+            }
+        }
+    }
+
+    private fun verifyFileSha256(path: String, expected: String) {
+        val digest = java.security.MessageDigest.getInstance("SHA-256")
+        java.io.File(path).inputStream().use { input ->
+            val buffer = ByteArray(8 * 1024)
+            while (true) {
+                val count = input.read(buffer)
+                if (count < 0) break
+                digest.update(buffer, 0, count)
+            }
+        }
+        val actual = digest.digest().joinToString("") { "%02x".format(it) }
+        check(actual.equals(expected, ignoreCase = true)) { "Packaged model hash mismatch" }
+    }
+
+    private fun releaseActiveVisionRunnerAsync() {
+        val runner = synchronized(this) {
+            activeVisionRunner.also { activeVisionRunner = null }
+        }
+        if (runner != null && !cameraExecutor.isShutdown) {
+            cameraExecutor.execute { runner.close() }
+        }
+    }
+
+    private data class LocalModelConfiguration(
+        val assetName: String,
+        val identity: String,
+        val labels: List<String>,
+        val confidenceThreshold: Float,
+        val expectedSha256: String
+    )
 
     override fun onPathStatusChanged(newStatus: PathStatus) {
         runOnUiThread {

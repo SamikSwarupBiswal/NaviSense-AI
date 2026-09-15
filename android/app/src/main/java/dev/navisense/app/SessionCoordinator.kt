@@ -388,14 +388,14 @@ class SessionCoordinator(
 
     private fun handleRiskEvaluation(result: RiskEvaluationResult) {
         updatePathStatus(result.pathStatus)
+        val now = clock.nowMonotonicMs()
         if (currentMode == AppMode.MOBILITY) {
-            val now = clock.nowMonotonicMs()
             when (result.combinedRisk) {
                 RiskLevel.STOP -> {
                     speechArbiter?.speak(
                         SpeechRequest(
                             utteranceId = "stop_$now",
-                            phrase = "Stop",
+                            phrase = "STOP.",
                             priority = AlertPriority.STOP,
                             sessionGeneration = sessionGeneration.get(),
                             requestMonotonicMs = now,
@@ -405,9 +405,9 @@ class SessionCoordinator(
                 }
                 RiskLevel.SLOW -> {
                     val phrase = if (result.associatedObjectLabel != null) {
-                        "Caution, ${result.associatedObjectLabel} ahead"
+                        "Slow down. ${result.associatedObjectLabel} ahead."
                     } else {
-                        "Caution, slow down"
+                        "Slow down. Obstacle ahead."
                     }
                     speechArbiter?.speak(
                         SpeechRequest(
@@ -421,10 +421,11 @@ class SessionCoordinator(
                     )
                 }
                 RiskLevel.AWARENESS -> {
+                    val phrase = result.associatedObjectLabel?.let { "$it ahead." } ?: "Obstacle ahead."
                     speechArbiter?.speak(
                         SpeechRequest(
                             utteranceId = "aware_$now",
-                            phrase = "Obstacle detected ahead",
+                            phrase = phrase,
                             priority = AlertPriority.AWARENESS,
                             sessionGeneration = sessionGeneration.get(),
                             requestMonotonicMs = now,
@@ -434,6 +435,21 @@ class SessionCoordinator(
                 }
                 RiskLevel.NONE -> {}
             }
+        } else if ((currentMode == AppMode.FINAL_SEARCH || currentMode == AppMode.FOUND) &&
+            result.sensorRisk == RiskLevel.STOP
+        ) {
+            // Search is stationary and Locate detections never drive Mobility risk,
+            // but a fresh close ultrasonic record must retain STOP priority.
+            speechArbiter?.speak(
+                SpeechRequest(
+                    utteranceId = "search_stop_$now",
+                    phrase = "STOP.",
+                    priority = AlertPriority.STOP,
+                    sessionGeneration = sessionGeneration.get(),
+                    requestMonotonicMs = now,
+                    isEscalation = result.isEscalation
+                )
+            )
         }
     }
 
@@ -442,6 +458,25 @@ class SessionCoordinator(
         if (currentPathStatus != newStatus) {
             currentPathStatus = newStatus
             stateListeners.forEach { it.onPathStatusChanged(newStatus) }
+            if (currentMode == AppMode.MOBILITY) {
+                val now = clock.nowMonotonicMs()
+                val phrase = when (newStatus) {
+                    PathStatus.CLEAR_OBSERVED -> "No obstacle detected ahead."
+                    PathStatus.UNKNOWN -> "Cannot confirm the path is clear."
+                    PathStatus.BLOCKED -> null
+                }
+                if (phrase != null) {
+                    speechArbiter?.speak(
+                        SpeechRequest(
+                            utteranceId = "path_${newStatus.name.lowercase()}_$now",
+                            phrase = phrase,
+                            priority = AlertPriority.HEALTH_UNKNOWN,
+                            sessionGeneration = sessionGeneration.get(),
+                            requestMonotonicMs = now
+                        )
+                    )
+                }
+            }
         }
     }
 

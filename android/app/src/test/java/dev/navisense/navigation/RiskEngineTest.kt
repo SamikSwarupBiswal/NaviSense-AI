@@ -108,6 +108,8 @@ class RiskEngineTest {
         val boxT1 = NormalizedRect(0.35f, 0.35f, 0.65f, 0.65f)
         val detLooming = DetectedObject(classId = 0, label = "person", confidence = 0.90f, boundingBox = boxT1)
 
+        riskEngine.onPerceptionEvent(createPerceptionEvent(listOf(detLooming), timestampMs = 500L))
+        riskEngine.onPerceptionEvent(createPerceptionEvent(listOf(detLooming), timestampMs = 550L))
         val result = riskEngine.onPerceptionEvent(createPerceptionEvent(listOf(detLooming), timestampMs = 600L))
 
         assertTrue("Should detect approaching collision hazard", result.isApproachingHazard)
@@ -135,6 +137,8 @@ class RiskEngineTest {
         val boxT1 = NormalizedRect(0.25f, 0.35f, 0.75f, 0.95f)
         val detLoomingNear = DetectedObject(classId = 0, label = "person", confidence = 0.90f, boundingBox = boxT1)
 
+        riskEngine.onPerceptionEvent(createPerceptionEvent(listOf(detLoomingNear), timestampMs = 500L))
+        riskEngine.onPerceptionEvent(createPerceptionEvent(listOf(detLoomingNear), timestampMs = 550L))
         val result = riskEngine.onPerceptionEvent(createPerceptionEvent(listOf(detLoomingNear), timestampMs = 600L))
 
         // PRD §17.1 Rule 7: Near corridor track growing >= 25% over 0.5s triggers STOP
@@ -162,6 +166,29 @@ class RiskEngineTest {
 
         assertFalse("Receding object must not trigger looming", result.isApproachingHazard)
         // Qualified persistent corridor track without near/growth triggers AWARENESS
+        assertEquals(RiskLevel.AWARENESS, result.visionRisk)
+    }
+
+    @Test
+    fun testSingleAreaSpikeIsRejectedByThreeSampleMedian() {
+        val stable = DetectedObject(
+            classId = 0,
+            label = "person",
+            confidence = 0.90f,
+            boundingBox = NormalizedRect(0.40f, 0.40f, 0.60f, 0.60f)
+        )
+        riskEngine.onPerceptionEvent(createPerceptionEvent(listOf(stable), 100L))
+        riskEngine.onPerceptionEvent(createPerceptionEvent(listOf(stable), 200L))
+        riskEngine.onPerceptionEvent(createPerceptionEvent(listOf(stable), 300L))
+        riskEngine.onPerceptionEvent(createPerceptionEvent(listOf(stable), 500L))
+        riskEngine.onPerceptionEvent(createPerceptionEvent(listOf(stable), 550L))
+
+        val oneFrameSpike = stable.copy(
+            boundingBox = NormalizedRect(0.30f, 0.30f, 0.70f, 0.70f)
+        )
+        val result = riskEngine.onPerceptionEvent(createPerceptionEvent(listOf(oneFrameSpike), 600L))
+
+        assertFalse("One enlarged box must not satisfy median looming", result.isApproachingHazard)
         assertEquals(RiskLevel.AWARENESS, result.visionRisk)
     }
 

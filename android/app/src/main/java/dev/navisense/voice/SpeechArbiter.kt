@@ -28,10 +28,10 @@ class SpeechArbiter(
 
     companion object {
         const val STOP_COOLDOWN_MS = 2000L
-        const val SLOW_COOLDOWN_MS = 3000L
+        const val SLOW_COOLDOWN_MS = 5000L
         const val DIRECTIONAL_COOLDOWN_MS = 2000L
         const val AWARENESS_COOLDOWN_MS = 5000L
-        const val HEALTH_UNKNOWN_COOLDOWN_MS = 5000L
+        const val HEALTH_UNKNOWN_COOLDOWN_MS = 10000L
         const val INFORMATIONAL_COOLDOWN_MS = 3000L
     }
 

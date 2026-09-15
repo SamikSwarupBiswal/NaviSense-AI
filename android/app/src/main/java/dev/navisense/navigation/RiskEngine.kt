@@ -34,9 +34,18 @@ class RiskEngine(
     private var expansionRate: Float? = null
 
     @Synchronized
-    override fun onSensorEvent(event: SensorEvent): RiskEvaluationResult {
+    override fun reduce(input: FusionInput): FusionTransition {
+        val (result, accepted) = when (input) {
+            is FusionInput.Sensor -> processSensorEvent(input.event)
+            is FusionInput.Vision -> processPerceptionEvent(input.event)
+            is FusionInput.Watchdog -> processWatchdogTick(input.nowMonotonicMs) to true
+        }
+        return FusionTransition(input, accepted, snapshot(result.timestampMonotonicMs, result), result)
+    }
+
+    private fun processSensorEvent(event: SensorEvent): Pair<RiskEvaluationResult, Boolean> {
         val now = event.receiptMonotonicMs
-        if (!acceptSensorOrdering(event)) return buildResult(now)
+        if (!acceptSensorOrdering(event)) return buildResult(now) to false
         lastSensorEvent = event
         val valid = event.wireRecord.version == 1 && event.wireRecord.isValid &&
             event.wireRecord.distanceCm in 2..400
@@ -47,13 +56,12 @@ class RiskEngine(
             sensorLossStartMs = null
             updateSensorRisk(rawSensorRisk(event.wireRecord.distanceCm), event, now)
         } else markSensorUnavailable(now)
-        return buildResult(now)
+        return buildResult(now) to true
     }
 
-    @Synchronized
-    override fun onPerceptionEvent(event: PerceptionFrameEvent): RiskEvaluationResult {
+    private fun processPerceptionEvent(event: PerceptionFrameEvent): Pair<RiskEvaluationResult, Boolean> {
         val now = event.deliveryMonotonicMs
-        if (!acceptVisionOrdering(event)) return buildResult(now)
+        if (!acceptVisionOrdering(event)) return buildResult(now) to false
         lastPerceptionEvent = event
         val usable = event.mode == AppVisionMode.MOBILITY &&
             event.qualityStatus == FrameQualityStatus.USABLE && event.errorMessage == null &&
@@ -62,7 +70,7 @@ class RiskEngine(
         if (!usable) {
             tentativeCorridorCandidate = false
             clearanceStartMs = null
-            return buildResult(now)
+            return buildResult(now) to true
         }
         lastUsableCameraDeliveryMs = now
         tentativeCorridorCandidate = event.detections.any {
@@ -102,11 +110,10 @@ class RiskEngine(
         expansionRate = strongestTrack?.expansionRatePerSecond(event.captureMonotonicMs)
         associatedObjectLabel = associateLabel(persistentCorridorTracks, event.captureMonotonicMs)
         updateVisionRisk(rawVisionRisk, now)
-        return buildResult(now)
+        return buildResult(now) to true
     }
 
-    @Synchronized
-    override fun onWatchdogTick(currentTimeMonotonicMs: Long): RiskEvaluationResult {
+    private fun processWatchdogTick(currentTimeMonotonicMs: Long): RiskEvaluationResult {
         val sensorAge = lastSensorEvent?.let { currentTimeMonotonicMs - it.receiptMonotonicMs }
         if (sensorAge == null || sensorAge > SENSOR_FRESH_MS) markSensorUnavailable(currentTimeMonotonicMs)
         val cameraAge = lastUsableCameraDeliveryMs?.let { currentTimeMonotonicMs - it }
@@ -233,6 +240,35 @@ class RiskEngine(
         previousCombinedRisk = combined
         return RiskEvaluationResult(combined, heldSensorRisk, heldVisionRisk, path, source,
             associatedObjectLabel, escalated, now, approachingHazard, expansionRate)
+    }
+
+    private fun snapshot(now: Long, result: RiskEvaluationResult): FusionState {
+        val sensorAvailability = when {
+            lastSensorEvent == null -> EvidenceAvailability.ABSENT
+            now - lastSensorEvent!!.receiptMonotonicMs > SENSOR_FRESH_MS -> EvidenceAvailability.STALE
+            lastSensorEvent!!.sensorHealth == SensorHealth.STREAMING && lastUsableSensorEvent != null ->
+                EvidenceAvailability.AVAILABLE
+            lastSensorEvent!!.sensorHealth == SensorHealth.ERROR -> EvidenceAvailability.RECOVERING
+            else -> EvidenceAvailability.INVALID
+        }
+        val visionAvailability = when {
+            lastPerceptionEvent == null -> EvidenceAvailability.ABSENT
+            lastUsableCameraDeliveryMs == null -> EvidenceAvailability.INVALID
+            now - lastUsableCameraDeliveryMs!! > CAMERA_DELIVERY_DEADLINE_MS -> EvidenceAvailability.STALE
+            else -> EvidenceAvailability.AVAILABLE
+        }
+        return FusionState(
+            sensorRisk = result.sensorRisk,
+            visionRisk = result.visionRisk,
+            combinedRisk = result.combinedRisk,
+            pathStatus = result.pathStatus,
+            sensorAvailability = sensorAvailability,
+            visionAvailability = visionAvailability,
+            associatedObjectLabel = result.associatedObjectLabel,
+            lastSensorReceiptMonotonicMs = lastSensorEvent?.receiptMonotonicMs,
+            lastCameraDeliveryMonotonicMs = lastUsableCameraDeliveryMs,
+            evaluatedAtMonotonicMs = now
+        )
     }
 
     private fun evaluatePathStatus(combined: RiskLevel, now: Long): PathStatus {

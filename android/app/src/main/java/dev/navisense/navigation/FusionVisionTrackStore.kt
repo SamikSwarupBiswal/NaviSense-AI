@@ -42,7 +42,7 @@ internal class FusionVisionTrackStore(
         /** Relative median-area growth over approximately 500 ms. */
         fun areaGrowth(nowCaptureMs: Long): Float? {
             if (samples.size < 2) return null
-            val currentArea = current.box.area
+            val currentArea = median(samples.takeLast(MEDIAN_WINDOW).map { it.box.area })
             if (currentArea <= 0f) return null
 
             val target = nowCaptureMs - GROWTH_INTERVAL_MS
