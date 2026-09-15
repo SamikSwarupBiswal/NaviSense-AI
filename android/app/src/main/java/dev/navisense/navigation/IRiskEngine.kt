@@ -15,7 +15,9 @@ data class RiskEvaluationResult(
     val primaryHazardSource: RiskSource?,
     val associatedObjectLabel: String?, // Visual label if exactly 1 track matches and sensor-camera sync <= 200 ms
     val isEscalation: Boolean,
-    val timestampMonotonicMs: Long
+    val timestampMonotonicMs: Long,
+    val isApproachingHazard: Boolean = false,
+    val expansionRate: Float? = null
 )
 
 /**

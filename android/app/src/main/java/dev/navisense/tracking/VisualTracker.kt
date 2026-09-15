@@ -66,6 +66,53 @@ data class ActiveTrack(
 
         return (currentArea / prevArea) - 1.0f
     }
+
+    /**
+     * Computes normalized optical expansion rate per second:
+     * (ΔArea) / (Area_0 * Δt)
+     * where Δt is in seconds.
+     * Returns null if insufficient history or non-positive baseline area.
+     */
+    fun computeExpansionRate(
+        currentMonotonicMs: Long,
+        targetIntervalMs: Long = 500L,
+        toleranceMs: Long = 150L
+    ): Float? {
+        if (history.isEmpty()) return null
+        val currentArea = currentBox.area
+        if (currentArea <= 0f) return null
+
+        val targetTimestamp = currentMonotonicMs - targetIntervalMs
+        val minTimestamp = targetTimestamp - toleranceMs
+        val maxTimestamp = targetTimestamp + toleranceMs
+
+        val candidates = history.filter { it.timestampMonotonicMs in minTimestamp..maxTimestamp }
+        if (candidates.isEmpty()) return null
+
+        val baseline = candidates.minByOrNull { abs(it.timestampMonotonicMs - targetTimestamp) } ?: return null
+        val prevArea = baseline.boundingBox.area
+        if (prevArea <= 0f) return null
+
+        val dtSeconds = (currentMonotonicMs - baseline.timestampMonotonicMs) / 1000.0f
+        if (dtSeconds <= 0f) return null
+
+        val deltaArea = currentArea - prevArea
+        return deltaArea / (prevArea * dtSeconds)
+    }
+
+    /**
+     * Determines whether this track exhibits rapid approaching optical expansion
+     * (looming collision hazard) above the given threshold rate (default 0.50 s^-1).
+     */
+    fun isApproaching(
+        currentMonotonicMs: Long,
+        thresholdRate: Float = 0.50f,
+        targetIntervalMs: Long = 500L,
+        toleranceMs: Long = 150L
+    ): Boolean {
+        val rate = computeExpansionRate(currentMonotonicMs, targetIntervalMs, toleranceMs) ?: return false
+        return rate >= thresholdRate
+    }
 }
 
 /**
