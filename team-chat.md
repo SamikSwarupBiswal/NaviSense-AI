@@ -2331,3 +2331,21 @@ Recipient(s): Rohan, Subham, Spandan
 For response: Team ACK; Rohan/Samik verify on connected physical device outdoors.
 ```
 
+```text
+Entry ID: RISHAV-2026-09-16-024 / 2026-09-16T04:49:00+05:30 / T+ unverified
+Author and type: Rishav | REVERT, SYNC & RESTORATION
+Phase / step / S-instance / H-contract: Phase 7 / Voice UX & Outdoor Navigation Revert to Verified Baseline bf62a89
+Message and requested action:
+1. Reverted Commits to Baseline:
+   - In accordance with direct user instruction ("it did not work so revert it back like change it back to the last git push"), reverted commits 26750d6 and 325f0d8 on main (commit 16919c6).
+   - Codebase on main is verified 100% byte-for-byte identical to the last verified stable baseline bf62a89 (git diff bf62a89 is empty).
+2. Clean Revert Scope:
+   - Removed experimental speech recognition listeners, voice command parser, voice destination recognition, and outdoor Google Routes navigation.
+   - Restored MainActivity, SessionCoordinator, activity_main.xml, strings.xml, AndroidManifest.xml, and build.gradle.kts to the stable Search Nearby directional guidance baseline.
+3. Frozen File Hashes:
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Source revision and evidence reference: commit 16919c6 on main (restoring bf62a89); git diff bf62a89 is empty
+Recipient(s): Samik, Subham, Rohan, Spandan
+For response: Team ACK revert to verified baseline bf62a89.
+```
