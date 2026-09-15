@@ -14,9 +14,13 @@ __pycache__/
 .pytest_cache/
 datasets/mobility_indoor/
 datasets/phone_walking/
+datasets/mobility_combined/
 datasets/raw/
 !datasets/raw/laptop/
 *.zip
 *.db
+models/checkpoints/
+runs/
+yolov8n.pt
 
 

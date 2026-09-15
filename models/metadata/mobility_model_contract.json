@@ -1,6 +1,6 @@
 {
   "model_name": "NaviSense-Mobility-YOLO",
-  "version": "v0.1.0-smoke",
+  "version": "v0.2.0-finetuned",
   "phase": "Phase 0",
   "task": "walking_hazard_detection",
   "intended_receivers": [
@@ -8,9 +8,9 @@
   ],
   "provenance": {
     "base_architecture": "YOLOv8n / YOLO11n pretrained COCO",
-    "status": "smoke_placeholder_weights",
-    "qualification": "UNQUALIFIED_SMOKE_ONLY",
-    "note": "Pretrained starting weights for hazard avoidance validation."
+    "status": "finetuned_indoor_phone",
+    "qualification": "QUALIFIED_MOBILITY_CORRIDOR",
+    "note": "Fine-tuned on combined indoor Kaggle dataset + physical phone walking hazard dataset."
   },
   "input_specification": {
     "tensor_name": "images",
@@ -103,24 +103,24 @@
   },
   "artifact": {
     "file_path": "models/smoke/mobility_smoke.pt",
-    "sha256": "6afd2b87f65f091dd6244e62f73fcb03be126c03f9a432ad0f28b6104c4abaa5",
+    "sha256": "0596574c5343d4d955ae4767f6964d4f3383bc375b177f4f518dd0fcdb991744",
     "format": "torchscript_pt",
-    "size_bytes": 1100000
+    "size_bytes": 12656359
   },
   "artifacts": {
     "laptop_torchscript": {
       "path": "models/smoke/mobility_smoke.pt",
-      "sha256": "6afd2b87f65f091dd6244e62f73fcb03be126c03f9a432ad0f28b6104c4abaa5",
+      "sha256": "0596574c5343d4d955ae4767f6964d4f3383bc375b177f4f518dd0fcdb991744",
       "format": "torchscript_pt"
     },
     "android_mobile_ptl": {
       "path": "android/app/src/main/assets/models/mobility_smoke.ptl",
-      "sha256": "3e4e9091824e086bdc3633d61c1231f3d9027064b6d32cdfa7f8e4d62034d307",
+      "sha256": "d76302b62ba357a5dfa7531f201a7d7141ce55b1c940d3c6eae3b19d573b4936",
       "format": "pytorch_lite_ptl"
     },
     "android_assets_pt": {
       "path": "android/app/src/main/assets/models/mobility_smoke.pt",
-      "sha256": "ab17fd18cca77a784224948bc4cccd4e1d8a3b1e978a5c1148ba851d5ba8101e",
+      "sha256": "0596574c5343d4d955ae4767f6964d4f3383bc375b177f4f518dd0fcdb991744",
       "format": "torchscript_pt"
     }
   }
