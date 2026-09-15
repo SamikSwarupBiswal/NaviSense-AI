@@ -51,6 +51,10 @@ import dev.navisense.usb.AndroidUsbCdcTransport
 import dev.navisense.usb.SensorRecord
 import dev.navisense.usb.UsbSensorAdapter
 import dev.navisense.usb.SensorHealth as UsbSensorHealth
+import dev.navisense.voice.AlertPriority
+import dev.navisense.voice.SpeechRequest
+import dev.navisense.voice.VoiceCommand
+import dev.navisense.voice.VoiceCommandManager
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -83,10 +87,14 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
     private lateinit var tvSystemMode: TextView
     private lateinit var tvPathStatus: TextView
     private lateinit var tvSensorStatus: TextView
+    private lateinit var tvVoiceStatus: TextView
     private lateinit var btnStartWalking: Button
     private lateinit var btnSearchNearby: Button
+    private lateinit var btnVoiceCommand: Button
     private lateinit var btnConfirmArrival: Button
     private lateinit var btnStop: Button
+
+    private var voiceCommandManager: VoiceCommandManager? = null
 
     private var cameraProvider: ProcessCameraProvider? = null
     private var cameraAnalyzer: CameraXAnalyzer? = null
@@ -119,6 +127,17 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
             setupCamera()
         } else {
             announce(getString(R.string.status_sensor_unavailable))
+        }
+    }
+
+    private val requestAudioPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            startVoiceRecognition()
+            speakVoiceFeedback(getString(R.string.voice_cmd_opened))
+        } else {
+            tvVoiceStatus.text = "Voice Control: Mic Permission Denied"
         }
     }
 
@@ -186,10 +205,16 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
         tvSystemMode = findViewById(R.id.tvSystemMode)
         tvPathStatus = findViewById(R.id.tvPathStatus)
         tvSensorStatus = findViewById(R.id.tvSensorStatus)
+        tvVoiceStatus = findViewById(R.id.tvVoiceStatus)
         btnStartWalking = findViewById(R.id.btnStartWalking)
         btnSearchNearby = findViewById(R.id.btnSearchNearby)
+        btnVoiceCommand = findViewById(R.id.btnVoiceCommand)
         btnConfirmArrival = findViewById(R.id.btnConfirmArrival)
         btnStop = findViewById(R.id.btnStop)
+
+        btnVoiceCommand.setOnClickListener {
+            toggleVoiceRecognition()
+        }
 
         btnStartWalking.setOnClickListener {
             coordinator.startMobility()
@@ -241,6 +266,9 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
 
         // Probe already connected USB devices on startup
         checkConnectedUsbDevices()
+
+        // Initialize voice commands and recognition
+        initVoiceRecognition()
     }
 
     override fun onResume() {
@@ -271,6 +299,8 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
 
         detectionOverlay.clearDetections()
         hapticFeedback.cancel()
+        voiceCommandManager?.destroy()
+        voiceCommandManager = null
         coordinator.removeListener(this)
         coordinator.userStop()
     }
@@ -831,5 +861,109 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
 
     private fun announce(text: String) {
         window.decorView.announceForAccessibility(text)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        speakVoiceFeedback(getString(R.string.voice_cmd_opened))
+        startVoiceRecognition()
+    }
+
+    private fun initVoiceRecognition() {
+        val app = application as NaviSenseApp
+        voiceCommandManager = VoiceCommandManager(
+            context = this,
+            isTtsSpeakingProvider = { app.speechArbiter.isSpeaking },
+            onCommandRecognized = { command ->
+                handleVoiceCommand(command)
+            },
+            onStateChanged = { isListening ->
+                runOnUiThread {
+                    if (isListening) {
+                        tvVoiceStatus.text = getString(R.string.voice_cmd_listening)
+                    } else {
+                        tvVoiceStatus.text = "Voice Control: Standby"
+                    }
+                }
+            }
+        )
+
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+            startVoiceRecognition()
+            speakVoiceFeedback(getString(R.string.voice_cmd_opened))
+        } else {
+            requestAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
+
+    private fun startVoiceRecognition() {
+        voiceCommandManager?.startListening()
+    }
+
+    private fun toggleVoiceRecognition() {
+        val mgr = voiceCommandManager ?: return
+        mgr.startListening()
+        speakVoiceFeedback(getString(R.string.voice_cmd_listening))
+    }
+
+    private fun handleVoiceCommand(command: VoiceCommand) {
+        runOnUiThread {
+            when (command) {
+                is VoiceCommand.FindTarget -> {
+                    val target = command.target
+                    val phrase = if (target == "wallet") {
+                        getString(R.string.voice_cmd_searching_wallet)
+                    } else {
+                        getString(R.string.voice_cmd_searching_keys)
+                    }
+                    speakVoiceFeedback(phrase)
+                    coordinator.startNearbySearch(target)
+                    window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                }
+                is VoiceCommand.StartWalking -> {
+                    speakVoiceFeedback(getString(R.string.voice_cmd_walking_started))
+                    coordinator.startMobility()
+                    window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                }
+                is VoiceCommand.Stop -> {
+                    speakVoiceFeedback(getString(R.string.voice_cmd_stopped))
+                    hapticFeedback.cancel()
+                    coordinator.userStop()
+                    window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                }
+                is VoiceCommand.ConfirmArrival -> {
+                    val token = coordinator.confirmArrivalAtZone()
+                    if (token != null) {
+                        speakVoiceFeedback(getString(R.string.voice_cmd_arrival_confirmed))
+                    }
+                }
+                is VoiceCommand.Help -> {
+                    speakVoiceFeedback(getString(R.string.voice_cmd_help))
+                }
+                is VoiceCommand.AppStatus -> {
+                    val status = "${tvSystemMode.text}. ${tvPathStatus.text}."
+                    speakVoiceFeedback(status)
+                }
+                is VoiceCommand.Unknown -> {
+                    Log.d(TAG, "Unrecognized voice command: ${command.rawText}")
+                }
+            }
+        }
+    }
+
+    private fun speakVoiceFeedback(phrase: String) {
+        val app = application as? NaviSenseApp ?: return
+        val now = app.clock.nowMonotonicMs()
+        app.speechArbiter.speak(
+            SpeechRequest(
+                utteranceId = "voice_cmd_$now",
+                phrase = phrase,
+                priority = AlertPriority.INFORMATIONAL,
+                sessionGeneration = coordinator.sessionGeneration.get(),
+                requestMonotonicMs = now
+            )
+        )
+        announce(phrase)
     }
 }

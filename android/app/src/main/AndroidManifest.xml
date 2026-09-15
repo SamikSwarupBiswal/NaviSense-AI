@@ -3,6 +3,7 @@
 
     <!-- Permissions required for NaviSense AI MVP -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
@@ -12,6 +13,7 @@
     <uses-feature android:name="android.hardware.camera" android:required="true" />
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
     <uses-feature android:name="android.hardware.usb.host" android:required="false" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
 
     <application
         android:name=".app.NaviSenseApp"
@@ -29,6 +31,15 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VOICE_COMMAND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.VOICE" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.ASSIST" />
+                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />

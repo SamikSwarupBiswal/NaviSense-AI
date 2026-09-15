@@ -52,4 +52,16 @@
     <string name="action_retry">Retry</string>
     <string name="action_choose_another">Choose another object</string>
     <string name="action_cancel">Cancel</string>
+
+    <!-- Voice Command Strings -->
+    <string name="btn_voice_command">Voice Control</string>
+    <string name="voice_cmd_mic_desc">Voice command microphone. Double tap to toggle listening.</string>
+    <string name="voice_cmd_listening">Listening for commands...</string>
+    <string name="voice_cmd_opened">NaviSense opened. Ready for commands.</string>
+    <string name="voice_cmd_searching_wallet">Searching for wallet.</string>
+    <string name="voice_cmd_searching_keys">Searching for keys.</string>
+    <string name="voice_cmd_walking_started">Walking mode started.</string>
+    <string name="voice_cmd_stopped">Stopped.</string>
+    <string name="voice_cmd_arrival_confirmed">Arrival confirmed. Searching for target.</string>
+    <string name="voice_cmd_help">You can say: find keys, find wallet, start walking, or stop.</string>
 </resources>
