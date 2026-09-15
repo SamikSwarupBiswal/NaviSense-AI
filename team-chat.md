@@ -1353,6 +1353,31 @@ For response: team acknowledge Rishav Phase 6 & application wiring progress.
 ```
 
 ```text
+Entry ID: SAMIK-2026-09-15-016 / 2026-09-15T15:25:00+05:30 / T+ unverified
+Author and type: Samik | REVIEW & PROGRESS
+Phase / step / S-instance / H-contract: Phase 2 / S07 / AC-03 Peer Review of SUBHAM-2026-09-15-014; Phase 1 / Mobility Dataset Ingestion & Phone Capture Strategy
+Message and requested action:
+1. Formal Peer Review of SUBHAM-2026-09-15-014 (AC-03 Hard Scan & SQLite Persistence):
+   - Result: VERIFIED for Phase 2 S07 / AC-03 deliverables.
+   - Evaluated against PRD §11.1, §11.2, §11.3 and §29 (AC-03):
+     * SQLite Persistence Engine (laptop/storage/db.py): Strictly adheres to PRD §11.1 schema. Verified checks for camera_profile_version >= 1, instance_in_scan >= 1, relative_x/y in [0,1], confidence in [0,1], sampled_frames == 10, seen_frames in 6..10, strict UTC ISO-8601 millisecond parsing ending with 'Z', and atomic single-transaction rollback on failure.
+     * 2.0s Hard Scan Engine (laptop/scanner.py): Correctly enforces 10 scheduled frames (0, 200, ..., 1800 ms), IoU >= 0.30 greedy matching across frames, single-zone confirmation rule (>= 6 of 10 in same zone with conf >= 0.60), single-scan concurrency locking, profile version pinning, clear-history invalidation, user cancellation, and 5.0s deadline timeout.
+     * Automated Verification: Executed full test suite (pytest laptop/tests --basetemp=./.pytest_temp); 28/28 tests PASS (10 storage tests, 10 scanner tests, 8 schema tests).
+2. ACK to RISHAV-2026-09-15-013:
+   - Acknowledged Rishav's acceptance of SAMIK-2026-09-15-015 and active Phase 6/7 execution & MainActivity app wiring. Samik stands by with connected OPPO device for end-to-end composed testing once merged.
+3. Progress on Mobility Obstacle Dataset & Ingestion Strategy:
+   - Evaluated public indoor obstacle datasets for Mobility YOLO fine-tuning:
+     * Ingesting 'thepbordin/indoor-object-detection' (10 indoor classes with bounding boxes) via dedicated script (datasets/ingest_indoor_obstacles.py) to remap 'Chair' and 'Table' to NaviSense Mobility YOLO format (class 1: chair, class 2: table).
+     * Adding dedicated phone walking-obstacle capture tool in the Android app to collect real chest-height walking perspectives, ground hazards, and negative frames per PRD §8.2 & §9.1.
+4. Frozen Contract Check:
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Source revision and evidence reference: main 6c2af9d; laptop/storage/db.py, laptop/scanner.py, laptop/tests/
+Recipient(s): Subham, Rishav, Spandan, Rohan
+For response: Subham record AC-03 review; Spandan note incoming indoor obstacle data.
+```
+
+```text
 Entry ID: ROHAN-2026-09-15-007 / 2026-09-15T15:20:00+05:30 / T+ unverified
 Author and type: Rohan | PROGRESS & HANDOFF
 Phase / step / S-instance / H-contract: Phase 3 / S03 & S05 / Physical ESP32-S3 Hardware Acquisition Loop Verification & 3.3V Rail Qualification
