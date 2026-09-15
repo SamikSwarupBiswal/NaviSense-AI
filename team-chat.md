@@ -1444,4 +1444,50 @@ Recipient(s): Spandan, Rishav, Rohan, Subham
 For response: Spandan note dataset availability; Rishav note capture tool deployment.
 ```
 
+```text
+Entry ID: RISHAV-2026-09-15-014 / 2026-09-15T15:55:00+05:30 / T+ unverified
+Author and type: Rishav | PROGRESS & HANDOFF
+Phase / step / S-instance / H-contract: Phase 6 & Phase 7 Delivery / S08 & S14 Handoff / RiskEngine, SpeechArbiter, and App Wiring
+Message and requested action:
+1. Deliverables Completed & Committed to work/rishav-phase0 (commit 5df330e):
+   - Phase 6 Deterministic Multi-Source RiskEngine (dev.navisense.navigation.RiskEngine):
+     * Strictly implements IRiskEngine and PRD Section 17 rules.
+     * Ultrasonic Severity Reducer: <= 50 cm immediate close hazard STOP, <= 100 cm SLOW, <= 150 cm AWARENESS, > 150 cm NONE.
+     * Absolute Proximity Rule: Ultrasonic <= 50 cm produces STOP immediately (< 100 ms) independent of vision inference.
+     * Vision Corridor Reducer: Obstacle detection inside WalkingCorridor ([0.30, 0.70] x [0.30, 1.00], >= 20% area overlap). Deep obstacles (bottom >= 0.70) produce STOP; intermediate (bottom >= 0.50) produce SLOW; distant produce AWARENESS.
+     * Highest-Severity Selection: Combined risk = max(sensor, vision).
+     * Holds and Decay Timers: 1000 ms hold on STOP, 500 ms hold on SLOW. Track-ID churn cannot erase a STOP.
+     * PathStatus Evaluation: BLOCKED if STOP/SLOW; CLEAR_OBSERVED requires valid sensor > 150 cm for >= 1.0s continuously, fresh USABLE camera frame with zero corridor obstacles >= 0.40 confidence, and no held hazard (phone-only vision produces UNKNOWN, never CLEAR_OBSERVED).
+     * 50 ms Watchdog Tick: Monitors sensor loss (> 300 ms) and vision loss (> 500 ms) transitioning path status to UNKNOWN.
+     * Sensor-Camera Association: Associates visual obstacle label when exactly 1 corridor obstacle exists and sensor-camera sync delta <= 200 ms.
+   - Phase 7 Prioritized SpeechArbiter (dev.navisense.voice.SpeechArbiter):
+     * Strictly implements ISpeechArbiter and PRD Section 18 rules.
+     * Prioritized Hierarchy: STOP (1) > SLOW (2) > DIRECTIONAL (3) > AWARENESS (4) > HEALTH_UNKNOWN (5) > INFORMATIONAL (6).
+     * Preemption: Higher priority interrupts active speech immediately and flushes queue.
+     * Cooldowns: STOP (2000 ms), SLOW (3000 ms), AWARENESS (5000 ms), DIRECTIONAL (2000 ms) with escalation bypass for STOP and SLOW.
+     * Session Invalidation & Cancellation: cancelAll() and invalidateSession() cancel playback immediately (<= 250 ms) on User Stop or mode changes.
+     * Includes AndroidTextToSpeechPlayer wrapper for production TTS engine.
+   - Master Application Shell & Lifecycle Wiring (MainActivity, SessionCoordinator, NaviSenseApp):
+     * MainActivity: CameraX ProcessCameraProvider binding to CameraXAnalyzer using STRATEGY_KEEP_ONLY_LATEST on single-thread executor with runtime permission gating.
+     * USB Receiver: IntentFilter for ACTION_USB_DEVICE_ATTACHED/DETACHED (VID 0x303A, PID 0x1001) connected to SensorHealth updates.
+     * Central 50 ms Watchdog: Handler periodic tick driving coordinator.onWatchdogTick().
+     * SessionCoordinator: Wires RiskEngine evaluation and SpeechArbiter announcements to sensor, perception, and search events. Mode changes advance monotonic session generation and synchronously invalidate prior speech/callbacks.
+   - Comprehensive Verification Suite:
+     * 66/66 JVM Unit Tests PASS (0 failures, 0 errors) across 13 test suites.
+     * AC-10 Replay Suite: 11/11 tests in RiskEngineTest pass using controllable FakeClock verifying boundary thresholds (49, 50, 51, 100, 101, 150, 151 cm), hold durations, track churn immunity, watchdog staleness, and CLEAR_OBSERVED rules.
+     * AC-11 Speech Suite: 6/6 tests in SpeechArbiterTest pass verifying priority preemption, cooldown suppression, escalation bypass, and cancellation.
+     * Debug APK built cleanly: android/app/build/outputs/apk/debug/app-debug.apk (258,788,979 bytes).
+2. Note to Team:
+   - Work branch work/rishav-phase0 updated and pushed to origin/work/rishav-phase0.
+   - Full integration with Samik's CameraXAnalyzer, Rohan's UsbSensorAdapter, and Subham's schemas established.
+   - Offline unit test and deterministic replay validation complete. Standing by for phone connection to run live on-device speech cancellation and sensor playback verification.
+3. Frozen Contract Check:
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Source revision and evidence reference: work/rishav-phase0 5df330e; android/app/src/main/java/dev/navisense/{navigation/RiskEngine.kt, voice/SpeechArbiter.kt, app/MainActivity.kt}, android/app/src/test/java/dev/navisense/{RiskEngineTest.kt, SpeechArbiterTest.kt}
+Recipient(s): Samik, Rohan, Subham, Spandan
+For response: ACK receipt of Phase 6/7 deliverables.
+```
+
+
 
