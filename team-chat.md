@@ -490,3 +490,160 @@ Recipient(s): Team (Rishav, Samik, Subham, Spandan)
 For response: Team review and alignment.
 ```
 
+
+```text
+Entry ID: SPANDAN-2026-09-15-001 / 2026-09-15T11:55:00+05:30 / T+04:05
+Author and type: Spandan | PROGRESS & SETUP ACK
+Phase / step / S-instance / H-contract: Phase 0 / Collaborator Setup & Workflow ACK
+Message and requested action:
+1. Collaborator Access & Repository Setup Verified:
+   - Verified collaborator access for spandanjit-ai on GitHub repository https://github.com/SamikSwarupBiswal/NaviSense-AI.
+   - Synchronized with main and communication branches.
+2. Frozen Contract Integrity Verification (AGENTS.md §2):
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+3. Workflow & Guidance Acknowledgements:
+   - ACK SAMIK-2026-09-15-009: Formally adhering to Section 1.1 Mandatory Collaborator Git & Relay Workflow (pull from both branches before work, push code to main, relay entries to communication, zero force-pushing).
+   - Subsystem ownership confirmed: Model training pipelines, dataset curation, mobile/laptop model exports, quality evaluation scripts, leading acceptance gate AC-02, and reviewing AC-04, AC-12, AC-15, AC-16.
+Source revision and evidence reference: commit 821fcf4 on main
+Recipient(s): Team (Rishav, Samik, Subham, Rohan)
+For response: referenced entry ID and ACK
+```
+
+```text
+Entry ID: SPANDAN-2026-09-15-002 / 2026-09-15T12:00:00+05:30 / T+04:10
+Author and type: Spandan | HANDOFF
+Phase / step / S-instance / H-contract: Phase 0 / Step 01 / S02 / H1
+Message and requested action:
+Delivering S02 / H1 smoke model artifacts, metadata contracts, reference image, golden fixtures, capture checklist, and evaluation harness to Samik (Android) and Subham (Laptop):
+1. Demo Classes Locked & Aliases Approved (models/metadata/demo_classes.json):
+   - Locate Objects (2 demo classes per PRD §8.1 & §9.2):
+     * Class 0: "keys" (canonical: "keys", spoken aliases: ["key", "keychain", "car keys", "house keys"])
+     * Class 1: "wallet" (canonical: "wallet", spoken aliases: ["billfold", "purse", "cardholder", "pocketbook"])
+   - Mobility Walking Obstacles (Pretrained COCO subset per PRD §8.2):
+     * 0: "person", 1: "chair", 2: "table", 3: "backpack", 4: "bottle"
+2. Smoke Model Artifacts (models/smoke/ and android/app/src/main/assets/models/):
+   - Locate Smoke Model (PyTorch TorchScript for Laptop):
+     * Path: models/smoke/locate_smoke.pt
+     * SHA-256: 02bbdf0758c1f9344802b71d9c924c7385740f6e4ed48df17c6136aa29334dac
+     * Input: [1, 3, 640, 640] (Float32, RGB, normalized [0.0, 1.0])
+     * Output: Raw tensor [1, 6, 8400] ([cx, cy, w, h, score_keys, score_wallet])
+   - Locate Smoke Model (Mobile Lite Interpreter for Android):
+     * Path: android/app/src/main/assets/models/locate_smoke.ptl
+     * SHA-256: 6b10accfabb7c7efbcb56fbb6b3198283bee56790987a5b87e403644746a8197
+     * Also placed: android/app/src/main/assets/models/locate_smoke.pt (SHA-256: eb3ed250b7fe4f2a5d6a2bd92ade0da5e372aa988d75fb8e9d4461eeaf3431e5)
+   - Mobility Smoke Model (TorchScript for Laptop/Validation):
+     * Path: models/smoke/mobility_smoke.pt
+     * SHA-256: 6afd2b87f65f091dd6244e62f73fcb03be126c03f9a432ad0f28b6104c4abaa5
+     * Input: [1, 3, 640, 640] (Float32, RGB, normalized [0.0, 1.0])
+     * Output: Raw tensor [1, 9, 8400] ([cx, cy, w, h, score_person, score_chair, score_table, score_backpack, score_bottle])
+   - Mobility Smoke Model (Mobile Lite Interpreter for Android):
+     * Path: android/app/src/main/assets/models/mobility_smoke.ptl
+     * SHA-256: 3e4e9091824e086bdc3633d61c1231f3d9027064b6d32cdfa7f8e4d62034d307
+     * Also placed: android/app/src/main/assets/models/mobility_smoke.pt (SHA-256: ab17fd18cca77a784224948bc4cccd4e1d8a3b1e978a5c1148ba851d5ba8101e)
+3. Metadata Contracts & Preprocessing:
+   - models/metadata/locate_model_contract.json
+   - models/metadata/mobility_model_contract.json
+   - Preprocessing: 640x640 letterbox resize, maintain aspect ratio, padding fill [114, 114, 114], RGB color format, float32 scaled to [0.0, 1.0].
+   - Decoding: Center-size (cx, cy, w, h) to corner (x1, y1, x2, y2), subtract padding offset, invert scale to recover original frame coordinates.
+   - Thresholds: Candidate threshold 0.25, AC-02 gate threshold >= 0.60, NMS IoU threshold 0.50.
+4. Reference Test Fixture & Verification Harnesses:
+   - Reference Test Image: models/reference_images/locate_ref_table.png (SHA-256: 4a463a96616c9054fb2c50b3f320f887e89130510ea3ceb9b0fde384f361a817).
+   - Expected Detections Fixture: models/fixtures/locate_expected_detections.json (wallet in table_left, keys in table_right).
+   - scripts/verify_smoke.py: Validates all artifact hashes, loads models via TorchScript/Lite Interpreter, checks tensor flow (executed: 100% PASS).
+   - scripts/evaluate_ac02.py: Automated evaluation tool for AC-02 (precision >= 90%, recall >= 85% at IoU >= 0.50, conf >= 0.60, tracks TP/FP/FN).
+   - scripts/export_model.py & scripts/train_locate.py: Reproducible training and export utilities.
+5. Capture Checklist & Dataset Split Template:
+   - datasets/CAPTURE_CHECKLIST.md: Capture protocols for Subham (laptop) and Samik (phone) ensuring session/layout isolation to guarantee zero train/val/test leakage.
+   - datasets/split_manifest_template.json: Manifest schema tracking session IDs, environment, and splits.
+Action requested:
+- Subham: Verify smoke model loading in laptop vision adapter using models/smoke/locate_smoke.pt.
+- Samik: Verify smoke model loading in Android YoloModelRunner using android/app/src/main/assets/models/locate_smoke.ptl and mobility_smoke.ptl.
+- Rishav: Confirm asset placement and model contract compatibility with session lifecycle.
+Source revision and evidence reference: commit 821fcf4 on main, models/, datasets/, scripts/
+Recipient(s): Subham, Samik, Rishav, Rohan
+For response: referenced entry ID and ACK / VERIFIED / RETURNED
+```
+
+```text
+Entry ID: SPANDAN-2026-09-15-003 / 2026-09-15T12:05:00+05:30 / T+04:15
+Author and type: Spandan | PROGRESS & REVIEW
+Phase / step / S-instance / H-contract: Phase 0 / Inter-subsystem Alignment & Teammate Responses
+Message and requested action:
+Detailed technical responses to teammate inquiries and design alignments:
+1. Response to Subham (SUBHAM-2026-09-15-009, Item 1):
+   - [Class & Alias Mapping Sign-off]: Formally signed off. Baseline demo classes are strictly "keys" (id 0) and "wallet" (id 1). All aliases listed in Subham's models/locate/metadata.json ("key", "keys", "house keys", "car keys", "wallet", "billfold", "purse", "cardholder") are confirmed and cross-registered in models/metadata/demo_classes.json.
+   - [Laptop Input Requirements]: Provided in models/metadata/locate_model_contract.json: RGB 640x640 letterbox, Float32 normalized to [0.0, 1.0], grey padding 114. Smoke model delivered at models/smoke/locate_smoke.pt.
+   - [Thresholds & Coordinates]: Candidate threshold 0.25, Hard Scan & AC-02 acceptance threshold >= 0.60, NMS IoU 0.50. Coordinates format is normalized [x1, y1, x2, y2] in [0.0, 1.0] relative to original image frame after inverting letterbox transform.
+2. Response to Rishav (RISHAV-2026-09-15-012, Item 1):
+   - [Android Asset Placement]: Assets placed directly in android/app/src/main/assets/models/:
+     * locate_smoke.ptl (Mobile Lite Interpreter) and locate_smoke.pt (TorchScript)
+     * mobility_smoke.ptl (Mobile Lite Interpreter) and mobility_smoke.pt (TorchScript)
+   - [Tensor Signatures]: Input is [1, 3, 640, 640] (Float32, RGB, [0.0, 1.0]). Output raw tensor is [1, 6, 8400] for Locate and [1, 9, 8400] for Mobility (matching YOLOv8 anchor-free head format).
+   - [Output Decoding]: Decodes to normalized rects [left, top, right, bottom] in [0.0, 1.0], matching dev.navisense.contracts.NormalizedRect.
+3. Response to Samik (SAMIK-2026-09-15-008 & SAMIK-2026-09-15-009):
+   - Smoke models ready for benchmarking via dev.navisense.inference.YoloModelRunner.
+   - Verified that YoloModelRunner's ModelMetadata matches our contract (input 640x640, class labels ["keys", "wallet"], conf threshold 0.40/0.60, IoU 0.45/0.50).
+4. Response to Rohan (ROHAN-2026-09-15-004, Item 3):
+   - [Ultrasonic vs Camera FOV Envelope]: Noted and aligned. Forward walking corridor (<= 200 cm ahead, narrow ~15° cone) is protected by Rohan's HC-SR04 ultrasonic sensor with immediate STOP priority. Peripheral obstacles (> 10° off-axis, across the camera 68°–75° FOV) rely entirely on Mobility YOLO detections.
+   - [Acoustic Material Disclosures]: Test scenes will explicitly account for acoustic dropouts (sound-absorbing fabrics, angled surfaces > 45°, downward stairs) so vision-only fallback and clear disclosures for AC-12 and final S18 demo are maintained.
+Source revision and evidence reference: models/metadata/, models/smoke/, android/app/src/main/assets/models/, commit 821fcf4
+Recipient(s): Subham, Rishav, Samik, Rohan
+For response: referenced entry ID and ACK
+```
+
+```text
+Entry ID: SPANDAN-2026-09-15-004 / 2026-09-15T12:10:00+05:30 / T+04:20
+Author and type: Spandan | CHAT
+Phase / step / S-instance / H-contract: Phase 0 / Prerequisite & Information Requests (Spandan -> Teammates)
+Message and requested action:
+Detailed and organized breakdown of handoffs and technical prerequisites needed from each teammate for Phase 0 completion and Phase 1 training:
+1. To Subham (Laptop Locate & Adapter Lead):
+   - [Laptop Smoke Adapter Check]: Please execute a forward pass with models/smoke/locate_smoke.pt using OpenCV capture on the stationary laptop webcam and confirm output tensor shape [1, 6, 8400] and inference latency (scheduled T+01:30–01:45).
+   - [Laptop Tabletop Dataset Collection (Phase 1, T+02:00–02:30)]:
+     * Capture >= 50 labeled instances of "keys" and >= 50 labeled instances of "wallet" from the laptop stationary webcam.
+     * Capture >= 20 negative frames (empty table, non-target items only).
+     * Follow datasets/CAPTURE_CHECKLIST.md: vary table positions (left, center, right), lighting (bright overhead, warm lamp, dim ambient), and clutter (notebooks, pens, mugs).
+     * Partition data by capture session ID to prevent adjacent-frame leakage.
+2. To Samik (Android Perception & Camera Lead):
+   - [Phone Smoke Load & RAM Benchmark]: Please verify loading of android/app/src/main/assets/models/locate_smoke.ptl and mobility_smoke.ptl via YoloModelRunner on the qualification phone (scheduled T+01:15–01:30).
+     * Confirm load time <= 5.0 seconds (PRD §13.5).
+     * Verify no memory leakage or OutOfMemoryError during model switching.
+   - [Mobile Search Dataset Collection (Phase 1, T+02:00–02:30)]:
+     * Capture >= 50 instances of "keys" and >= 50 instances of "wallet" from the phone camera in realistic handheld search postures (20–100 cm distance, varied downward tilt angles).
+     * Capture >= 20 negative frames from walking perspectives.
+     * Deliver raw images with session IDs per datasets/CAPTURE_CHECKLIST.md.
+3. To Rishav (Integration & Voice UX Lead):
+   - [Model Switching & Lifecycle]: Confirm SessionCoordinator cleanly releases the active model runner before loading the next model when switching between AppVisionMode.MOBILITY and AppVisionMode.LOCATE_SEARCH, ensuring memory constraints are respected.
+   - [Voice Aliases & Pronunciation]: Verify offline TTS engine correctly pronounces canonical aliases ("keys", "wallet", "keychain", "billfold") without phonetic clipping.
+4. To Rohan (Hardware, Mount & Firmware Lead):
+   - [AC-07 Supervised Obstacle Collaboration]: In addition to standard obstacle classes (person, chair, table, backpack, bottle), please help identify 5 broad opaque obstacles without a recognizable YOLO visual class to rigorously test generic ultrasonic risk warnings.
+Source revision and evidence reference: datasets/CAPTURE_CHECKLIST.md, models/metadata/, docs/spandan/guidance.md
+Recipient(s): Subham, Samik, Rishav, Rohan
+For response: reply with relevant entry reference and verification receipts / capture schedules.
+```
+
+```text
+Entry ID: SPANDAN-2026-09-15-005 / 2026-09-15T12:15:00+05:30 / T+04:25
+Author and type: Spandan | PROGRESS
+Phase / step / S-instance / H-contract: Phase 0 / Subsystem Commitments & Acceptance Gate Roadmap
+Message and requested action:
+Formally logging downstream milestone commitments, freezes, and acceptance gate ownership for Spandan (Models & Datasets):
+1. Subsystem Ownership:
+   - Model training pipelines, dataset curation, mobile/laptop model exports, and quality evaluation scripts.
+2. Milestone Deliverables & Freezes (T+04:00–16:00):
+   - Handoff S09 (T+08:00): Deliver Locate candidate weights trained on combined laptop and phone viewpoints, and Mobility candidate weights.
+   - Handoff S15 (T+13:30): Deliver final candidate model weights and exports (Laptop PyTorch/ONNX and Android TFLite/PTL Locate models; baseline Mobility model), export metadata (input shapes, color normalization, letterbox details, anchor/decoding parameters), dataset split manifests (preventing adjacent-frame leakage), and artifact SHA-256 hashes.
+   - Model Identity Freeze (T+15:30): Freeze model weights so no speculative retraining occurs during acceptance testing. Pre-stage labelled test sets and negative scene images.
+3. Acceptance Gates Led:
+   - AC-02 (T+16:00–16:30) — Locate Model Quality on Both Devices: Evaluates held-out test sets separately on the laptop and the phone for the chosen demo classes (>= 50 labelled instances per class per device, >= 20 negative frames per device; requires >= 90% precision and >= 85% recall per class at IoU >= 0.50 and conf >= 0.60, reporting raw counts, misses, and false positives rather than just aggregate mAP).
+4. Peer Reviews & Collaboration:
+   - Reviews: AC-04 (Subham memory/API fault suite), AC-12 (Samik degraded vision checks), and AC-15 & AC-16 (Rishav lifecycle and TalkBack accessibility).
+   - Contributes to: AC-07 (Supervised obstacle trials), AC-13 (Search scenes), and AC-14 (Full flow integration).
+5. Final Demo & S18 Role (T+23:30–24:00):
+   - Contribute final model hashes, training provenance, and raw evaluation logs to the S18 bundle.
+   - Ensure truthful scope presentation during the final demo by explicitly stating supported classes versus unsupported objects and lighting/range boundaries.
+Source revision and evidence reference: docs/spandan/guidance.md, docs/spandan/implementation-plan.md, docs/AGENTS.md
+Recipient(s): Team (Rishav, Samik, Subham, Rohan)
+For response: Team review and alignment.
+```
