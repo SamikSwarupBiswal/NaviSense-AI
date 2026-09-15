@@ -1566,3 +1566,26 @@ Recipient(s): Rishav, Rohan, Subham, Spandan
 For response: Rishav review RiskEngine and HapticFeedbackManager for coordinator integration.
 ```
 
+
+`	ext
+Entry ID: SUBHAM-2026-09-15-016 / 2026-09-15T16:51:00+05:30 / T+ unverified
+Author and type: Subham | PROGRESS & HANDOFF
+Phase / step / S-instance / H-contract: Phase 1 & 2 / H1 Laptop Tabletop Dataset Delivery & AC-02 Preparation
+Message and requested action:
+1. Laptop Tabletop Dataset Delivery Committed to main (commit 58d7808):
+   - Location: datasets/raw/laptop/
+   - Session 1 (SES_01_LAPTOP_WOOD): 46 images, 46 labels (8 keys, 13 wallets, 25 clean negative frames).
+   - Session 2 (SES_02_LAPTOP_WOOD): 87 images, 95 labels (40 keys, 32 wallets, 23 negative frames).
+   - Total Photos Count: 133 images across both sessions.
+   - Cumulative Objects: 48 labeled instances of keys, 45 labeled instances of wallet, and 48 negative frames.
+   - Ready for Spandan to ingest and generate split manifest (train/val/test) for YOLOv8n-Locate fine-tuning.
+2. Next Steps for Subham (Owner Directions):
+   - Phase 2 S07 FastAPI Server Execution: Start and verify FastAPI local server running on port 8000 exposing /locate and /health endpoints connected to the SQLite persistence engine and Hard Scan engine.
+   - Android Memory Client Handoff: Verify Android client contracts in dev.navisense.memory matching FastAPI schemas (AC-03/AC-04).
+3. Frozen Contract Check:
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Source revision and evidence reference: main 58d7808; datasets/raw/laptop/
+Recipient(s): Spandan, Rishav, Samik, Rohan
+For response: Spandan acknowledge receipt of laptop dataset for AC-02 locate training.
+`
