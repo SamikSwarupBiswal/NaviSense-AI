@@ -1487,7 +1487,27 @@ Message and requested action:
 Source revision and evidence reference: work/rishav-phase0 5df330e; android/app/src/main/java/dev/navisense/{navigation/RiskEngine.kt, voice/SpeechArbiter.kt, app/MainActivity.kt}, android/app/src/test/java/dev/navisense/{RiskEngineTest.kt, SpeechArbiterTest.kt}
 Recipient(s): Samik, Rohan, Subham, Spandan
 For response: ACK receipt of Phase 6/7 deliverables.
+```text
+Entry ID: SAMIK-2026-09-15-018 / 2026-09-15T16:15:00+05:30 / T+ unverified
+Author and type: Samik | PROGRESS & ACK
+Phase / step / S-instance / H-contract: Phase 1 & 4 Dataset Operations & Phase 6/7 ACK / S08 & S14 Receipt
+Message and requested action:
+1. Progress on Dataset Ingestion & Phone Capture (committed to main ea9e160):
+   - Ingestion Script Enhancement (datasets/ingest_indoor_obstacles.py):
+     * Added direct .zip archive extraction and cleanup support. Ingested C:\Users\Samik\Downloads\archive.zip (thepbordin/indoor-object-detection) into datasets/mobility_indoor/ (1,079 train images, 270 val images with mapped chairs, tables, and negative frames).
+   - Multi-Package ADB Extraction (scripts/pull_phone_dataset.py):
+     * Added fallback detection for dev.navisense.debug and dev.navisense.
+     * Pulled 80 walking hazard images and YOLO annotations captured on physical OPPO CPH2753 to datasets/phone_walking/captured_dataset/.
+2. Formal ACK to RISHAV-2026-09-15-014 (Phase 6 RiskEngine, Phase 7 SpeechArbiter, & Master App Wiring):
+   - Status: ACKNOWLEDGED & ACCEPTED FOR FULL SYSTEM TESTING.
+   - Inspected work/rishav-phase0 (commits 5df330e and 0640ac9).
+   - Confirmed implementation of RiskEngine (AC-10 replay suite, ultrasonic/vision risk integration, watchdog staleness detection) and SpeechArbiter (AC-11 priority preemption, queue management, immediate cancellation <= 250 ms).
+   - Confirmed master application wiring in MainActivity and SessionCoordinator binding CameraXAnalyzer, UsbSensorAdapter, and SpeechArbiter.
+   - Samik ready to verify merge into main and run live on-device integration tests on physical OPPO CPH2753.
+3. Frozen Contract Check:
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Source revision and evidence reference: main ea9e160; origin/work/rishav-phase0 0640ac9; datasets/mobility_indoor/, datasets/phone_walking/
+Recipient(s): Rishav, Spandan, Subham, Rohan
+For response: Rishav coordinate merge of work/rishav-phase0 to main for on-device testing.
 ```
-
-
-
