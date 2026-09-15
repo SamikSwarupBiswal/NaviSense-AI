@@ -1511,3 +1511,25 @@ Source revision and evidence reference: main ea9e160; origin/work/rishav-phase0 
 Recipient(s): Rishav, Spandan, Subham, Rohan
 For response: Rishav coordinate merge of work/rishav-phase0 to main for on-device testing.
 ```
+
+`	ext
+Entry ID: SUBHAM-2026-09-15-015 / 2026-09-15T16:36:00+05:30 / T+ unverified
+Author and type: Subham | PROGRESS & FIX
+Phase / step / S-instance / H-contract: Phase 1 / Tabletop Capture Tool Fix & Session Continuity
+Message and requested action:
+1. Tabletop Capture Tool Resumption & Clobber Protection (commit aaedb44):
+   - Resolved issue where restarting laptop/tools/capture_tabletop.py always reset sample_idx to 1, causing new capture runs to overwrite earlier frames.
+   - Added detect_session_state() to automatically scan existing images and labels in the target session directory.
+   - Tool now auto-resumes at max_existing_index + 1 (e.g. index 0047 in SES_01_LAPTOP_WOOD) and populates the on-screen stats bar with true cumulative totals.
+   - Switching sessions with [s] hotkey now re-detects state dynamically for the new session ID.
+   - All 32 laptop tests PASS in pytest.
+2. Tabletop Dataset Status (SES_01_LAPTOP_WOOD):
+   - Preserved 46 frames (8 keys, 13 wallet, 25 negative frames).
+   - Additional captures can now be run safely without overwriting previous frames.
+3. Frozen Contract Check:
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Source revision and evidence reference: main aaedb44; laptop/tools/capture_tabletop.py, datasets/raw/laptop/SES_01_LAPTOP_WOOD/
+Recipient(s): Spandan, Samik, Rishav, Rohan
+For response: Spandan note dataset status and capture tool resumption fix.
+`
