@@ -6,6 +6,7 @@ import dev.navisense.contracts.MobilePerceptionEvent
 import dev.navisense.contracts.PathStatus
 import dev.navisense.contracts.SearchEvent
 import dev.navisense.contracts.SearchStatus
+import dev.navisense.contracts.SearchTarget
 import dev.navisense.contracts.SearchUiState
 import dev.navisense.contracts.SensorEvent
 import dev.navisense.contracts.SensorHealth
@@ -427,8 +428,16 @@ class SessionCoordinator(
             SearchStatus.CONFIRMED -> {
                 notifySearchStateChanged(SearchUiState.FOUND, event)
                 onTargetFound()
-                val dirStr = event.direction?.name?.lowercase() ?: "center"
-                val phrase = "Target found $dirStr"
+                val targetName = SearchTarget.fromValue(event.targetClass)?.displayName ?: "Target"
+                val phrase = when (event.direction) {
+                    dev.navisense.contracts.TargetDirection.LEFT ->
+                        "$targetName detected on the left. Point the phone left."
+                    dev.navisense.contracts.TargetDirection.CENTER ->
+                        "$targetName detected straight ahead in the camera view."
+                    dev.navisense.contracts.TargetDirection.RIGHT ->
+                        "$targetName detected on the right. Point the phone right."
+                    null -> "$targetName detected. Direction unavailable."
+                }
                 speechArbiter?.speak(
                     SpeechRequest(
                         utteranceId = "found_${clock.nowMonotonicMs()}",

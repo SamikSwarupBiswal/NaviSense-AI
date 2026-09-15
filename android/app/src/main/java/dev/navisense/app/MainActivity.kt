@@ -704,10 +704,24 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                         target?.displayName ?: getString(R.string.search_target_generic)
                     )
                 }
-                SearchUiState.FOUND -> tvSystemMode.text = getString(
-                    R.string.status_search_found,
-                    target?.displayName ?: getString(R.string.search_target_generic)
-                )
+                SearchUiState.FOUND -> {
+                    val targetName = target?.displayName ?: getString(R.string.search_target_generic)
+                    tvSystemMode.text = when (event?.direction) {
+                        dev.navisense.contracts.TargetDirection.LEFT -> getString(
+                            R.string.status_search_found_left,
+                            targetName
+                        )
+                        dev.navisense.contracts.TargetDirection.CENTER -> getString(
+                            R.string.status_search_found_center,
+                            targetName
+                        )
+                        dev.navisense.contracts.TargetDirection.RIGHT -> getString(
+                            R.string.status_search_found_right,
+                            targetName
+                        )
+                        null -> getString(R.string.status_search_found_direction_unknown, targetName)
+                    }
+                }
                 SearchUiState.TIMED_OUT -> {
                     cameraAnalyzer?.stopSession()
                     releaseActiveVisionRunnerAsync()

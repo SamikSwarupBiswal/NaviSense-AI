@@ -133,7 +133,7 @@ class SearchRegressionTest {
         assertTrue(coordinator.markNearbySearchReady(token.generation))
         assertEquals(SearchUiState.SEARCHING, observedSearchState)
 
-        // 3. Confirm target found
+        // 3. Confirm target found and give actionable camera direction.
         val confirmEvent = SearchEvent(
             sessionGeneration = token.generation,
             targetClass = "keys",
@@ -145,7 +145,7 @@ class SearchRegressionTest {
         coordinator.onSearchEvent(confirmEvent)
         assertEquals(AppMode.FOUND, coordinator.currentMode)
         assertEquals(SearchUiState.FOUND, observedSearchState)
-        assertTrue(spokenPhrases.any { it.contains("Target found left") })
+        assertTrue(spokenPhrases.contains("Keys detected on the left. Point the phone left."))
 
         // 4. Retry search
         coordinator.retryNearbySearch()
@@ -157,5 +157,43 @@ class SearchRegressionTest {
         assertEquals(AppMode.IDLE, coordinator.currentMode)
         assertEquals(SearchUiState.ERROR, observedSearchState)
         assertTrue(spokenPhrases.contains("Nearby search is unavailable."))
+    }
+
+    @Test fun confirmedSearchSpeaksEveryDirectionWithoutInventingCenter() {
+        fun phraseFor(direction: TargetDirection?): String {
+            val fakeClock = FakeClock(1000L)
+            val phrases = mutableListOf<String>()
+            val speech = object : dev.navisense.voice.ISpeechArbiter {
+                override fun speak(request: dev.navisense.voice.SpeechRequest): Boolean {
+                    phrases.add(request.phrase)
+                    return true
+                }
+                override fun cancelAll() = Unit
+                override fun invalidateSession(newGeneration: Long) = Unit
+            }
+            val coordinator = dev.navisense.app.SessionCoordinator(
+                sessionGeneration = SessionGeneration(1L),
+                clock = fakeClock,
+                speechArbiter = speech
+            )
+            val token = coordinator.startNearbySearch("wallet")
+            coordinator.markNearbySearchReady(token.generation)
+            coordinator.onSearchEvent(
+                SearchEvent(
+                    sessionGeneration = token.generation,
+                    targetClass = "wallet",
+                    status = SearchStatus.CONFIRMED,
+                    direction = direction,
+                    candidateCount = 1,
+                    timestampMonotonicMs = 2000L
+                )
+            )
+            return phrases.last()
+        }
+
+        assertEquals("Wallet detected on the left. Point the phone left.", phraseFor(TargetDirection.LEFT))
+        assertEquals("Wallet detected straight ahead in the camera view.", phraseFor(TargetDirection.CENTER))
+        assertEquals("Wallet detected on the right. Point the phone right.", phraseFor(TargetDirection.RIGHT))
+        assertEquals("Wallet detected. Direction unavailable.", phraseFor(null))
     }
 }
