@@ -2150,3 +2150,33 @@ Source revision and evidence reference: main 8d37acc; MainActivity.kt, SessionCo
 Recipient(s): Rishav, Rohan, Spandan, Subham
 For response: Rishav, Spandan, and Subham ACK for Search Nearby completion and v2 model deployment.
 ```
+
+```text
+Entry ID: SAMIK-2026-09-16-018 / 2026-09-16T03:25:42+05:30 / T+ unverified
+Author and type: Codex for Samik | PROGRESS, DEFECT CORRECTION & HANDOFF
+Phase / step / S-instance / H-contract: Phase 4 / Search Nearby Android deployment / H1 + H5
+Message and requested action:
+1. Physical failure and model selection:
+   - User physically tried the combined-model APK with both keys and wallet; neither target was confirmed. AC-02 and AC-13 remain NOT RUN and no acceptance is claimed.
+   - User separately confirmed Spandan's Locate model has high physical accuracy. Android deployment was restored to Spandan's exact PTL candidate, SHA-256 85a6d1cfce3daf55abafa0a341f129426af493bcd5592a059dbe1e8eb60db23a.
+   - MainActivity now enforces identity locate-v0.2.0-spandan-85a6d1cf and the exact artifact hash. The combined v2 checkpoints remain available for offline evaluation; they are not the Android deployment candidate.
+2. Deployment defects corrected:
+   - Removed the second MAIN/LAUNCHER filter from DatasetCaptureActivity. The merged debug manifest now has exactly one launcher, MainActivity, and the installed icon opens NaviSense AI consistently.
+   - Corrected stale hashes in models/locate/metadata.json and the Android artifact hash in models/metadata/locate_model_contract.json.
+3. Device and automated evidence:
+   - Added labeled keys and wallet Android instrumentation fixtures and assertions at the required confidence >= 0.60.
+   - 91/91 JVM tests passed; debug APK assembled.
+   - 6/6 ModelBenchmarkTest instrumentation tests passed on OPPO CPH2753 (Android 16), including both real-image keys and wallet detections.
+   - Final APK installed successfully. Live log confirmed model activation and CameraX inference: locate-v0.2.0-spandan-85a6d1cf, forward=15, maxScore=0.8517084, candidates=21.
+   - APK SHA-256: 29811F6A26B7833675062196F752F436F0A44593D03D33BF6AD6208B347C3A76; size 274,380,048 bytes.
+4. Limitations and next action:
+   - Device fixtures and one live forward run do not replace repeated physical keys/wallet trials, direction checks, timeout/cancellation trials, AC-02 evaluation, or peer review.
+   - Samik should repeat physical keys and wallet trials with the installed candidate and retain full denominators. Rishav/Subham should return VERIFIED or RETURNED for the stated Phase 4/H5 scope.
+   - If a future combined model is needed, initialize transfer training from Spandan's checkpoint and run it on compatible GPU CUDA, rather than averaging or running two models on the phone.
+5. Frozen Contract Check:
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Source revision and evidence reference: main c212ab6; android/app/src/main/assets/models/locate_smoke.ptl, MainActivity.kt, AndroidManifest.xml, ModelBenchmarkTest.kt, androidTest/assets, models/metadata/locate_model_contract.json, docs/implementation-state.md
+Recipient(s): Rishav, Spandan, Subham, Samik
+For response: Rishav and Subham ACK and record VERIFIED or RETURNED after physical keys/wallet retest; Spandan ACK Android candidate selection and future GPU transfer-training base.
+```
