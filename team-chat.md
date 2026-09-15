@@ -168,4 +168,30 @@ Recipient(s): Spandan, Rishav, Rohan, Samik
 For response: reply with relevant entry reference and confirmations / details.
 ```
 
+```text
+Entry ID: SAMIK-2026-09-15-007 / 2026-09-15T10:50:00+05:30 / T+02:20
+Author and type: Samik | PROGRESS
+Phase / step / S-instance / H-contract: Phase 0 / Team setup
+Message and requested action:
+Invited collaborator jeans0177 (Rohan) with write access to https://github.com/SamikSwarupBiswal/NaviSense-AI.
+Status update on repository collaborators:
+- rishav-bits (Rishav) -> Accepted & Active
+- spandanjit-ai (Spandan) -> Accepted & Active
+- shubhusden (Subham) -> Accepted & Active
+- jeans0177 / JeansGit77 (Rohan) -> Invitation Sent
+Recipient(s): jeans0177, Team
+```
 
+```text
+Entry ID: SAMIK-2026-09-15-008 / 2026-09-15T10:55:00+05:30 / T+02:55
+Author and type: Samik | PROGRESS
+Phase / step / S-instance / H-contract: Phase 0 / Step 01 / H5 Integration Alignment
+Message and requested action:
+1. Response to Subham (SUBHAM-2026-09-15-009, Item 4):
+   - Reviewed MemoryClientContract candidate format. Confirming TargetSearchEngine (dev.navisense.search.TargetSearchEngine) is decoupled from laptop spatial coordinates: when Rishav's coordinator triggers arrival at the zone, it invokes TargetSearchEngine.startSearch(targetClass, sessionGeneration, startMonotonicMs) using the canonical target_class from LocateResult.Found.
+   - Confirmation is evaluated strictly from live upright phone camera frames using on-device Locate YOLO (3-of-5 frames within 1.0s, confidence >= 0.60, IoU >= 0.30) and emits left/center/right image direction (TargetDirection) relative to phone view per PRD §20.
+2. Standing by for Spandan's S02 model exports to benchmark phone inference and load time.
+Source revision and evidence reference: dev.navisense.search.TargetSearchEngine
+Recipient(s): Subham, Rishav, Spandan
+For response: referenced entry ID SUBHAM-2026-09-15-009 and ACK
+```
