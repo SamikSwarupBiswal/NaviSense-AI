@@ -36,16 +36,16 @@ class EventContractsTest {
             wireRecord = closeRecord,
             sensorHealth = SensorHealth.STREAMING
         )
-        assertTrue("Distance <= 50 cm must be recognized as critical close", event.isCriticalClose)
+        assertTrue("Distance <= 100 cm must be recognized as critical close", event.isCriticalClose)
 
-        val safeRecord = SensorWireRecord(1, 101L, 5100L, 80, true)
+        val safeRecord = SensorWireRecord(1, 101L, 5100L, 120, true)
         val safeEvent = SensorEvent(
             connectionId = 1L,
             receiptMonotonicMs = 1100L,
             wireRecord = safeRecord,
             sensorHealth = SensorHealth.STREAMING
         )
-        assertFalse("Distance > 50 cm is not critical close STOP", safeEvent.isCriticalClose)
+        assertFalse("Distance > 100 cm is not critical close STOP", safeEvent.isCriticalClose)
     }
 
     @Test

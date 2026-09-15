@@ -29,6 +29,7 @@ import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import dev.navisense.R
 import dev.navisense.camera.CameraXAnalyzer
+import dev.navisense.camera.DetectionOverlayView
 import dev.navisense.contracts.AppMode
 import dev.navisense.contracts.AppVisionMode
 import dev.navisense.contracts.PathStatus
@@ -71,6 +72,7 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
     private lateinit var hapticFeedback: IHapticFeedback
 
     private lateinit var viewFinder: PreviewView
+    private lateinit var detectionOverlay: DetectionOverlayView
     private lateinit var tvSystemMode: TextView
     private lateinit var tvPathStatus: TextView
     private lateinit var tvSensorStatus: TextView
@@ -171,6 +173,7 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
         usbManager = getSystemService(Context.USB_SERVICE) as UsbManager
 
         viewFinder = findViewById(R.id.viewFinder)
+        detectionOverlay = findViewById(R.id.detectionOverlay)
         tvSystemMode = findViewById(R.id.tvSystemMode)
         tvPathStatus = findViewById(R.id.tvPathStatus)
         tvSensorStatus = findViewById(R.id.tvSensorStatus)
@@ -259,6 +262,7 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
         cameraProvider?.unbindAll()
         cameraExecutor.shutdown()
 
+        detectionOverlay.clearDetections()
         hapticFeedback.cancel()
         coordinator.removeListener(this)
         coordinator.userStop()
@@ -291,6 +295,7 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                     clock = app.clock,
                     onPerceptionEvent = { event ->
                         coordinator.onPerceptionEvent(event)
+                        detectionOverlay.setDetections(event.detections)
                     },
                     onSearchEvent = { event ->
                         coordinator.onSearchEvent(event)
@@ -304,6 +309,9 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                 cameraProvider?.unbindAll()
                 cameraProvider?.bindToLifecycle(this, cameraSelector, preview, imageAnalysis)
                 Log.i(TAG, "CameraX preview and analyzer successfully bound to lifecycle")
+
+                // Pre-activate local mobility vision model for live YOLO bounding boxes
+                activateLocalModel(coordinator.sessionGeneration.createToken(AppMode.MOBILITY), AppVisionMode.MOBILITY, null)
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to initialize CameraX", e)
                 coordinator.fatalPause()
@@ -474,9 +482,14 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                 AppMode.FINAL_SEARCH -> {
                     activateLocalModel(token, AppVisionMode.LOCATE_SEARCH, coordinator.activeTargetClass)
                 }
-                AppMode.IDLE, AppMode.PAUSED, AppMode.FOUND -> {
+                AppMode.IDLE -> {
+                    // Keep mobility vision active for live camera bounding box preview
+                    activateLocalModel(token, AppVisionMode.MOBILITY, null)
+                }
+                AppMode.PAUSED, AppMode.FOUND -> {
                     cameraAnalyzer?.stopSession()
                     releaseActiveVisionRunnerAsync()
+                    detectionOverlay.clearDetections()
                 }
                 else -> {}
             }

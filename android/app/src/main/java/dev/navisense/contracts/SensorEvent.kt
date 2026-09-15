@@ -28,7 +28,7 @@ data class SensorEvent(
     val wireRecord: SensorWireRecord,
     val sensorHealth: SensorHealth
 ) {
-    /** Helper indicating if this reading is a fresh, valid proximity danger (<= 50 cm). */
+    /** Helper indicating if this reading is a fresh, valid proximity danger (<= 100 cm). */
     val isCriticalClose: Boolean
-        get() = wireRecord.isValid && wireRecord.distanceCm in 2..50
+        get() = wireRecord.isValid && wireRecord.distanceCm in 2..100
 }
