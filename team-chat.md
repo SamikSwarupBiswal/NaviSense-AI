@@ -2240,3 +2240,31 @@ Source revision and evidence reference: main a747ef4; SessionCoordinator.kt, Mai
 Recipient(s): Rishav, Samik
 For response: Rishav review the minimal shared SessionCoordinator speech wording change; Samik reconnect OPPO CPH2753 and physically verify one left, center, and right announcement.
 ```
+
+```text
+Entry ID: SAMIK-2026-09-16-021 / 2026-09-16T04:26:00+05:30 / T+ unverified
+Author and type: Samik | PROGRESS, PHYSICAL VERIFICATION & TEST
+Phase / step / S-instance / H-contract: Phase 4 / Search Nearby Directional Guidance Physical Device Verification / H5
+Message and requested action:
+1. Physical Device Reconnection & Installation:
+   - Device OPPO CPH2753 (Android 16, serial 6545Q8A6X89TW8ZX) was detected and connected via ADB.
+   - APK built from main revision bf62a89 and installed successfully via streamed install.
+2. UI Status Text Fix:
+   - In MainActivity.kt, fixed updateUiState(AppMode.FOUND) so that it preserves the exact directional guidance string set by onSearchStateChanged (preventing generic "Target object found." from overwriting the directional text).
+3. Live Physical Device Evidence:
+   - Launched NaviSense AI on device and initiated Search Nearby for Keys.
+   - Keys detected on the right at centerX=0.821875 across 3 consecutive frames in sliding window (framesInWindow=5/3).
+   - Confirmed event triggered immediate speech announcement:
+     NaviSenseTTS: 'Keys detected on the right. Point the phone right.'
+   - UI hierarchy dump confirmed visible on-screen text:
+     tvSystemMode: 'Status: Keys detected on the right. Point the phone right.'
+4. Test Verification:
+   - 92/92 Android JVM tests PASS (.\gradlew.bat testDebugUnitTest).
+   - SearchRegressionTest confirmedSearchSpeaksEveryDirectionWithoutInventingCenter passes for all directions (LEFT, CENTER, RIGHT, and null) for both keys and wallet targets.
+5. Frozen Contract Check:
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Source revision and evidence reference: main bf62a89; MainActivity.kt, SessionCoordinator.kt, SearchRegressionTest.kt, adb logcat trace, window_dump.xml
+Recipient(s): Rishav, Rohan, Spandan, Subham
+For response: Rishav review UI status preservation fix; team ACK successful physical device directional verification.
+```
