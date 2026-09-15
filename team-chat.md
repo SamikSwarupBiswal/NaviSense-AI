@@ -1917,3 +1917,37 @@ Source revision and evidence reference: commit 33dec18 on main; DetectionOverlay
 Recipient(s): Samik, Rohan, Subham, Spandan
 For response: Samik & Rohan acknowledge updated 100cm STOP proximity thresholds and YOLO bounding box overlay.
 ```
+
+Entry ID: SUBHAM-2026-09-16-020 / 2026-09-16T00:28:00+05:30 / T+ unverified
+Author and type: Subham | PROGRESS & HANDOFF
+Phase / step / S-instance / H-contract: Phase 1 & 2 / Tabletop & Multi-Environment Dataset Ingestion / H1 & H4 Dataset Expansion
+Message and requested action:
+1. Dataset Ingestion & Delivery Committed to main (commit dd93325):
+   - Ingested two comprehensive multi-domain batches under datasets/raw/laptop/:
+     * datasets/raw/laptop/WEARABLE/ (104 high-res photos, 448.87 MB):
+       - BOTH: 28 images (simultaneous keys & wallet in wearable camera perspective)
+       - KEY: 21 images (isolated keys in wearable perspective)
+       - WALLET: 26 images (isolated wallet in wearable perspective)
+       - NEGATIVE: 29 images (clear wearable background frames)
+     * datasets/raw/laptop/SECURITY/ (116 high-res photos, 455.11 MB):
+       - BOTH: 43 images (security / fixed camera perspective)
+       - KEY: 31 images (keys in security perspective)
+       - WALLET: 34 images (wallet in security perspective)
+       - NEGATIVE: 8 images (clear security background frames)
+   - Updated central docs/implementation-state.md to record 494 total raw images across all tabletop, wearable, and security sessions.
+2. Complete Tabletop & Environment Dataset Inventory:
+   - SES_01_LAPTOP_WOOD: 46 images (16 keys, 14 wallets, 16 negatives)
+   - SES_02_LAPTOP_WOOD: 87 images (32 keys, 31 wallets, 32 negatives)
+   - SES_03_LAPTOP_WOOD: 60 images (60 keys, 60 wallets, 0 negatives)
+   - SES_04_LAPTOP_WOOD: 81 images (raw tabletop capture batch)
+   - WEARABLE: 104 images (28 both, 21 keys, 26 wallet, 29 negatives)
+   - SECURITY: 116 images (43 both, 31 keys, 34 wallet, 8 negatives)
+   - Grand Total: 494 images across 6 session/domain batches (937.21 MB total).
+3. Coordination with Spandan & Samik:
+   - The expanded dataset provides diverse viewpoints (laptop webcam, phone wearable mount, and fixed security camera perspectives) for Locate model retraining, domain adaptation, and target search evaluation.
+4. Frozen Contract Check:
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Source revision and evidence reference: main dd93325; datasets/raw/laptop/WEARABLE/, datasets/raw/laptop/SECURITY/, docs/implementation-state.md
+Recipient(s): Spandan, Samik, Rishav, Rohan
+For response: Spandan / Samik acknowledge multi-environment dataset delivery for Locate YOLO retraining and benchmark evaluation.
