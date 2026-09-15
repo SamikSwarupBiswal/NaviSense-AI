@@ -1,0 +1,119 @@
+{
+  "found": {
+    "status": "found",
+    "query_name": "keys",
+    "canonical_name": "keys",
+    "target_class": "keys",
+    "candidates": [
+      {
+        "instance_id": "inst_001",
+        "zone_id": "zone_center",
+        "zone_name": "Center Table",
+        "box": [0.35, 0.40, 0.50, 0.55],
+        "confidence": 0.88
+      }
+    ],
+    "scan_id": "scan_a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d",
+    "observation_time_iso": "2026-09-14T16:30:00.000Z",
+    "age_seconds": 15.4,
+    "camera_profile_id": "tabletop_cam_v1"
+  },
+  "ambiguous": {
+    "status": "ambiguous",
+    "query_name": "house keys",
+    "canonical_name": "keys",
+    "target_class": "keys",
+    "candidates": [
+      {
+        "instance_id": "inst_001",
+        "zone_id": "zone_left",
+        "zone_name": "Left Table",
+        "box": [0.05, 0.20, 0.25, 0.45],
+        "confidence": 0.79
+      },
+      {
+        "instance_id": "inst_002",
+        "zone_id": "zone_right",
+        "zone_name": "Right Table",
+        "box": [0.70, 0.30, 0.85, 0.50],
+        "confidence": 0.84
+      }
+    ],
+    "scan_id": "scan_a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d",
+    "observation_time_iso": "2026-09-14T16:30:00.000Z",
+    "age_seconds": 22.1,
+    "camera_profile_id": "tabletop_cam_v1"
+  },
+  "stale": {
+    "status": "stale",
+    "query_name": "wallet",
+    "canonical_name": "wallet",
+    "target_class": "wallet",
+    "candidates": [
+      {
+        "instance_id": "inst_003",
+        "zone_id": "zone_right",
+        "zone_name": "Right Table",
+        "box": [0.72, 0.15, 0.90, 0.40],
+        "confidence": 0.91
+      }
+    ],
+    "scan_id": "scan_b2c3d4e5-f6a7-8b9c-0d1e-2f3a4b5c6d7e",
+    "observation_time_iso": "2026-09-14T16:25:00.000Z",
+    "age_seconds": 320.0,
+    "camera_profile_id": "tabletop_cam_v1"
+  },
+  "historical_only": {
+    "status": "historical_only",
+    "query_name": "wallet",
+    "canonical_name": "wallet",
+    "target_class": "wallet",
+    "candidates": [
+      {
+        "instance_id": "inst_004",
+        "zone_id": "zone_left",
+        "zone_name": "Left Table",
+        "box": [0.10, 0.15, 0.28, 0.35],
+        "confidence": 0.85
+      }
+    ],
+    "scan_id": "scan_c3d4e5f6-a7b8-9c0d-1e2f-3a4b5c6d7e8f",
+    "observation_time_iso": "2026-09-14T14:00:00.000Z",
+    "age_seconds": 9020.0,
+    "camera_profile_id": "tabletop_cam_v0"
+  },
+  "not_found": {
+    "status": "not_found",
+    "query_name": "keys",
+    "canonical_name": "keys",
+    "target_class": "keys",
+    "candidates": [],
+    "scan_id": null,
+    "observation_time_iso": null,
+    "age_seconds": null,
+    "camera_profile_id": null
+  },
+  "unsupported": {
+    "status": "unsupported",
+    "query_name": "laptop",
+    "canonical_name": null,
+    "target_class": null,
+    "candidates": [],
+    "scan_id": null,
+    "observation_time_iso": null,
+    "age_seconds": null,
+    "camera_profile_id": null
+  },
+  "health_ok": {
+    "service_status": "ok",
+    "camera_connected": true,
+    "memory_records_count": 42,
+    "active_profile_id": "tabletop_cam_v1"
+  },
+  "health_degraded": {
+    "service_status": "degraded",
+    "camera_connected": false,
+    "memory_records_count": 42,
+    "active_profile_id": "tabletop_cam_v1"
+  }
+}

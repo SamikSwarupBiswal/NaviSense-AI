@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">NaviSense AI</string>
+
+    <!-- Accessible Button Labels adhering to PRD Section 13.6 -->
+    <string name="btn_start_walking">Start Walking</string>
+    <string name="btn_start_walking_desc">Start obstacle assistance for walking. Double tap to activate.</string>
+    <string name="btn_stop">Stop</string>
+    <string name="btn_stop_desc">Stop assistance immediately and silence guidance. Double tap to activate.</string>
+    <string name="btn_search_nearby">Search Nearby</string>
+    <string name="btn_search_nearby_desc">Search nearby for personal objects. Double tap to activate.</string>
+    <string name="btn_arrival">Confirm Arrival</string>
+    <string name="btn_arrival_desc">Confirm you have arrived at the target zone and stop walking. Double tap to activate.</string>
+
+    <!-- System Status Strings -->
+    <string name="status_idle">Status: Idle. Ready to start navigation.</string>
+    <string name="status_mobility">Status: Walking assistance active.</string>
+    <string name="status_final_search">Status: Searching for target object.</string>
+    <string name="status_found">Status: Target object found.</string>
+    <string name="status_paused">Status: Assistance paused.</string>
+    <string name="status_sensor_ok">Sensor: Connected and streaming.</string>
+    <string name="status_sensor_unavailable">Sensor: Distance unavailable. Vision-only mode active.</string>
+    <string name="status_path_clear">Path: No obstacle detected ahead.</string>
+    <string name="status_path_blocked">Path: Obstacle detected.</string>
+    <string name="status_path_unknown">Path: Cannot confirm the path is clear.</string>
+
+    <!-- Accessibility / Spoken Phrases -->
+    <string name="phrase_stop">STOP.</string>
+    <string name="phrase_slow_down">Slow down. Obstacle ahead.</string>
+    <string name="phrase_obstacle_ahead">Obstacle ahead.</string>
+    <string name="phrase_no_obstacle">No obstacle detected ahead.</string>
+    <string name="phrase_cannot_confirm">Cannot confirm the path is clear.</string>
+    <string name="phrase_distance_unavailable">Distance unavailable. Cannot confirm clearance.</string>
+    <string name="phrase_stop_walking_searching">Stop walking. Searching for target.</string>
+</resources>

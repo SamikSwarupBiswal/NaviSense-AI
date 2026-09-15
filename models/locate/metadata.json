@@ -1,0 +1,36 @@
+{
+  "model_family": "yolov8n",
+  "task": "locate",
+  "version": "0.1.0-smoke",
+  "classes": ["keys", "wallet"],
+  "canonical_aliases": {
+    "key": "keys",
+    "keys": "keys",
+    "house keys": "keys",
+    "car keys": "keys",
+    "wallet": "wallet",
+    "billfold": "wallet",
+    "purse": "wallet"
+  },
+  "input": {
+    "shape": [1, 3, 640, 640],
+    "color_format": "RGB",
+    "normalization": {
+      "scale": 0.00392156862745098,
+      "mean": [0.0, 0.0, 0.0],
+      "std": [1.0, 1.0, 1.0]
+    },
+    "letterbox": {
+      "auto": false,
+      "scaleFill": false,
+      "scaleup": false,
+      "stride": 32
+    }
+  },
+  "output": {
+    "tensor_format": "xywh_conf_cls",
+    "coordinate_format": "normalized_0_1",
+    "confidence_threshold": 0.60,
+    "iou_threshold": 0.45
+  }
+}

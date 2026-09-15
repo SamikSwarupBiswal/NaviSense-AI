@@ -44,7 +44,7 @@ Gate results use **NOT RUN / RUNNING / PASS / FAIL / BLOCKED**. A PASS requires 
 | [Spandan](spandan/guidance.md) | Models, datasets, training, exports and quality evaluation | Ready for review | S02/H1 smoke artifacts (locate_smoke.pt, mobility_smoke.pt, .ptl), contracts in models/metadata/, reference image/fixture, CAPTURE_CHECKLIST.md, and scripts/ | Subham laptop adapter check; Samik Android phone load benchmark |
 | [Subham](subham/guidance.md) | Laptop Locate, Hard Scan, SQLite, API and Android memory client | In progress | REST API schemas, SQLite schema, response fixtures (8/8 tests pass), Android MemoryClientContract | Await Rishav review of S04/H4 contracts; integrate webcam adapter |
 | [Rohan](rohan/guidance.md) | Hardware, firmware, mount, USB and Android sensor adapter | In progress | Hardware spec, 10Hz ESP32 firmware, serial test tool, replay harness, Android USB parser | Physical connection & stream benchmark on phone tomorrow |
-| [Samik](samik/guidance.md) | Android camera, both inference adapters, tracking and search engine | In progress | Contracts (H2/H5), transforms, PRD §17.2 quality check, tracker, search engine & 13/13 unit tests passing | Await S02 smoke model export from Spandan; connect phone for on-device load |
+| [Samik](samik/guidance.md) | Android camera, both inference adapters, tracking and search engine | In progress | Contracts (H2/H5), transforms, tracker, search engine (25/25 tests pass); app APK built and physically verified on OPPO CPH2753 (Android 16) | Await S02 smoke model export from Spandan for on-device inference benchmarking |
 | [Rishav](rishav/guidance.md) | Risk, voice UX, accessible shell, lifecycle and integration | Planned | Not supplied | Establish app skeleton, session/event contracts and offline TTS check |
 
 Ownership above is the user's current allocation. Work reported by Codex must be labelled Codex-prepared/implemented/tested as appropriate, not attributed as completed member work without confirmation.
@@ -118,7 +118,7 @@ No active implementation blocker has been confirmed. The following prerequisites
 
 | Open item | Resolver | Required next evidence |
 |---|---|---|
-| Actual phone and Android version | Rishav, Samik, Rohan | Selected device and access for smoke tests |
+| Actual phone and Android version | Rishav, Samik, Rohan | Recorded: OPPO CPH2753, MediaTek MT6835 (arm64-v8a), Android 16 (API 36), Camera2 Level FULL, rear camera orientation 90°, USB host active, Google TTS installed |
 | Board, GPIOs, power, USB interface and mount | Rohan | Recorded in docs/rohan/hardware-spec.md: ESP32-S3 DevKit, GPIO 4 (TRIG), GPIO 5 (ECHO via 1k/2k divider), 5V phone OTG, chest rig |
 | Demo Locate classes/aliases | Spandan with Subham/Samik | RESOLVED: Object 1 = "keys" (aliases: key, keychain, car keys), Object 2 = "wallet" (aliases: billfold, purse, cardholder) recorded in models/metadata/demo_classes.json |
 | Model/runtime/export compatibility | Spandan, Samik | RESOLVED (Smoke): NCHW [1,3,640,640] input, raw [1,6,8400] / [1,9,8400] outputs; PyTorch .pt for laptop, Lite Interpreter .ptl for mobile. Verified via scripts/verify_smoke.py (100% PASS) |
@@ -158,6 +158,7 @@ Next action / blocker resolver:
 | 2026-09-14 | Samik | Implemented Phase 0 perception contracts, transforms, quality gating, tracking, and target search | Created dev.navisense Android module; authored H2 & H5 contracts; 13/13 unit tests passed in 49ms |
 | 2026-09-14 | Rohan | Hardware spec, ESP32 firmware, serial tool, replay test suite & Android USB module implemented | docs/rohan/hardware-spec.md, esp32/navisense_sensor/, scripts/test_sensor_serial.py (20/20 PASS), scripts/verify_sensor_fusion_replay.py (10/10 PASS), android/app/src/main/java/dev/navisense/usb/ |
 | 2026-09-15 | Subham | Delivered S04/H4 laptop API schemas, response fixtures (8/8 passed), SQLite schema, and MemoryClientContract | laptop/api/schemas.py, laptop/tests/fixtures/responses.json, dev.navisense.networking.MemoryClientContract |
+| 2026-09-15 | Samik | Physical qualification phone verified and app-debug.apk successfully launched | OPPO CPH2753 (MT6835, Android 16 API 36, Camera2 FULL, 90° rear sensor, USB host active, Google TTS installed); app UI running live |
 | 2026-09-15 | Spandan | Delivered S02/H1 smoke models, metadata contracts, reference fixture, capture checklist, and evaluation scripts | models/smoke/, models/metadata/, models/fixtures/, datasets/CAPTURE_CHECKLIST.md, android/app/src/main/assets/models/, scripts/verify_smoke.py (100% PASS), scripts/evaluate_ac02.py |
 
 ## 11. Schedule and Governance State
