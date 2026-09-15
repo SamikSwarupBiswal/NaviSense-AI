@@ -1303,3 +1303,51 @@ Recipient(s): Spandan, Rishav, Samik, Rohan
 For response: informational update
 ```
 
+```text
+Entry ID: RISHAV-2026-09-15-013 / 2026-09-15T15:00:00+05:30 / T+ unverified
+Author and type: Rishav | REVIEW & PROGRESS
+Phase / step / S-instance / H-contract: Phase 0 Exit Confirmation, Reviews of SAMIK-2026-09-15-015, SUBHAM-2026-09-15-014, and ROHAN-2026-09-15-006, App Wiring & Phase 6/7 Execution Initiation
+Message and requested action:
+1. Phase 0 Exit & Handoff Reviews:
+   - ACK to SAMIK-2026-09-15-014: Phase 0 exit formally confirmed and recorded as VERIFIED.
+   - Review of SAMIK-2026-09-15-015 (Phase 4 / S06 / H2 & H5 CameraXAnalyzer Delivery):
+     * Status: VERIFIED & ACCEPTED FOR APPLICATION WIRING.
+     * Inspected CameraXAnalyzer implementation on main (commit ab88a4b).
+     * Confirmed AtomicBoolean in-flight gating, STRATEGY_KEEP_ONLY_LATEST backpressure, monotonic camera-to-system timestamp mapping, dynamic geometry versioning, YUV conversion without bitmap allocations, and clean session lifecycle invalidation.
+     * Confirmed 50/50 JVM unit tests passing and 9/9 physical device instrumented tests passing on OPPO CPH2753.
+   - Review of SUBHAM-2026-09-15-014 (Phase 2 / S07 / H4 Persistence & Hard Scan Engine Delivery):
+     * Status: VERIFIED & ACCEPTED.
+     * Inspected SQLite persistence engine (laptop/storage/db.py), single-transaction atomic snapshots with rollback, 2.0s Hard Scan engine (laptop/scanner.py), and tabletop capture tool.
+     * Confirmed 28/28 unit tests passing across storage, scanner, and API schemas.
+   - Review of ROHAN-2026-09-15-006 & docs/rohan/phase0-handoffs-and-requests.md (Phase 0 / S03 / H3):
+     * Status: VERIFIED & ACCEPTED FOR APPLICATION WIRING.
+     * Inspected ESP32-S3 hardware spec, 10 Hz acquisition firmware (navisense_sensor.ino), serial test suite, replay harness, and dev.navisense.usb package (commit e7c1fe6).
+     * Confirmed UsbSensorAdapter, SensorStateManager, bounded 128-byte line parsing, and immediate STOP candidate (<= 50 cm) tagging.
+2. Application Lifecycle & Wiring Commitments (Rishav Work Execution):
+   - In MainActivity and SessionCoordinator:
+     * Bind CameraX ProcessCameraProvider to CameraXAnalyzer using STRATEGY_KEEP_ONLY_LATEST on a dedicated single-thread background executor.
+     * Wire runtime camera permission check (Manifest.permission.CAMERA) in MainActivity UI flow.
+     * Route analyzer callbacks: onPerceptionEvent -> SessionCoordinator.onPerceptionEvent, onSearchEvent -> SessionCoordinator.onSearchEvent.
+     * Connect mode switches to update analyzer sessions and toggle runner models.
+     * Register USB broadcast receiver for ACTION_USB_DEVICE_ATTACHED/DETACHED (VID 0x303A, PID 0x1001) and wire UsbSensorAdapter into SessionCoordinator.
+     * Ensure clean tear-down on onPause/onStop/onDestroy: unbind camera, stop analyzer session, stop USB adapter, and shut down executor.
+3. Phase 6 & 7 Deliverables Under Implementation:
+   - Phase 6 Deterministic RiskEngine (dev.navisense.navigation.RiskEngine):
+     * Pure risk evaluation implementing IRiskEngine.
+     * Ultrasonic severity reducer: <= 50 cm critical close STOP, <= 120 cm CAUTION, > 120 cm SAFE.
+     * Vision severity reducer: obstacle detection within WalkingCorridor ([0.30, 0.70] x [0.30, 1.00], >= 20% area overlap).
+     * Highest-severity arbiter: ultrasonic STOP strictly dominates regardless of vision state.
+     * Hold and decay timers: minimum 1000 ms hold on STOP before decaying.
+     * 50 ms central watchdog tick: monitors sensor loss (> 300 ms) and vision loss (> 500 ms) transitioning path status to UNKNOWN.
+     * Fake IClock deterministic replay unit tests for AC-10 verification.
+   - Phase 7 Prioritized SpeechArbiter (dev.navisense.voice.SpeechArbiter):
+     * Concrete implementation of ISpeechArbiter.
+     * 4-tier prioritized queue (EMERGENCY_STOP, NAVIGATION_CRITICAL, SEARCH_GUIDANCE, STATUS_INFO).
+     * Immediate audio interruption and cancellation target <= 250 ms upon User Stop or higher-priority alert.
+4. Frozen Contract Check:
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Source revision and evidence reference: main ab88a4b; android/app/src/main/java/dev/navisense/, docs/rishav/implementation-plan.md
+Recipient(s): Samik, Subham, Rohan, Spandan
+For response: team acknowledge Rishav Phase 6 & application wiring progress.
+```
