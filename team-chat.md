@@ -1846,6 +1846,7 @@ Message and requested action:
 Source revision and evidence reference: main 24c522d; datasets/raw/laptop/SES_04_LAPTOP_WOOD/, docs/implementation-state.md
 Recipient(s): Spandan, Samik, Rishav, Rohan
 For response: Spandan / Samik acknowledge SES_04 delivery for Locate YOLO dataset pipeline.
+<<<<<<< HEAD
 
 ```text
 Entry ID: SPANDAN-2026-09-15-020 / 2026-09-15T23:55:00+05:30 / T+ unverified
@@ -1880,4 +1881,39 @@ Message and requested action:
 Source revision and evidence reference: main b03cba4; scripts/train_locate.py, scripts/export_locate_model.py, models/metadata/locate_model_contract.json, android/app/src/main/assets/models/locate_smoke.ptl, docs/implementation-state.md
 Recipient(s): Subham, Samik, Rishav, Rohan
 For response: Subham wire locate_smoke.pt into Hard Scan; Samik / Rishav run Locate detection on OPPO CPH2753.
+```
+
+```text
+Entry ID: RISHAV-2026-09-15-020 / 2026-09-15T23:55:00+05:30 / T+ unverified
+Author and type: Rishav | PROGRESS & INTEGRATION
+Phase / step / S-instance / H-contract: UI/UX & Perception Display & Proximity Safety / Camera YOLO Overlay & 100cm Risk Alert
+Message and requested action:
+1. Live Camera Preview Expansion:
+   - Expanded CameraX preview card viewport height in activity_main.xml from 200dp to 280dp, providing a prominent, high-visibility viewport covering the upper half of the screen.
+   - Preserved accessible button touch targets: Start Walking (64dp), Search Nearby (56dp), and User STOP (72dp) with balanced vertical layout bias.
+2. Traditional YOLO Bounding Box & Class Overlay:
+   - Implemented custom DetectionOverlayView in dev.navisense.camera mapped to upright normalized coordinates [0.0, 1.0].
+   - Renders vibrant color-coded bounding boxes per class (Cyan for Person, Neon Green for Chair, Yellow for Table, Orange for Backpack, Magenta for Bottle, Lime for Keys, Electric Blue for Wallet).
+   - Draws rounded class label badges displaying class name and confidence percentage (e.g. "PERSON 88%", "CHAIR 74%") positioned dynamically with anti-collision padding.
+   - Connected CameraX analyzer output in MainActivity.kt to update DetectionOverlayView in real time on UI thread.
+   - Pre-activates local PyTorch Lite mobility YOLO runner on camera bind so detections appear immediately in live camera view.
+3. Increased Proximity Risk Alert Threshold (50 cm -> 100 cm):
+   - Raised immediate emergency STOP candidate threshold from 50 cm to 100 cm in RiskEngine.kt, SensorRecord.kt, SensorEvent.kt, and SensorStateManager.kt.
+   - Updated RiskEngine.rawSensorRisk distance bands:
+     * 2..100 cm: RiskLevel.STOP (immediate emergency stop & haptic vibration)
+     * 101..150 cm: RiskLevel.SLOW
+     * > 150 cm: RiskLevel.NONE
+   - Adjusted release hysteresis: STOP hold release margin updated to > 115 cm (100 cm + 15 cm margin) before de-escalating.
+4. Verification & Testing:
+   - Updated unit test suites (RiskEngineTest.kt, EventContractsTest.kt) to validate 100 cm STOP band and 115 cm release margin.
+   - Ran gradle testDebugUnitTest: 84/84 tests PASS (0 failures, 0 errors).
+   - Built and deployed debug APK to physical OPPO CPH2753 device via ADB.
+   - Captured and visually verified UI screenshot on device.
+5. Frozen Contract Hash Verification:
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+
+Source revision and evidence reference: commit 33dec18 on main; DetectionOverlayView.kt, MainActivity.kt, RiskEngine.kt, SensorRecord.kt, SensorEvent.kt, SensorStateManager.kt, activity_main.xml, RiskEngineTest.kt, EventContractsTest.kt
+Recipient(s): Samik, Rohan, Subham, Spandan
+For response: Samik & Rohan acknowledge updated 100cm STOP proximity thresholds and YOLO bounding box overlay.
 ```
