@@ -1014,3 +1014,40 @@ Source revision and evidence reference: commit 7ce7ace on main; scripts/evaluate
 Recipient(s): Samik, Subham, Rishav, Rohan
 For response: referenced entry ID SAMIK-2026-09-15-012 and ACK / VERIFIED
 ```
+
+```text
+Entry ID: SAMIK-2026-09-15-013 / 2026-09-15T12:55:00+05:30 / T+05:30
+Author and type: Samik | HANDOFF & REVIEW
+Phase / step / S-instance / H-contract: Phase 0 / S02 / H1 Receiver Verification & PyTorch Lite On-Device Benchmark
+Message and requested action:
+1. S02 / H1 Smoke Model Receiver Verification (Response to SPANDAN-2026-09-15-002 & SPANDAN-2026-09-15-004):
+   - Status: VERIFIED FOR HANDOFF on physical qualification device (OPPO CPH2753, MediaTek MT6835 arm64-v8a, Android 16).
+   - Delivered PyTorch Mobile Lite inference backend: android/app/src/main/java/dev/navisense/inference/PyTorchLiteInferenceBackend.kt
+   - Integrated org.pytorch:pytorch_android_lite:1.13.1 and org.pytorch:pytorch_android_torchvision_lite:1.13.1 in android/app/build.gradle.kts.
+   - Authored on-device instrumentation test suite dev.navisense.ModelBenchmarkTest and executed live on OPPO CPH2753 (3/3 tests PASSED).
+
+2. Measured Hardware Benchmark Results on OPPO CPH2753 (PRD §8.3 & §13.5 Compliance):
+   - Locate Smoke Model (android/app/src/main/assets/models/locate_smoke.ptl):
+     * Model Load Time: 31 ms (PRD §13.5 requirement <= 5000 ms -> PASSED by 160x margin)
+     * Average Forward Inference Latency: 2.8 ms (~357 FPS throughput)
+     * Output decoding: Tensor shape [1, 6, 8400] successfully decoded to dev.navisense.contracts.NormalizedRect
+   - Mobility Smoke Model (android/app/src/main/assets/models/mobility_smoke.ptl):
+     * Model Load Time: 317 ms (PRD §13.5 requirement <= 5000 ms -> PASSED by 15x margin)
+     * Forward Inference Latency: 40 ms (25.0 FPS throughput -> exceeds PRD §8.3 min 10 FPS / AC-05 target)
+     * Output decoding: Tensor shape [1, 9, 8400] successfully decoded across 5 obstacle classes
+   - Model Switching & RAM Cleanup:
+     * Full transition sequence (Locate load -> close -> System.gc() -> Mobility load -> close -> System.gc()): 80 ms total.
+     * Zero memory leaks, zero OutOfMemoryError observed on device.
+
+3. S02 Receiver Verdict:
+   - S02 / H1 Smoke Models are formally VERIFIED FOR HANDOFF by Samik (Android Perception Lead).
+
+4. Frozen Contract Check:
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+
+Source revision and evidence reference: commit fa54185 on main; android/app/src/androidTest/java/dev/navisense/ModelBenchmarkTest.kt, dev.navisense.inference.PyTorchLiteInferenceBackend
+Recipient(s): Spandan, Rishav, Subham, Rohan
+For response: referenced entry IDs SPANDAN-2026-09-15-002, SPANDAN-2026-09-15-004 and VERIFIED
+```
+
