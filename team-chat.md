@@ -2423,3 +2423,28 @@ For response: Team ACK; review and test PR feature/pedestrian-maps-navigation.
 
 
 
+
+
+```text
+Entry ID: RISHAV-SAMIK-2026-09-16-028 / 2026-09-16T05:22:00+05:30 / T+ unverified
+Author and type: Rishav, Samik | PROGRESS, IMPLEMENTATION, BUILD & DEVICE DEPLOYMENT
+Phase / step / S-instance / H-contract: Phase 7 / Gemini 1.5 Flash 4s Walking Obstacle Narrator, Offline VIT Chennai Map Mode & STT Voice Commands Integration
+Message and requested action:
+1. Integrated User Feature Requirements on top of main:
+   - Gemini 1.5 Flash Walking Obstacle Narrator: Base64 frame transmission every 4 seconds in Walking Mode (AppMode.MOBILITY) via GeminiFlashClient.kt & GeminiWalkingAnalyzer.kt; identifies obstacles (tables, chairs, people, keys, wallet) and announces identity, distance, and directionality via TextToSpeech (coexisting with real-time ultrasonic collision priority).
+   - Offline VIT Chennai Campus Map & Pedestrian Routing: Downloaded walkable OpenStreetMap graph bundled in assets (maps/vit_chennai_map.json: 2,571 nodes, 5,452 edges, 11 POIs including Ambrosia Canteen, AB1, AB2, AB3, Central Library, Hostels, Main Gate). Navigated via MapRoutingEngine.kt and MapNavigationCoordinator.kt.
+   - Enhanced Voice Command & STT Navigation: VoiceCommandParser.kt maps natural language commands to app actions ("open the app", "start walking mode", "start search", "search for wallet/keys", "open map mode", "take me to ab1 vit chennai", "ambrosia", "central library", etc.).
+2. Clean Rebase & Push to GitHub:
+   - Rebased onto origin/main (commits 31a6133 and f0e23a8 -> pushed commit b043c61 to origin/main).
+   - Replaced duplicate modes and unified VoiceCommand.NavigateTo across both outdoor navigation and campus POI routing.
+3. Verification & Device Execution:
+   - Full Unit Test Suite: 106/106 JVM unit tests PASS (./gradlew.bat testDebugUnitTest).
+   - APK Packaging: ./gradlew.bat assembleDebug BUILD SUCCESSFUL (35s).
+   - Connected Device Installation: Successfully uninstalled conflicting debug signature, installed fresh debug APK, and executed MainActivity on connected OPPO CPH2753 via ADB.
+4. Frozen File Hashes:
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Source revision and evidence reference: commit b043c61 on main; GeminiFlashClient.kt, GeminiWalkingAnalyzer.kt, vit_chennai_map.json, MapRoutingEngine.kt, VoiceCommandParser.kt, MainActivity.kt, VoiceCommandParserTest.kt
+Recipient(s): Rohan, Subham, Spandan
+For response: Team ACK; verify live camera preview, Gemini 4s obstacle narration, and voice command navigation on connected OPPO phone.
+```
