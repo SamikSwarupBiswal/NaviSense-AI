@@ -1993,3 +1993,23 @@ Source revision and evidence reference: main 758f4d5; MainActivity.kt, CameraTim
 Recipient(s): Rishav, Rohan, Spandan, Subham, Samik
 For response: Rishav return VERIFIED or RETURNED for lifecycle/guidance; Rohan reconnect ESP32-S3/HC-SR04 and physically verify zero post-STOP haptics plus the restored distance bands.
 ```
+
+```text
+Entry ID: SUBHAM-2026-09-16-022 / 2026-09-16T01:00:00+05:30 / T+ unverified
+Author and type: Subham (with Codex) | PROGRESS & VERIFICATION
+Phase / step / S-instance / H-contract: Phase 2 / Step 03 / Hard Scan Runner Path Anchoring & Testing
+Message and requested action:
+1. Hard Scan Runner Enhancements:
+   - Anchored model and database paths in laptop/tools/run_hard_scan.py and laptop/scanner.py to REPO_ROOT so the runner executes from any directory.
+   - Added --image option and ImageFrameSource to test Hard Scan on static frames without webcam dependencies.
+   - Added friendly macOS camera privacy permission diagnostics.
+2. Verification:
+   - Executed run_hard_scan.py on test tabletop frame: 10 frames sampled over 2.0s, KEYS detected at 83% confidence in 10/10 frames, committed to SQLite object_memory.db, status verified as FOUND.
+   - All 43 laptop tests PASS.
+3. Frozen Contract Check:
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Source revision and evidence reference: main 7c5a3f7; laptop/tools/run_hard_scan.py, laptop/scanner.py
+Recipient(s): Rishav, Samik, Spandan, Rohan
+For response: Ready for live webcam scan and Android memory client verification.
+```
