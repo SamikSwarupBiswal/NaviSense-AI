@@ -44,7 +44,7 @@ Gate results use **NOT RUN / RUNNING / PASS / FAIL / BLOCKED**. A PASS requires 
 | [Spandan](spandan/guidance.md) | Models, datasets, training, exports and quality evaluation | In progress | S02/H1 smoke artifacts, metadata contracts, reference fixtures, CAPTURE_CHECKLIST.md, verify_smoke.py (PASS), evaluate_ac02.py (PASS) | Ingest dataset batches from Subham and Samik; run train_locate.py for Handoff S09 candidate weights |
 | [Subham](subham/guidance.md) | Laptop Locate, Hard Scan, SQLite, API and Android memory client | In progress | REST API schemas, SQLite schema, response fixtures (8/8 tests pass), MemoryClientContract, mock server script | Capture laptop tabletop dataset per checklist; implement webcam adapter & 2.0s Hard Scan |
 | [Rohan](rohan/guidance.md) | Hardware, firmware, mount, USB and Android sensor adapter | In progress | Hardware spec, 10Hz ESP32 firmware, serial test tool (20/20 pass), replay harness (10/10 pass), dev.navisense.usb package & UsbSensorAdapter (unit tests pass) | Physical bench ranging across 6 distances (AC-08); benchmark live USB OTG streaming to phone |
-| [Samik](samik/guidance.md) | Android camera, both inference adapters, tracking and search engine | In progress | Codex fixed benchmark execution, letterbox preprocessing, fresh distinct-frame search matching and atomic model cache replacement; regression tests added | Capture phone dataset; implement CameraX and deliver H2/H5 integration to Rishav |
+| [Samik](samik/guidance.md) | Android camera, both inference adapters, tracking and search engine | Delivered to Rishav for app wiring | CameraXAnalyzer, CameraTimestampMapper, Yuv420RgbConverter, KEEP_ONLY_LATEST concurrency gating implemented; 50/50 JVM tests pass, 9/9 OPPO device tests pass | Rishav binds CameraXAnalyzer to MainActivity / lifecycle and SessionCoordinator; capture phone dataset batches |
 | [Rishav](rishav/guidance.md) | Risk, voice UX, accessible shell, lifecycle and integration | In progress | Master app shell v0 merged on main (commit 78f3187), core contracts, accessible UI, 25/25 unit tests pass | Wire UsbSensorAdapter & immediate STOP; implement offline TTS arbiter with 4 priority levels |
 
 Ownership above is the user's current allocation. Work reported by Codex must be labelled Codex-prepared/implemented/tested as appropriate, not attributed as completed member work without confirmation.
@@ -59,7 +59,7 @@ Phase numbers match the PRD and guides; Phase 0 is the prerequisite compatibilit
 | 1 — Stationary Vision | Spandan; Subham laptop adapter; Samik phone check | In progress | Smoke models verified; AC-02 harness ready; dataset capture batches and custom Locate training underway |
 | 2 — Hard Scan + Memory | Subham | In progress | FastAPI schemas & SQLite schema verified; transactional 2.0s Hard Scan & mock/live server in progress |
 | 3 — Sensor Node | Rohan | In progress | 10Hz firmware & 1k/2k divider verified; USB serial adapter implemented; physical bench ranging next |
-| 4 — Android Camera AI | Samik; Spandan artifacts; Rishav shell | In progress | Tested helpers and model backend; concrete CameraX analyzer and application event wiring still pending |
+| 4 — Android Camera AI | Samik; Spandan artifacts; Rishav shell | Camera producer ready | CameraXAnalyzer, YUV converter, timestamp mapper, runner, tracker, and search engine verified (50/50 JVM tests, 9/9 OPPO device tests); MainActivity lifecycle wiring handed off to Rishav |
 | 5 — USB Integration | Rohan; Rishav lifecycle integration | In progress | UsbSensorAdapter unit tests pass; Android USB host verified; live cable streaming and lifecycle hookup next |
 | 6 — Fusion + Risk | Rishav; Samik/Rohan inputs | In progress | RiskEngine contracts defined; sensor <= 50cm emergency STOP wiring & staleness watchdog next |
 | 7 — Voice UX | Rishav; all producers support cancellation | In progress | SpeechArbiter contracts defined; offline Android TextToSpeech wrapper with <= 250ms STOP cancel next |
@@ -106,10 +106,10 @@ Project-owner acceptance: **not recorded**. Documentation link/schema checks do 
 | Handoff | Producer | Receiver | State | Missing deliverable / evidence |
 |---|---|---|---|---|
 | H1 — Model artifacts | Spandan | Subham and Samik | Partial smoke evidence | Corrected Android model load/forward checks; decoding reference comparison, laptop receipt and peer review pending |
-| H2 — Mobile perception | Samik | Rishav | Helpers tested; integration pending | No live camera producer or receiver event wiring; prior integration claim withdrawn |
+| H2 — Mobile perception | Samik | Rishav | Delivered producer; app wiring pending | CameraXAnalyzer producer delivered; Rishav needs to bind to MainActivity ImageAnalysis and SessionCoordinator |
 | H3 — Sensor events | Rohan | Rishav | Verified | Hardware spec, ESP32 firmware, serial tool (20/20 PASS), replay harness (10/10 PASS), UsbSensorAdapter unit tests pass |
 | H4 — Memory | Subham | Rishav | Verified | REST API schemas, response fixtures (8/8 tests PASS), SQLite schema, MemoryClientContract delivered |
-| H5 — Search events | Samik | Rishav | Helpers tested; integration pending | Search regressions pass; live Locate/Found/speech wiring and receiver re-review pending |
+| H5 — Search events | Samik | Rishav | Delivered producer; app wiring pending | CameraXAnalyzer routes Locate Search to TargetSearchEngine and emits H5 SearchConfirmationEvent; Rishav needs to wire to SessionCoordinator Found state / speech |
 | H6 — Build integration | Rishav | All | Verified | Master app shell v0 merged on main (commit 78f3187); clean build & live execution on OPPO CPH2753 |
 
 ## 8. Decisions and Blockers
