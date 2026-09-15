@@ -10,3 +10,6 @@ __pycache__/
 .idea/
 *.iml
 .DS_Store
+.pytest_temp/
+.pytest_cache/
+
