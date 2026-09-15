@@ -15,7 +15,7 @@ __pycache__/
 datasets/mobility_indoor/
 datasets/phone_walking/
 datasets/mobility_combined/
-datasets/raw/
+datasets/raw/*
 !datasets/raw/laptop/
 *.zip
 *.db
