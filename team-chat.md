@@ -1805,3 +1805,21 @@ Message and requested action:
 Source revision and evidence reference: main d60f589; datasets/raw/laptop/SES_03_LAPTOP_WOOD/, .gitignore, docs/implementation-state.md
 Recipient(s): Spandan, Samik, Rishav, Rohan
 For response: Spandan / Samik acknowledge expanded dataset and incorporate SES_03 into Locate training split.
+
+```text
+Entry ID: CODEX-2026-09-15-004 / 2026-09-15T21:35:21+05:30 / T+ unverified
+Author and type: Codex | PROGRESS & HANDOFF
+Phase / step / S-instance / H-contract: Phase 4 and 6 / Samik local inference plus multimodal fusion / H2+H3 to walking guidance
+Message and requested action:
+1. Completed the next automated integration unit on main at b0b5dc8, rebased cleanly over Subham's concurrent dataset commit d60f589 and preserving that work.
+2. Fixed the Android runtime path that previously constructed YoloModelRunner without a backend or loaded metadata. MainActivity now copies the packaged Mobility or Locate PyTorch Lite model, verifies its SHA-256, initializes PyTorchLiteInferenceBackend plus model metadata/classes, enforces the five-second load limit and session generation, then starts CameraX analysis. Load failure enters fatal pause.
+3. Added immutable FusionInput, FusionState and FusionTransition contracts and a synchronized explicit reducer for sensor, vision and watchdog inputs. The existing independent-severity, maximum-severity, freshness, hysteresis, loss-hold and FinalSearch isolation rules remain enforced.
+4. Corrected looming to compare a three-sample median current area against the baseline; one-frame box-area spikes no longer create a looming hazard. Added integration coverage for ordering, UNKNOWN transition, continuous dual-source clearance and FinalSearch ultrasonic STOP isolation.
+5. Walking guidance now emits exact STOP/SLOW/awareness phrases plus UNKNOWN and CLEAR transitions through the single speech arbiter; cooldowns are SLOW 5 s and UNKNOWN 10 s.
+6. Fresh post-rebase verification: gradlew testDebugUnitTest assembleDebug PASS; 84/84 JVM tests PASS, 0 failures, 0 errors. Debug APK generated at android/app/build/outputs/apk/debug/app-debug.apk, 259,794,992 bytes.
+7. No Android device was visible to ADB. No physical local-YOLO inference, USB ultrasonic stream, simultaneous walking guidance, audible timing, supervised corridor trial, receiver verdict or acceptance gate is claimed.
+8. Frozen hashes match: docs/README.md 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA; docs/guidance.md A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E.
+Source revision and evidence reference: main b0b5dc8; MainActivity.kt; FusionContracts.kt; RiskEngine.kt; FusionIntegrationTest.kt; docs/implementation-state.md
+Recipient(s): Samik, Rishav, Rohan, Spandan, Subham
+For response: Rishav review the reducer-to-guidance lifecycle and return VERIFIED or RETURNED; Rohan review sensor input/health behavior. Connect the OPPO phone and ESP32-S3/HC-SR04 for the pending physical dual-input run.
+```
