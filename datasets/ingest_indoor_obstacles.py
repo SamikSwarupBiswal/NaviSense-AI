@@ -153,14 +153,26 @@ def ingest_dataset(
     if not input_dir.exists():
         raise FileNotFoundError(f"Input directory does not exist: {input_dir}")
 
-    yaml_candidates = list(input_dir.glob("*.yaml")) + list(input_dir.glob("*.yml"))
+    temp_extract_dir: Optional[Path] = None
+    if input_dir.is_file() and input_dir.suffix.lower() == ".zip":
+        import zipfile
+        temp_extract_dir = output_dir.parent / f".tmp_{input_dir.stem}"
+        temp_extract_dir.mkdir(parents=True, exist_ok=True)
+        logger.info(f"Extracting zip archive {input_dir} to {temp_extract_dir}...")
+        with zipfile.ZipFile(input_dir, "r") as z:
+            z.extractall(temp_extract_dir)
+        effective_input_dir = temp_extract_dir
+    else:
+        effective_input_dir = input_dir
+
+    yaml_candidates = list(effective_input_dir.glob("*.yaml")) + list(effective_input_dir.glob("*.yml"))
     yaml_path = yaml_candidates[0] if yaml_candidates else None
     source_classes = load_source_classes(yaml_path)
     remapping = build_remapping_table(source_classes, include_sofa_as_table=include_sofa)
 
     # Find all images
     image_extensions = {".jpg", ".jpeg", ".png", ".bmp"}
-    all_images = [p for p in input_dir.rglob("*") if p.suffix.lower() in image_extensions]
+    all_images = [p for p in effective_input_dir.rglob("*") if p.suffix.lower() in image_extensions]
 
     if not all_images:
         raise RuntimeError(f"No images found in {input_dir}")
@@ -260,6 +272,9 @@ def ingest_dataset(
     logger.info(f"Train detections: {stats['class_counts_train']}")
     logger.info(f"Val detections: {stats['class_counts_val']}")
     logger.info(f"Output saved to: {output_dir}")
+
+    if temp_extract_dir and temp_extract_dir.exists():
+        shutil.rmtree(temp_extract_dir, ignore_errors=True)
 
     return stats
 
