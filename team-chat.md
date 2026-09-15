@@ -2084,3 +2084,69 @@ Source revision and evidence reference: main b40fbf6; laptop/scanner.py, models/
 Recipient(s): Spandan, Subham, Samik, Rohan
 For response: Subham and Samik ACK for verified Locate model weights and laptop/Android test status.
 ```
+
+```text
+Entry ID: SAMIK-2026-09-16-016 / 2026-09-16T01:52:00+05:30 / T+ unverified
+Author and type: Samik (with Antigravity) | PROGRESS, PERF & HANDOFF
+Phase / step / S-instance / H-contract: Phase 4 & 6 / Inference Optimization & Unified Haptic Routing
+Message and requested action:
+1. Eliminated GC Allocation Bottleneck in YoloModelRunner / Preprocessing:
+   - Replaced the slow pure-Kotlin orientFrame loop (which allocated ~1M Pair objects and intermediate ByteArray buffers per frame) with direct upright coordinate sampling in LetterboxPreprocessor.prepare().
+   - Preprocessing now directly calculates the model input tensor from source pixels with zero object allocations and executes in ~5 ms.
+   - End-to-end inference pipeline latency is well under 250 ms, preventing frame drops at the CameraXAnalyzer 500 ms safety threshold.
+   - Added LetterboxTest unit tests covering 0°, 90°, 180°, and 270° upright sampling.
+2. Unified Haptic Routing through Fusion Engine:
+   - Removed isolated ultrasonic hardware callbacks in MainActivity (onRecordReceived and onImmediateStopCandidate) that vibrated directly from the USB thread.
+   - Added onRiskEvaluated(result: RiskEvaluationResult) to SessionCoordinator.StateChangeListener.
+   - Emergency stop vibration now triggers symmetrically through RiskEvaluationResult whenever combinedRisk escalates to STOP (whether initiated by ultrasonic close proximity or CameraX YOLO visual looming).
+   - Added comprehensive integration test in FusionIntegrationTest verifying that both ultrasonic STOP and CameraX looming STOP notify the state listener and escalate combinedRisk to STOP.
+3. Verification:
+   - 88/88 Android unit tests PASS (.\gradlew.bat testDebugUnitTest).
+   - Debug APK assembled successfully (.\gradlew.bat assembleDebug).
+4. Frozen Contract Check:
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Source revision and evidence reference: main f95bd33; LetterboxPreprocessor.kt, YoloModelRunner.kt, PyTorchLiteInferenceBackend.kt, SessionCoordinator.kt, MainActivity.kt, LetterboxTest.kt, FusionIntegrationTest.kt, docs/implementation-state.md
+Recipient(s): Rishav, Rohan, Spandan, Subham
+For response: Rishav and Rohan ACK for unified haptic routing and optimized YOLO preprocessing.
+```
+
+```text
+Entry ID: SAMIK-2026-09-16-017 / 2026-09-16T02:55:00+05:30 / T+ unverified
+Author and type: Samik (with Antigravity) | PROGRESS, MODEL DEPLOYMENT & FEATURE HANDOFF
+Phase / step / S-instance / H-contract: Phase 4 & 5 / Search Nearby Feature & Combined Locate Model v2 Deployment
+Message and requested action:
+1. Search Nearby Feature Implemented and Integrated (PRD §20, 100% Offline & Standalone):
+   - User taps "Search Nearby" button on home screen -> accessible Material dialog prompts user to select target ("Keys" or "Wallet").
+   - App transitions SessionCoordinator to FINAL_SEARCH with SearchUiState.LOADING_MODEL -> CameraXAnalyzer dynamically loads the local PyTorch Lite Locate model (models/locate_smoke.ptl).
+   - Once loaded, SessionCoordinator transitions to SearchUiState.SEARCHING and announces via SpeechArbiter: "Searching for <target>".
+   - TargetSearchEngine processes camera frames: requires 3 detections in the latest 5 frames (confidence >= 0.60, IoU >= 0.30) to confirm stationary detection.
+   - Upon confirmation, announces spatial direction: "Target found left", "Target found center", or "Target found right".
+   - If target is not detected within 15 seconds, TargetSearchEngine emits TIMEOUT event without halting camera feed, transitions UI to TIMED_OUT, announces "Search timed out", and displays an accessible retry/change dialog.
+   - Immediate cancellation: tapping Stop immediately terminates the search, invalidates session generation, stops camera analysis, and clears keep-screen-on flags.
+2. Dataset Merge & Ingestion (scripts/prepare_locate_combined.py):
+   - Ingested both verified Locate dataset archives:
+     * NaviSense-Locate.v1-v1-yolov8-baseline.yolov8.zip (255 images)
+     * NaviSense.v1i.yolov7pytorch.zip (220 images)
+   - Created leak-free combined dataset in datasets/locate_combined_v2/ (475 images total: 332 train, 72 val, 71 test) with capture-group isolation and audit reports.
+3. Locate Model Training & Quality Metrics:
+   - Trained YOLOv8n across 12 epochs on CPU (AMD Ryzen 9 8940HX):
+     * Overall: Precision 97.5%, Recall 95.9%, mAP50 99.1%, mAP50-95 62.7%
+     * Keys: Precision 98.7%, Recall 95.5%, mAP50 99.1%
+     * Wallet: Precision 96.3%, Recall 96.4%, mAP50 99.2%
+     * Inference latency: ~24.1 ms per frame (well under 250 ms threshold)
+4. Export & Packaging:
+   - Exported model artifacts:
+     * TorchScript: models/smoke/locate_smoke.pt & models/locate/locate_finetuned.pt (SHA-256: 340851a7d87b0df47404b988b8d87f992288992723e814fa93897512547ae97b)
+     * PyTorch Mobile Lite: models/smoke/locate_smoke.ptl & models/locate/locate_finetuned.ptl & android/app/src/main/assets/models/locate_smoke.ptl (SHA-256: 0640015d1266c2574a52faf0c9646e1a43dec9fa4e8cf5c2bd923a11c115c84a)
+   - Updated models/metadata/locate_model_contract.json and MainActivity.kt model verification hashes.
+5. Verification & Tests:
+   - 91/91 Android unit tests PASS (.\gradlew.bat testDebugUnitTest), including 9 dedicated TargetSearchEngine and SessionCoordinator search lifecycle regression tests.
+   - Debug APK assembled successfully (.\gradlew.bat assembleDebug).
+6. Frozen Contract Check:
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Source revision and evidence reference: main 8d37acc; MainActivity.kt, SessionCoordinator.kt, TargetSearchEngine.kt, SearchRegressionTest.kt, scripts/prepare_locate_combined.py, datasets/locate_combined_v2/, models/locate/
+Recipient(s): Rishav, Rohan, Spandan, Subham
+For response: Rishav, Spandan, and Subham ACK for Search Nearby completion and v2 model deployment.
+```
