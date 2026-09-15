@@ -1051,3 +1051,117 @@ Recipient(s): Spandan, Rishav, Subham, Rohan
 For response: referenced entry IDs SPANDAN-2026-09-15-002, SPANDAN-2026-09-15-004 and VERIFIED
 ```
 
+```text
+Entry ID: SAMIK-2026-09-15-014 / 2026-09-15T13:10:00+05:30 / T+05:45
+Author and type: Samik | REVIEW & DISPATCH
+Phase / step / S-instance / H-contract: Phase 0 Exit Review & Phases 1–4 Kickoff Task Assignments
+Message and requested action:
+Comprehensive Accumulative Progress Review, Phase 0 Exit Declaration, and Phases 1–4 Task Assignments from Project Lead (Samik):
+
+================================================================================
+1. PHASE 0 EXIT DECLARATION & CUMULATIVE PROGRESS AUDIT
+================================================================================
+Phase 0 is formally declared VERIFIED across all five engineering subsystems. Foundational contracts, data schemas, firmware protocols, on-device benchmarks, and device compatibility checks are verified and committed to main:
+
+- S01 / H6 Master Application Shell (Rishav):
+  * Merged in commit 78f3187 on main. Implements MainActivity, SessionCoordinator, NaviSenseApp, accessible UI layout (activity_main.xml), and core contracts (AppMode, SessionGeneration, RiskLevel, PathStatus, WalkingCorridor, IRiskEngine, ISpeechArbiter).
+  * 25/25 automated unit tests PASSED. Assembled app-debug.apk and verified live on physical hardware with accessible layout and prominent User STOP button.
+
+- S02 / H1 AI Models, Metadata & Benchmarks (Spandan & Samik):
+  * Spandan delivered TorchScript (.pt) and Mobile Lite (.ptl) smoke models, contracts, reference test fixtures, CAPTURE_CHECKLIST.md, and evaluation scripts (scripts/verify_smoke.py, scripts/evaluate_ac02.py).
+  * Samik implemented PyTorchLiteInferenceBackend.kt and benchmarked both smoke models live on physical qualification device (OPPO CPH2753, MediaTek MT6835, Android 16 API 36):
+    - Locate Model: 31 ms load time (PRD §13.5 requirement <= 5000 ms; 160x margin), 2.8 ms avg forward inference latency (~357 FPS).
+    - Mobility Model: 317 ms load time, 40 ms single inference latency (25.0 FPS throughput; exceeds PRD §8.3 min 10 FPS / AC-05 target).
+    - Model Switching & GC: 80 ms transition time, zero memory leaks, zero OutOfMemoryError observed on hardware.
+    - 3/3 on-device instrumentation tests PASSED.
+
+- S03 / H3 Hardware, Firmware & USB (Rohan):
+  * Complete hardware specification (docs/rohan/hardware-spec.md) and 10 Hz non-blocking firmware (esp32/navisense_sensor/navisense_sensor.ino) strictly implementing PRD §14.1 wire format (V=1,SEQ=...,UP_MS=...,DIST_CM=...,VALID=...\n).
+  * Electrical protection confirmed: 1.0 kΩ / 2.0 kΩ ±1% resistor divider on ECHO line stepping 5.0 V pulse down to 3.33 V for ESP32-S3 GPIO 5. Direct 3.3 V TRIG from GPIO 4. Total assembly power < 80 mA (well below Android 500 mA OTG limit).
+  * scripts/test_sensor_serial.py (20/20 PASS) and scripts/verify_sensor_fusion_replay.py (10/10 PASS) verified.
+  * dev.navisense.usb package & UsbSensorAdapter delivered with 3-packet recovery, staleness watchdog, sequence loss tracking, and immediate STOP candidate callback (<= 50 cm). Unit tests passing.
+
+- S04 / H4 Laptop Locate & Memory (Subham):
+  * FastAPI Pydantic REST API schemas (laptop/api/schemas.py), SQLite persistence schema (laptop/config/settings.py), complete v1 response fixture suite (laptop/tests/fixtures/responses.json), and 8/8 unit tests passed via pytest.
+  * dev.navisense.networking.MemoryClientContract delivered: capped 64 KiB response buffer, 2000 ms timeout, bearer token authentication, and sessionGeneration cancellation support.
+
+- Physical Qualification Device Verification (Samik):
+  * OPPO CPH2753 (MediaTek MT6835 64-bit arm64-v8a, Android 16 API 36).
+  * Hardware verified via adb: Camera2 Level FULL, rear camera orientation 90° clockwise, android.hardware.usb.host supported & active, Google TTS installed.
+  * Master app installed and running live without crash.
+
+================================================================================
+2. PHASES 1–4 CONCURRENT WORKSTREAM TASK ASSIGNMENTS
+================================================================================
+Per PRD §4 and the 24-hour master plan, phases operate as concurrent workstreams by owner. The following concrete task assignments, technical directives, and target deadlines are dispatched:
+
+[TASK 1: SPANDAN — PHASE 1: MODEL TRAINING & AC-02 PREPARATION]
+- Scope: Locate model training for demo classes ("keys", "wallet"), dataset manifest verification, model exports, and AC-02 evaluation.
+- Immediate Actions:
+  1. Ingest incoming image capture batches from Subham (laptop table) and Samik (mobile handheld search).
+  2. Validate dataset manifests against datasets/split_manifest_template.json to guarantee zero adjacent-frame leakage between train/val/test splits.
+  3. Execute scripts/train_locate.py for "keys" and "wallet".
+  4. Run scripts/evaluate_ac02.py against held-out test splits to enforce PRD §29 AC-02 criteria: >= 50 labeled instances per class per device, >= 20 negative frames per device, IoU >= 0.50, conf >= 0.60, precision >= 90.0%, recall >= 85.0%.
+  5. Export candidate TorchScript (.pt) for laptop and Mobile Lite (.ptl) for Android with input shape [1, 3, 640, 640] and updated metadata.
+- Milestone Deliverable: Handoff S09 (Locate Candidate Weights) at target T+08:00.
+
+[TASK 2: SUBHAM — PHASE 1 & 2: LAPTOP TABLETOP CAPTURE, WEBCAM ADAPTER & HARD SCAN]
+- Scope: Laptop tabletop dataset collection, OpenCV webcam detector adapter, 2.0s Hard Scan transactional engine, and FastAPI services.
+- Immediate Actions:
+  1. [Tabletop Dataset Capture - Phase 1]: Capture laptop tabletop dataset per datasets/CAPTURE_CHECKLIST.md (>= 50 labeled instances of "keys", >= 50 labeled instances of "wallet", >= 20 negative frames from stationary laptop webcam across varying lighting, clutter, and table zones). Deliver images and manifest to Spandan.
+  2. [Laptop Webcam Adapter]: Connect OpenCV webcam capture loop with models/smoke/locate_smoke.pt forward pass; confirm input preprocessing (640x640 letterbox, RGB float32 [0.0, 1.0]) and output tensor decoding to normalized coordinates.
+  3. [2.0s Hard Scan Engine - Phase 2]: Implement stationary 2.0-second 10-frame scan in SQLite with atomic commit (commit object if detected in >= 6 of 10 frames with conf >= 0.60; PRD §11-12). Implement transaction rollback on user cancellation or history clear.
+  4. [FastAPI Live & Mock Server]: Provide python -m laptop.api.mock_server returning PRD v1 response fixtures and live FastAPI endpoints (GET /api/v1/health, GET /api/v1/objects/locate?name=..., POST /api/v1/objects/scan, POST /api/v1/objects/clear). Ensure locate query response latency <= 1000 ms.
+- Milestone Deliverable: Handoff S07 (Laptop Locate Service Ready for Test) at target T+05:30.
+
+[TASK 3: ROHAN — PHASE 3 & 5: HARDWARE FLASHING, USB BENCHMARK & CALIBRATION]
+- Scope: ESP32-S3 firmware flashing, physical bench calibration, live USB OTG phone streaming, and Rishav integration.
+- Immediate Actions:
+  1. [Firmware Flashing & Bench Test]: Flash ESP32-S3 DevKit with esp32/navisense_sensor/navisense_sensor.ino. Confirm non-blocking 10 Hz loop emitting valid telemetry over USB CDC at 115200 baud.
+  2. [Physical Bench Setup - AC-08]: Pre-mark 6 bench distances (30, 50, 75, 100, 150, 200 cm). Record 20 physical readings per distance; verify >= 90% validity and median absolute error <= 5 cm. Retain raw measurements.
+  3. [Live USB OTG Phone Benchmark]: Connect ESP32-S3 DevKit to OPPO CPH2753 via USB-C OTG cable. Verify total current draw < 80 mA (zero phone brownout) and confirm live serial streaming to dev.navisense.usb.UsbSensorAdapter without packet loss.
+  4. [Rishav Lifecycle Hookup]: Coordinate with Rishav to wire UsbSensorAdapter into MainActivity USB broadcast receiver and 50 ms watchdog loop.
+- Milestone Deliverables: Handoff S05 (Sensor Node Ready for Mobile Cable Test) at target T+04:00; Handoff S08 (Sensor Telemetry Stream to Android) at target T+07:00.
+
+[TASK 4: RISHAV — PHASE 6 & 7: SENSOR LIFECYCLE, RISK ENGINE & OFFLINE VOICE UX]
+- Scope: Android USB lifecycle hookup, Risk Engine proximity STOP fusion, offline Speech Arbiter, and TalkBack accessibility.
+- Immediate Actions:
+  1. [USB Sensor Lifecycle Integration]: Register Android BroadcastReceiver for ACTION_USB_DEVICE_ATTACHED and ACTION_USB_DEVICE_DETACHED in MainActivity to invoke UsbSensorAdapter. Hook 50 ms periodic watchdog loop calling evaluateHealth().
+  2. [Immediate Proximity STOP Fusion - Phase 6]: Wire UsbSensorAdapter.onImmediateStopCandidate directly to IRiskEngine. When sensor distance <= 50 cm, immediately trigger STOP state bypassing vision inference, guaranteeing decision latency <= 100 ms and audible audio onset <= 500 ms (AC-06).
+  3. [Offline Speech Arbiter Engine - Phase 7]: Implement Android TextToSpeech engine wrapper for ISpeechArbiter with 4 strict priority levels:
+     - Priority 1: SAFETY_CRITICAL ("STOP!", "Obstacle ahead") -> Preempts all speech immediately.
+     - Priority 2: GUIDANCE ("Keys detected ahead, 50 cm away").
+     - Priority 3: STATUS ("Obstacle assistance started", "Searching for keys").
+     - Priority 4: BACKGROUND (informational prompts).
+     Enforce immediate audio preemption and speech silence on User STOP (latency <= 250 ms per AC-11).
+  4. [Accessibility & Shell Polish]: Validate TalkBack screen reader navigation across all controls, verify touch target sizes (>= 48x48 dp), high-contrast styling, and audio feedback for mode transitions.
+- Milestone Deliverables: Handoff S11 (Integrated Risk Engine with USB Driver) at target T+09:30; Handoff S12 (Speech Arbiter with 4 Priority Levels) at target T+10:30.
+
+[TASK 5: SAMIK — PHASE 1 & 4: MOBILE DATASET CAPTURE, CAMERAX ANALYZER & SEARCH ENGINE]
+- Scope: Handheld search dataset collection, concrete CameraX ImageAnalysis analyzer, CoordinateTransformer unletterboxing, and TargetSearchEngine spatial guidance integration.
+- Immediate Actions:
+  1. [Mobile Search Dataset Capture - Phase 1]: Capture handheld search viewpoint dataset (>= 50 instances of "keys", >= 50 instances of "wallet", >= 20 walking negative frames) per datasets/CAPTURE_CHECKLIST.md from phone camera; deliver to Spandan.
+  2. [CameraX Analyzer Pipeline - Phase 4]: Implement concrete dev.navisense.camera.CameraXAnalyzer:
+     - Stream frames from CameraX ImageAnalysis at target resolution.
+     - Apply CoordinateTransformer for 90° clockwise rear sensor unletterboxing and portrait mapping.
+     - Apply FrameQualityChecker (PRD §17.2 brightness/blur gating; discard degraded frames and flag UNKNOWN on persistent low quality).
+     - Feed valid frames into PyTorchLiteInferenceBackend for on-device inference.
+  3. [TargetSearchEngine Integration]: Wire TargetSearchEngine with CameraXAnalyzer and SessionCoordinator to emit SearchEvent.CandidateTargetConfirmed with clock-face spatial guidance (11 o'clock, 12 o'clock, 1 o'clock) upon target detection.
+- Milestone Deliverables: Handoff S06 (Mobile Camera AI Pipeline) at target T+05:00; Handoff S10 (Search Engine Pipeline with Clock-Face Guidance) at target T+08:30.
+
+================================================================================
+3. GOVERNANCE & FROZEN CONTRACT VERIFICATION
+================================================================================
+- Mandatory Collaborator Protocol (AGENTS.md §1.1):
+  * Pull from both main and communication before starting any task.
+  * Push all code/test commits to main immediately upon completion.
+  * Relay structured entries to communication append-only team-chat.md.
+  * Never use git push --force.
+- Frozen files re-verified exact:
+  * docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+  * docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+
+Source revision and evidence reference: commit c71e3cf on main; docs/implementation-state.md, android/app/src/androidTest/java/dev/navisense/ModelBenchmarkTest.kt
+Recipient(s): Team (Spandan, Subham, Rohan, Rishav)
+For response: referenced entry ID SAMIK-2026-09-15-014 and ACK / VERIFIED
+```
