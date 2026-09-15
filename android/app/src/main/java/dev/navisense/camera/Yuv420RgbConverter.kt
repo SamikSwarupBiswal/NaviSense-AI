@@ -40,6 +40,15 @@ object Yuv420RgbConverter {
         val uBase = uBuffer.position()
         val vBase = vBuffer.position()
 
+        val yArray = if (yBuffer.hasArray()) yBuffer.array() else ByteArray(yBuffer.remaining()).also { yBuffer.get(it) }
+        val yOffset = if (yBuffer.hasArray()) yBuffer.arrayOffset() else -yBase
+
+        val uArray = if (uBuffer.hasArray()) uBuffer.array() else ByteArray(uBuffer.remaining()).also { uBuffer.get(it) }
+        val uOffset = if (uBuffer.hasArray()) uBuffer.arrayOffset() else -uBase
+
+        val vArray = if (vBuffer.hasArray()) vBuffer.array() else ByteArray(vBuffer.remaining()).also { vBuffer.get(it) }
+        val vOffset = if (vBuffer.hasArray()) vBuffer.arrayOffset() else -vBase
+
         var outputIndex = 0
         for (outputY in 0 until cropHeight) {
             val sourceY = cropTop + outputY
@@ -51,13 +60,13 @@ object Yuv420RgbConverter {
                 val uIndex = uBase + chromaY * uPlane.rowStride + chromaX * uPlane.pixelStride
                 val vIndex = vBase + chromaY * vPlane.rowStride + chromaX * vPlane.pixelStride
 
-                require(yIndex in yBase until yBuffer.limit()) { "Y plane is shorter than its declared strides" }
-                require(uIndex in uBase until uBuffer.limit()) { "U plane is shorter than its declared strides" }
-                require(vIndex in vBase until vBuffer.limit()) { "V plane is shorter than its declared strides" }
+                require(yIndex in yBase until yPlane.buffer.limit()) { "Y plane is shorter than its declared strides" }
+                require(uIndex in uBase until uPlane.buffer.limit()) { "U plane is shorter than its declared strides" }
+                require(vIndex in vBase until vPlane.buffer.limit()) { "V plane is shorter than its declared strides" }
 
-                val y = max(0, (yBuffer.get(yIndex).toInt() and 0xFF) - 16)
-                val u = (uBuffer.get(uIndex).toInt() and 0xFF) - 128
-                val v = (vBuffer.get(vIndex).toInt() and 0xFF) - 128
+                val y = max(0, (yArray[yOffset + yIndex].toInt() and 0xFF) - 16)
+                val u = (uArray[uOffset + uIndex].toInt() and 0xFF) - 128
+                val v = (vArray[vOffset + vIndex].toInt() and 0xFF) - 128
 
                 rgb[outputIndex++] = clampToByte((1192 * y + 1634 * v) shr 10)
                 rgb[outputIndex++] = clampToByte((1192 * y - 400 * u - 833 * v) shr 10)

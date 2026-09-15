@@ -252,6 +252,7 @@ class CameraXAnalyzer(
                 uPlane = image.planes[1].asYuvPlane(),
                 vPlane = image.planes[2].asYuvPlane()
             )
+            val tConvertNanos = clock.nowMonotonicNanos()
 
             val rawRunnerEvent = session.runner.detect(
                 framePixels = rgb,
@@ -264,6 +265,7 @@ class CameraXAnalyzer(
                 sessionGeneration = session.sessionGeneration,
                 geometryVersion = geometryVersion
             )
+            val tRunnerNanos = clock.nowMonotonicNanos()
             val runnerEvent = if (
                 rawRunnerEvent.qualityStatus == FrameQualityStatus.USABLE &&
                 rawRunnerEvent.errorMessage == null &&
@@ -295,10 +297,21 @@ class CameraXAnalyzer(
             }
 
             processedFrames.incrementAndGet()
-            if (frameId % DIAGNOSTIC_FRAME_INTERVAL == 0L) {
+            val convertMs = (tConvertNanos - observedNanos) / NANOS_PER_MILLISECOND
+            val runnerMs = (tRunnerNanos - tConvertNanos) / NANOS_PER_MILLISECOND
+            val ageMs = deliveredMs - captureMonotonicMs
+
+            if (session.mode == AppVisionMode.LOCATE_SEARCH && (frameId % 5L == 0L || runnerEvent.detections.isNotEmpty())) {
                 Log.d(
                     TAG,
-                    "frame=$frameId mode=${session.mode} ageMs=${deliveredMs - captureMonotonicMs} " +
+                    "LOCATE_BENCH frame=$frameId convertMs=$convertMs runnerMs=$runnerMs " +
+                        "ageMs=$ageMs rawDets=${runnerEvent.detections.size} safetyDets=${event.detections.size} " +
+                        "quality=${event.qualityStatus} err=${event.errorMessage}"
+                )
+            } else if (frameId % DIAGNOSTIC_FRAME_INTERVAL == 0L) {
+                Log.d(
+                    TAG,
+                    "frame=$frameId mode=${session.mode} ageMs=$ageMs " +
                         "quality=${event.qualityStatus} rawDetections=${runnerEvent.detections.size} " +
                         "safetyDetections=${event.detections.size} error=${event.errorMessage}"
                 )

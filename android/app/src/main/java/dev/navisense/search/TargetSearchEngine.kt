@@ -174,12 +174,17 @@ class TargetSearchEngine(
         // Find clusters that have detections in >= 3 distinct frames
         val qualifyingClusters = clusters.filter { it.size >= minConfirmationFrames }
 
+        if (matchingDetections.isNotEmpty() || framesInWindow.size >= 2) {
+            android.util.Log.d("NaviSenseSearch", "TargetSearchEngine: matched ${matchingDetections.size} for '$currentTargetClass' (conf >= $minConfidence), framesInWindow=${framesInWindow.size}/$minConfirmationFrames")
+        }
+
         return when {
             qualifyingClusters.size == 1 -> {
                 val confirmedCluster = qualifyingClusters.first()
                 val latestDetection = confirmedCluster.last()
                 val direction = calculateDirection(latestDetection.boundingBox.centerX)
                 isConfirmed = true
+                android.util.Log.i("NaviSenseSearch", "TargetSearchEngine: CONFIRMED target=$currentTargetClass direction=$direction at centerX=${latestDetection.boundingBox.centerX}")
 
                 SearchEvent(
                     sessionGeneration = currentSessionGen,

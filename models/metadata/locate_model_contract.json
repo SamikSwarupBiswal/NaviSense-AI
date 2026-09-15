@@ -127,6 +127,14 @@
       "path": "android/app/src/main/assets/models/locate_smoke.pt",
       "sha256": "340851a7d87b0df47404b988b8d87f992288992723e814fa93897512547ae97b",
       "format": "torchscript_pt"
+    },
+    "android_tflite_gpu": {
+      "path": "android/app/src/main/assets/models/locate_model.tflite",
+      "sha256": "bf3968aadba9b7cd30c4e58adcd7a95c453e4c02f52c90e2d5608a52a6487bc5",
+      "size_bytes": 6184664,
+      "format": "tflite_fp16",
+      "input_shape": [1, 640, 640, 3],
+      "output_shape": [1, 6, 8400]
     }
   }
 }

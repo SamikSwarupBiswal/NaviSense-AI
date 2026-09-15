@@ -43,6 +43,7 @@ import dev.navisense.contracts.SearchUiState
 import dev.navisense.contracts.SessionToken
 import dev.navisense.inference.ModelMetadata
 import dev.navisense.inference.PyTorchLiteInferenceBackend
+import dev.navisense.inference.TfliteGpuLocateBackend
 import dev.navisense.inference.YoloModelRunner
 import dev.navisense.navigation.RiskEvaluationResult
 import dev.navisense.navigation.RiskLevel
@@ -106,6 +107,7 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
             val app = application as? NaviSenseApp
             val now = app?.clock?.nowMonotonicMs() ?: SystemClock.elapsedRealtime()
             coordinator.onWatchdogTick(now)
+            cameraAnalyzer?.onWatchdogTick(now)
             watchdogHandler.postDelayed(this, 50L)
         }
     }
@@ -519,22 +521,34 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                         expectedSha256 = "d76302b62ba357a5dfa7531f201a7d7141ce55b1c940d3c6eae3b19d573b4936"
                     )
                     AppVisionMode.LOCATE_SEARCH -> LocalModelConfiguration(
-                        assetName = "models/locate_smoke.ptl",
-                        identity = "locate-v0.2.0-spandan-85a6d1cf",
+                        assetName = "models/locate_model.tflite",
+                        identity = "locate-v0.2.0-tflite-gpu-bf3968aa",
                         labels = listOf("keys", "wallet"),
                         confidenceThreshold = 0.25f,
-                        expectedSha256 = "85a6d1cfce3daf55abafa0a341f129426af493bcd5592a059dbe1e8eb60db23a"
+                        expectedSha256 = "bf3968aadba9b7cd30c4e58adcd7a95c453e4c02f52c90e2d5608a52a6487bc5"
                     )
                     AppVisionMode.OFF -> throw IllegalArgumentException("OFF has no local model")
                 }
-                val modelPath = PyTorchLiteInferenceBackend.copyAssetToCache(this, configuration.assetName)
-                verifyFileSha256(modelPath, configuration.expectedSha256)
-                val backend = PyTorchLiteInferenceBackend(
-                    modelPath = modelPath,
-                    numClasses = configuration.labels.size,
-                    confThreshold = 0.25f,
-                    iouThreshold = 0.45f
-                )
+                val backend = if (mode == AppVisionMode.LOCATE_SEARCH) {
+                    val modelPath = TfliteGpuLocateBackend.copyAssetToCache(this, configuration.assetName)
+                    verifyFileSha256(modelPath, configuration.expectedSha256)
+                    TfliteGpuLocateBackend(
+                        modelFile = java.io.File(modelPath),
+                        numClasses = configuration.labels.size,
+                        confThreshold = 0.25f,
+                        iouThreshold = 0.45f,
+                        requireGpu = true
+                    )
+                } else {
+                    val modelPath = PyTorchLiteInferenceBackend.copyAssetToCache(this, configuration.assetName)
+                    verifyFileSha256(modelPath, configuration.expectedSha256)
+                    PyTorchLiteInferenceBackend(
+                        modelPath = modelPath,
+                        numClasses = configuration.labels.size,
+                        confThreshold = 0.25f,
+                        iouThreshold = 0.45f
+                    )
+                }
                 runner = YoloModelRunner(backend)
                 check(runner.load(
                     ModelMetadata(

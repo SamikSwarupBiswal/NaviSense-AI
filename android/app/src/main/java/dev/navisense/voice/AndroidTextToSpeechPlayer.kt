@@ -34,12 +34,17 @@ class AndroidTextToSpeechPlayer(context: Context) : ITextToSpeechPlayer {
 
             override fun onError(utteranceId: String?) {
                 speaking.set(false)
+                android.util.Log.e("NaviSenseTTS", "TTS error on utterance: $utteranceId")
             }
         })
     }
 
     override fun speak(text: String, utteranceId: String): Boolean {
-        if (!isReady.get() || tts == null) return false
+        if (!isReady.get() || tts == null) {
+            android.util.Log.w("NaviSenseTTS", "TTS not ready (ready=${isReady.get()}, tts=$tts)")
+            return false
+        }
+        android.util.Log.i("NaviSenseTTS", "TTS speak utterance='$utteranceId': '$text'")
         val result = tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
         return result == TextToSpeech.SUCCESS
     }
