@@ -88,3 +88,84 @@ Source revision and evidence reference: https://github.com/SamikSwarupBiswal/Nav
 Recipient(s): rishav-bits, JeansGit77, spandanjit-ai, shubhusden
 ```
 
+```text
+Entry ID: SUBHAM-2026-09-15-007 / 2026-09-15T10:30:00+05:30 / T+02:40
+Author and type: Subham | PROGRESS
+Phase / step / S-instance / H-contract: Phase 0 / S01 Receipt, Setup Verification & Frozen Hash Check
+Message and requested action:
+1. ACK to SAMIK-2026-09-15-006: Subham (shubhusden) has accepted repository invitation and verified write access to https://github.com/SamikSwarupBiswal/NaviSense-AI.
+2. ACK to KICKOFF-2026-09-14-001 (Rishav): Subsystem ownership verified: Laptop webcam Hard Scan pipeline, SQLite persistence, authenticated FastAPI local service, and Android memory networking client (dev.navisense.networking).
+3. ACK to RISHAV-2026-09-14-002 (S01 / H6):
+   - Inspected android/app/src/main/java/dev/navisense/contracts/Contracts.kt and SessionAuthority.
+   - Validated SessionAuthority generation increments on mode switches/STOP and monotonic clock (MonotonicClock) contracts.
+   - Confirmed package root dev.navisense.networking for Android memory client implementation.
+4. Frozen file SHA-256 baseline verification under AGENTS.md §2:
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH - frozen contract intact).
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH - frozen guidance intact).
+5. Local Environment Verification:
+   - Python 3.14 virtual environment verified (.venv\Scripts\python.exe).
+   - Pytest suite verified: 8/8 unit tests passed on schemas and fixtures (test_api_schemas.py).
+   - Laptop webcam interface available; OpenCV/capture test harness ready.
+6. Phase 0 Entry Status: READY-FIXTURES (Laptop REST API schemas established, PRD v1 fixtures validated, Android MemoryClient contract drafted).
+Source revision and evidence reference: laptop/api/schemas.py, laptop/tests/test_api_schemas.py, android/app/src/main/java/dev/navisense/networking/MemoryClientContract.kt
+Recipient(s): Rishav, Samik, Spandan, Rohan
+For response: referenced entry IDs KICKOFF-2026-09-14-001, RISHAV-2026-09-14-002, SAMIK-2026-09-15-006 and ACK
+```
+
+```text
+Entry ID: SUBHAM-2026-09-15-008 / 2026-09-15T10:35:00+05:30 / T+02:45
+Author and type: Subham | HANDOFF
+Phase / step / S-instance / H-contract: Phase 0 / Step 01 / S04 / H4
+Message and requested action:
+Delivering Handoff S04 / H4 (Laptop Locate REST API schemas, response fixtures, SQLite schema specification, and Android MemoryClientContract interface):
+1. Laptop REST API Specification (laptop/api/schemas.py - PRD §23):
+   - GET /api/v1/health -> HealthResponse(service_status: "ok"|"degraded"|"error", camera_connected: bool, memory_records_count: int, active_profile_id: str)
+   - GET /api/v1/objects/locate?query={name} -> LocateResponse(status, query_name, canonical_name, target_class, candidates, scan_id, observation_time_iso, age_seconds, camera_profile_id)
+   - Strictly typed status enum: found, ambiguous, stale, historical_only, not_found, unsupported.
+   - Candidate model with normalized bounding box [x1, y1, x2, y2] in [0.0, 1.0], confidence in [0.0, 1.0], coarse zone_id (zone_left, zone_center, zone_right), and optional human-readable zone_name.
+2. PRD v1 Response Fixtures (laptop/tests/fixtures/responses.json):
+   - Exact fixture payloads matching all 6 query outcomes and 2 health statuses.
+   - Test validation: 8/8 unit tests passed (pytest laptop/tests/test_api_schemas.py) covering box coordinate normalization, stale age threshold (>60.0s), ambiguous multi-candidate isolation, profile invalidation, and malformed coordinate rejection.
+3. Android Memory Client Contract (dev.navisense.networking.MemoryClientContract):
+   - Sealed class LocateResult (Found, Ambiguous, Stale, HistoricalOnly, NotFound, Unsupported, NetworkError).
+   - Enforces PRD §23/24 constraints: 2000 ms total timeout (MAX_TIMEOUT_MS = 2000L), 64 KiB payload cap (MAX_RESPONSE_BYTES = 65536L), 60.0s stale threshold (STALE_THRESHOLD_SECONDS = 60.0).
+   - Accepts sessionGeneration: Long to ensure late network callbacks are discarded immediately upon navigation mode change or User STOP without mutating active app target or triggering speech.
+   - Distinguishes network failure from not_found: network errors return typed LocateResult.NetworkError with HTTP status code and error description.
+4. Authoritative SQLite Memory Schema (PRD §11/§12):
+   - Tables: camera_profiles, scan_snapshots, observed_objects.
+   - One-transaction atomic commit per 2.0s Hard Scan (10 frames, >= 0.60 confidence in >= 6 frames). Rollback on cancellation, profile change, or Clear history.
+5. Proposed Camera Zone Profile (tabletop_cam_v1):
+   - Non-overlapping horizontal zones: zone_left [0.0, 0.33], zone_center [0.33, 0.67], zone_right [0.67, 1.0].
+   - Truthful "last seen" reporting without route invention.
+Requested action: Rishav review S04 / H4 contracts and fixtures; confirm Android app integration hooks for MemoryClientContract.
+Source revision and evidence reference: laptop/api/schemas.py, laptop/tests/fixtures/responses.json, android/app/src/main/java/dev/navisense/networking/MemoryClientContract.kt
+Recipient(s): Rishav, Spandan, Samik
+For response: referenced entry ID SUBHAM-2026-09-15-008 and VERIFIED / RETURNED
+```
+
+```text
+Entry ID: SUBHAM-2026-09-15-009 / 2026-09-15T10:40:00+05:30 / T+02:50
+Author and type: Subham | CHAT
+Phase / step / S-instance / H-contract: Phase 0 / Inter-subsystem Information & Prerequisite Requests
+Message and requested action:
+Organized requirements and information needed from teammates for Phase 0 and Phase 1 transitions:
+1. To Spandan (Models & Datasets Lead):
+   - [Information Needed]: Baseline classes and alias mapping sign-off. Subham established "keys" and "wallet" as initial demo classes with aliases ("key", "keys", "house keys", "car keys", "wallet", "billfold", "purse") in models/locate/metadata.json. Spandan please confirm if any additional classes or aliases are planned for S02 / H1.
+   - [Artifact Needed]: Smoke Locate model artifact for Laptop (S02 / H1, scheduled T+01:15–01:45). Please provide the laptop-compatible model export (PyTorch / ONNX / TFLite) and exact input tensor requirements (RGB 640x640, normalized [0, 1]) so Subham can integrate the stationary webcam detector adapter.
+   - [Prerequisite Check]: Confirm detection confidence threshold (>= 0.60 per PRD §10) and coordinate format (normalized xyxy [0, 1]).
+2. To Rishav (System Integration, Voice UX & Shell Lead):
+   - [Contract Confirmation]: Verify MemoryClientContract interface in dev.navisense.networking matches your coordinator's expectations for triggering locateObject(queryName, sessionGeneration) during Voice UX object finding queries.
+   - [Auth & Security]: PRD specifies session token / bearer token authentication for FastAPI. Confirm how the pre-shared bearer token will be injected/stored securely on Android (e.g. BuildConfig field / runtime secret) without committing raw tokens to git.
+   - [Stale Callback Handling]: Confirm SessionAuthority.isValid(sessionGeneration) will be checked upon LocateResult arrival before any target selection or UI/speech transition occurs.
+   - [Network Configuration]: Confirm target IP/subnet configuration (e.g. Wi-Fi hotspot subnet 192.168.43.0/24, laptop static IP 192.168.43.100:8000) for Android-to-laptop connectivity.
+3. To Rohan (Hardware, Firmware & Sensor Lead):
+   - [Information Needed]: Confirm network isolation and transport independence. Confirm sensor node communicates purely via USB CDC/OTG with the phone and does not touch the Wi-Fi/HTTP local subnet.
+   - [Error Semantics]: Align error taxonomy between hardware ultrasonic sensor failures (e.g. USB disconnected, sensor unreadable) and laptop memory service errors (HTTP timeout, connection refused) so Rishav's voice arbiter handles both gracefully without ambiguous voice prompts.
+4. To Samik (Android Perception & Search Lead):
+   - [Handoff Alignment]: Review MemoryClientContract candidate format (MemoryCandidate with BoundingBox, confidence, zoneId). Confirm how TargetSearchEngine will consume target_class from LocateResult.Found when user arrives at the designated zone to trigger final search (PRD §20).
+Source revision and evidence reference: models/locate/metadata.json, android/app/src/main/java/dev/navisense/networking/MemoryClientContract.kt, laptop/config/settings.py
+Recipient(s): Spandan, Rishav, Rohan, Samik
+For response: reply with relevant entry reference and confirmations / details.
+```
+
+
