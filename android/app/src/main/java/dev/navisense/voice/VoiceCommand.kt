@@ -5,14 +5,29 @@ package dev.navisense.voice
  */
 sealed class VoiceCommand {
     /**
+     * Start standalone Mobility walking mode (with Gemini 4s obstacle narration).
+     */
+    object StartWalking : VoiceCommand()
+
+    /**
+     * Trigger generic Search Nearby.
+     */
+    object StartSearch : VoiceCommand()
+
+    /**
      * Trigger Search Nearby for a specific target object class (e.g. "wallet", "keys").
      */
     data class FindTarget(val target: String) : VoiceCommand()
 
     /**
-     * Start standalone Mobility walking mode.
+     * Open campus map directions mode.
      */
-    object StartWalking : VoiceCommand()
+    object OpenMapMode : VoiceCommand()
+
+    /**
+     * Request walking directions to a specific campus location or POI (e.g. "ab1", "ambrosia", "library").
+     */
+    data class NavigateToDestination(val destinationQuery: String) : VoiceCommand()
 
     /**
      * Start pedestrian walking navigation to a spoken destination via Google Routes.

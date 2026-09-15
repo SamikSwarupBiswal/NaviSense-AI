@@ -123,6 +123,34 @@ class VoiceCommandParserTest {
     }
 
     @Test
+    fun testMapModeAndDestinationCommands() {
+        // Map mode
+        assertEquals(VoiceCommand.OpenMapMode, VoiceCommandParser.parse("open map mode"))
+        assertEquals(VoiceCommand.OpenMapMode, VoiceCommandParser.parse("map mode"))
+        assertEquals(VoiceCommand.OpenMapMode, VoiceCommandParser.parse("show map"))
+        assertEquals(VoiceCommand.OpenMapMode, VoiceCommandParser.parse("campus map"))
+
+        // AB1
+        val ab1Cmd = VoiceCommandParser.parse("take me to ab1 vit chennai")
+        assertTrue(ab1Cmd is VoiceCommand.NavigateTo)
+        assertTrue((ab1Cmd as VoiceCommand.NavigateTo).destination.contains("AB1"))
+
+        // Ambrosia
+        val ambrosiaCmd = VoiceCommandParser.parse("take me to ambrosia")
+        assertTrue(ambrosiaCmd is VoiceCommand.NavigateTo)
+        assertTrue((ambrosiaCmd as VoiceCommand.NavigateTo).destination.contains("Ambrosia"))
+
+        // Central Library
+        val libCmd = VoiceCommandParser.parse("directions to central library")
+        assertTrue(libCmd is VoiceCommand.NavigateTo)
+        assertTrue((libCmd as VoiceCommand.NavigateTo).destination.contains("Library"))
+
+        // Search Nearby
+        assertEquals(VoiceCommand.StartSearch, VoiceCommandParser.parse("start search"))
+        assertEquals(VoiceCommand.StartSearch, VoiceCommandParser.parse("search nearby"))
+    }
+
+    @Test
     fun testBlankAndUnknown() {
         assertTrue(VoiceCommandParser.parse(null) is VoiceCommand.Unknown)
         assertTrue(VoiceCommandParser.parse("") is VoiceCommand.Unknown)

@@ -61,11 +61,11 @@
     },
     {
       "id": "poi_food_court",
-      "name": "Food Court / Gazebo Canteen",
+      "name": "Food Court / Ambrosia Canteen",
       "category": "food",
       "lat": 12.842,
       "lon": 80.1555,
-      "description": "Campus cafeteria and dining hall",
+      "description": "Campus cafeteria, Ambrosia dining, and gazebo food court",
       "nearestNodeId": 3433521046,
       "distanceToNodeMeters": 45.6
     },

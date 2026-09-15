@@ -1249,6 +1249,15 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
     private fun handleVoiceCommand(command: VoiceCommand) {
         runOnUiThread {
             when (command) {
+                is VoiceCommand.StartWalking -> {
+                    speakVoiceFeedback(getString(R.string.voice_cmd_walking_started))
+                    coordinator.startMobility()
+                    window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                }
+                is VoiceCommand.StartSearch -> {
+                    speakVoiceFeedback("Starting nearby search. What object are you looking for?")
+                    showSearchTargetDialog()
+                }
                 is VoiceCommand.FindTarget -> {
                     val target = command.target
                     val phrase = if (target == "wallet") {
@@ -1260,10 +1269,43 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                     coordinator.startNearbySearch(target)
                     window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                 }
-                is VoiceCommand.StartWalking -> {
-                    speakVoiceFeedback(getString(R.string.voice_cmd_walking_started))
-                    coordinator.startMobility()
-                    window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                is VoiceCommand.OpenMapMode -> {
+                    speakVoiceFeedback("Opening campus map mode. Where would you like to go?")
+                    showMapDestinationDialog()
+                }
+                is VoiceCommand.NavigateToDestination -> {
+                    val engine = mapRoutingEngine
+                    if (engine == null) {
+                        speakVoiceFeedback("Map data is still loading. Please try again in a moment.")
+                        return@runOnUiThread
+                    }
+
+                    val q = command.destinationQuery.lowercase(java.util.Locale.ROOT)
+                    val matched = engine.pois.find { poi ->
+                        val name = poi.name.lowercase(java.util.Locale.ROOT)
+                        val desc = poi.description.lowercase(java.util.Locale.ROOT)
+                        name.contains(q) || desc.contains(q) || poi.id.contains(q)
+                    } ?: engine.pois.find { poi ->
+                        if (q.contains("ab1") || q.contains("ab 1")) poi.id == "poi_academic_block_1"
+                        else if (q.contains("ab2") || q.contains("ab 2")) poi.id == "poi_academic_block_2"
+                        else if (q.contains("ab3") || q.contains("ab 3")) poi.id == "poi_academic_block_3"
+                        else if (q.contains("ambrosia") || q.contains("canteen") || q.contains("food")) poi.id == "poi_food_court"
+                        else if (q.contains("library")) poi.id == "poi_library"
+                        else if (q.contains("gate")) poi.id == "poi_main_gate"
+                        else if (q.contains("admin")) poi.id == "poi_admin_block"
+                        else if (q.contains("delta")) poi.id == "poi_hostel_delta"
+                        else if (q.contains("gamma")) poi.id == "poi_hostel_gamma"
+                        else if (q.contains("sports")) poi.id == "poi_sports_complex"
+                        else if (q.contains("bus") || q.contains("kelambakkam")) poi.id == "poi_kelambakkam_road"
+                        else false
+                    }
+
+                    if (matched != null) {
+                        speakVoiceFeedback("Navigating to ${matched.name}")
+                        startMapNavigationToPoi(matched)
+                    } else {
+                        speakVoiceFeedback("Destination ${command.destinationQuery} not recognized on campus map. You can ask for AB1, AB2, AB3, Ambrosia Canteen, Central Library, or Hostels.")
+                    }
                 }
                 is VoiceCommand.NavigateTo -> {
                     onDestinationReceived(command.destination)
@@ -1271,6 +1313,9 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                 is VoiceCommand.Stop -> {
                     speakVoiceFeedback(getString(R.string.voice_cmd_stopped))
                     hapticFeedback.cancel()
+                    geminiWalkingAnalyzer.stop()
+                    mapNavigationCoordinator?.stopNavigation()
+                    locationTracker?.stopTracking()
                     coordinator.userStop()
                     window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                 }
@@ -1281,7 +1326,7 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                     }
                 }
                 is VoiceCommand.Help -> {
-                    speakVoiceFeedback(getString(R.string.voice_cmd_help))
+                    speakVoiceFeedback("Voice commands available: start walking mode, search for keys or wallet, open map mode, or take me to AB1, Ambrosia, or Central Library.")
                 }
                 is VoiceCommand.AppStatus -> {
                     val status = "${tvSystemMode.text}. ${tvPathStatus.text}."
@@ -1289,6 +1334,7 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                 }
                 is VoiceCommand.Unknown -> {
                     Log.d(TAG, "Unrecognized voice command: ${command.rawText}")
+                    speakVoiceFeedback("Command not recognized. Say help for commands.")
                 }
             }
         }
