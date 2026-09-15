@@ -1588,4 +1588,42 @@ Message and requested action:
 Source revision and evidence reference: main 58d7808; datasets/raw/laptop/
 Recipient(s): Spandan, Rishav, Samik, Rohan
 For response: Spandan acknowledge receipt of laptop dataset for AC-02 locate training.
-`
+```
+
+```text
+Entry ID: RISHAV-2026-09-15-015 / 2026-09-15T16:58:00+05:30 / T+ unverified
+Author and type: Rishav | PROGRESS, ACK & INTEGRATION
+Phase / step / S-instance / H-contract: Phase 8 / MemoryClient Delivery, Haptics Integration & On-Device Qualification
+Message and requested action:
+1. ACK to Samik (SAMIK-2026-09-15-014 / commit c8d79b9):
+   - Reviewed and integrated optical expansion looming collision detection (dev.navisense.tracking.ActiveTrack.computeExpansionRate) and dev.navisense.navigation.RiskEngine approaching hazard rules into master app.
+   - Reviewed and integrated dev.navisense.app.HapticFeedbackManager and VIBRATE permission in AndroidManifest.xml.
+   - Verified haptic tactile emergency STOP alert on PathStatus.BLOCKED with instant cancellation on User STOP and activity destroy.
+2. ACK to Subham (SUBHAM-2026-09-15-016 / commit 58d7808):
+   - Acknowledged 133 tabletop images delivered across SES_01 and SES_02.
+   - Delivered Phase 8 Android Memory Client (dev.navisense.networking.MemoryClient) consuming Subham's FastAPI REST endpoints:
+     * Enforces PRD §13.3 contracts: 2000 ms client timeout, 64 KiB response payload cap, 64-character query limit, no redirect following carrying token, and session generation invalidation for late callbacks.
+     * Parses all v1 schema outcomes: Found (with conservative age = server_age + request_duration), Ambiguous, Stale (> 60s threshold), HistoricalOnly, NotFound, and Unsupported.
+     * Service errors (HTTP 401, 500) produce typed NetworkError, never mistaken for NotFound.
+     * Health check (/api/v1/health) verified for service_status == "ok".
+   - Added comprehensive unit test suite dev.navisense.MemoryClientTest: 12/12 tests PASS.
+   - Integrated with SessionCoordinator:
+     * locateAndGuide(queryName): Triggers lookup, validates sessionGeneration, transitions to MOBILITY mode with phrase "Last seen at <Zone>. Obstacle assistance started." on Found result.
+     * confirmArrivalAtZone(): Switches to FINAL_SEARCH mode with phrase "Arrived at zone. Searching for <Target>".
+     * userStop(): Immediately cancels pending network requests and silences guidance <= 250 ms.
+3. Physical Phone Reconnected & Live Device Qualification:
+   - Hardware: OPPO CPH2753 (device ID: 6545Q8A6X89TW8ZX, Android 16 API 36).
+   - Reinstalled fresh debug APK (259,810,917 bytes) via ADB resolving keystore signature mismatch.
+   - Launched dev.navisense.app.MainActivity live into foreground (verified via dumpsys: topResumedActivity).
+   - Monitored logcat: zero crashes, zero fatal exceptions.
+4. Total Test Suite Status:
+   - 76 / 76 JVM Unit Tests PASS (0 failures, 0 errors) across 14 test suites via ./gradlew.bat testDebugUnitTest.
+   - Merged work/rishav-phase0 to main and pushed to origin/main (commit 612bb02).
+5. Frozen Contract Check:
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Source revision and evidence reference: main 612bb02; android/app/src/main/java/dev/navisense/networking/MemoryClient.kt, android/app/src/test/java/dev/navisense/MemoryClientTest.kt, android/app/src/main/java/dev/navisense/app/SessionCoordinator.kt, android/app/src/main/java/dev/navisense/app/MainActivity.kt
+Recipient(s): Samik, Subham, Rohan, Spandan
+For response: Subham acknowledge MemoryClient delivery matching FastAPI locate endpoints; Samik standing by for live obstacle walkthrough test.
+```
+
