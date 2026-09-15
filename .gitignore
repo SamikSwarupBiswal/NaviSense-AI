@@ -17,5 +17,6 @@ datasets/phone_walking/
 datasets/raw/
 !datasets/raw/laptop/
 *.zip
+*.db
 
 

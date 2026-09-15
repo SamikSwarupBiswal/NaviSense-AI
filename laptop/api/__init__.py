@@ -7,10 +7,14 @@ from laptop.api.schemas import (
     ServiceStatus,
 )
 
+from laptop.api.server import app, create_app
+
 __all__ = [
     "Candidate",
     "HealthResponse",
     "LocateResponse",
     "LocateStatus",
     "ServiceStatus",
+    "app",
+    "create_app",
 ]

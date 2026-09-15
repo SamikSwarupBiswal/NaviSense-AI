@@ -322,6 +322,16 @@ class DatabaseManager:
         finally:
             conn.close()
 
+    def get_total_records_count(self) -> int:
+        """Get total number of observation records stored in SQLite."""
+        conn = self._get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM observations;")
+            return cursor.fetchone()[0]
+        finally:
+            conn.close()
+
     def compute_age_seconds(self, last_seen_iso: str, server_time_iso: Optional[str] = None) -> int:
         """Compute age_seconds as integer ceiling of (server_time - last_seen) per PRD §11.3."""
         if server_time_iso is None:
