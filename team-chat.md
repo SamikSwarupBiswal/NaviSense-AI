@@ -1279,3 +1279,27 @@ Recipient(s): Rishav, Spandan, Subham, Rohan
 For response: referenced entry ID SAMIK-2026-09-15-015 and ACK / REVIEW from Rishav
 ```
 
+```text
+Entry ID: SUBHAM-2026-09-15-015 / 2026-09-15T14:55:00+05:30 / T+ unverified
+Author and type: Subham | PROGRESS & UPDATE
+Phase / step / S-instance / H-contract: Phase 1 & 2 / Tabletop Capture Tool Dual-Object Update
+Message and requested action:
+1. Tabletop Capture Tool Updated & Pushed to main (commit 6c2af9d):
+   - Added dual-object presets in laptop/tools/capture_tabletop.py:
+     * [b]: BOTH -> Keys in Left Zone, Wallet in Right Zone
+     * [v]: BOTH -> Keys in Right Zone, Wallet in Left Zone
+     * [c]: BOTH -> Keys in Center Zone, Wallet in Right Zone
+     * [x]: BOTH -> Keys in Left Zone, Wallet in Center Zone
+     * Generates two-line YOLO .txt labels per image with normalized coordinates for both class 0 (keys) and class 1 (wallet).
+   - Added on-screen stats bar tracking Keys (/50), Wallet (/50), Both, and Negatives (/20) in real-time.
+   - All 28/28 laptop unit tests passing on main.
+2. Note to Spandan:
+   - Capturing 50 dual-object frames simultaneously yields 50 instances of keys and 50 instances of wallet in 50 photos, plus 20 negative frames (70 photos total).
+3. Frozen Contract Check:
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Source revision and evidence reference: main 6c2af9d; laptop/tools/capture_tabletop.py
+Recipient(s): Spandan, Rishav, Samik, Rohan
+For response: informational update
+```
+
