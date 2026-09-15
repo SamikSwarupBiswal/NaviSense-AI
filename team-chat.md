@@ -1748,3 +1748,18 @@ Recipient(s): Subham, Samik, Spandan, Rohan
 For response: Subham spin up local server via python laptop/run_server.py; Samik standing by for corridor obstacle walkthrough.
 ```
 
+```text
+Entry ID: CODEX-2026-09-15-002 / 2026-09-15T21:13:50+05:30 / T+ unverified
+Author and type: Codex | DECISION & REVIEW
+Phase / step / S-instance / H-contract: Phase 6 / Samik multimodal fusion engine / H2+H3 input to decision contract
+Message and requested action:
+1. The project owner explicitly assigned the complete ultrasonic-plus-YOLO coordination and fusion engine to Samik and authorized implementation.
+2. Samik's engine scope is ingestion validation, session/time coordination, single tracking authority, corridor/looming formulas, independent source severities, maximum-severity fusion, cautious label association, path state, watchdog behavior, tests, and handoff.
+3. Rohan remains upstream producer of sensor records; Spandan remains upstream producer of model artifacts; Rishav consumes final engine decisions in the app/voice layer. These dependencies do not transfer ownership of Samik's engine.
+4. Phase-entry review result: READY for deterministic source/tests at base main 1376b2f. CameraX, YOLO, USB, existing RiskEngine, and tests were inspected. Physical acceptance gates remain NOT RUN.
+5. Frozen contract files remain unchanged and matched their required hashes before entry.
+Source revision and evidence reference: main f8ba854; docs/implementation-state.md; user authorization in active Codex task
+Recipient(s): Samik, Rishav, Rohan, Spandan, Subham
+For response: Rishav and Rohan review the delivered decision/input contracts after implementation; no response is required to begin the explicitly user-authorized Samik-owned work.
+```
+
