@@ -2180,3 +2180,43 @@ Source revision and evidence reference: main c212ab6; android/app/src/main/asset
 Recipient(s): Rishav, Spandan, Subham, Samik
 For response: Rishav and Subham ACK and record VERIFIED or RETURNED after physical keys/wallet retest; Spandan ACK Android candidate selection and future GPU transfer-training base.
 ```
+
+```text
+Entry ID: SAMIK-2026-09-16-019 / 2026-09-16T04:05:00+05:30 / T+ unverified
+Author and type: Samik | PROGRESS, PERFORMANCE OPTIMIZATION & VERIFICATION
+Phase / step / S-instance / H-contract: Phase 4 / Search Nearby Hardware GPU Acceleration & Real-time Confirmation / H1 + H5
+Message and requested action:
+1. Root Cause Identification:
+   - Live testing on OPPO CPH2753 showed that while the model detected keys/wallet with high confidence (maxScore >= 0.852), PyTorch Lite CPU inference took 450-650 ms per frame and YUV conversion took 50 ms.
+   - Total latency per frame exceeded 500-700 ms, resulting in only 1-2 frames per second arriving at TargetSearchEngine.
+   - Under PRD §20, stationary search requires 3 matching confirmed frames within a 1,000 ms sliding window with freshness <= 500 ms. Because each frame took 500-700 ms, having 3 fresh frames inside a 1,000 ms window was physically and mathematically impossible on CPU, causing the search to always time out after 15 seconds without speaking direction.
+2. Hardware GPU Acceleration Architecture Implemented:
+   - Exported YOLOv8 fine-tuned locate weights (models/locate/locate_best.pt) to ONNX (models/locate/locate_best.onnx) and converted to TFLite FP16 with GPU delegate optimizations (models/locate/locate_model.tflite, 6.18 MB, SHA-256: bf3968aadba9b7cd30c4e58adcd7a95c453e4c02f52c90e2d5608a52a6487bc5).
+   - Implemented TfliteGpuLocateBackend.kt leveraging org.tensorflow.lite.gpu.GpuDelegate (FP16 math allowed on mobile GPU).
+   - Strictly enforced no silent CPU fallback: fails visibly with IllegalStateException if GPU delegate initialization fails.
+   - Runs 5 warmup iterations at startup to compile OpenCL / Vulkan GPU shaders before camera stream begins.
+   - Pre-allocated direct NIO ByteBuffers and FloatBuffers for zero per-frame GC allocations.
+   - Optimized YUV420 to RGB conversion (Yuv420RgbConverter.kt) using bulk byte plane copy instead of bounds-checked individual pixel get calls (3 ms conversion time).
+   - Optimized writeLetterboxNhwc with precomputed coordinate and padding lookup tables and bulk array buffer writes (10 ms preprocessing time).
+   - GPU inference time reduced from 450-650 ms down to ~72 ms per frame! Total frame age from capture to output reduced from 650+ ms to ~160-180 ms.
+3. Verification & Live Device Evidence:
+   - 91/91 JVM unit tests PASS (.\gradlew.bat testDebugUnitTest), including all TargetSearchEngine and SessionCoordinator tests.
+   - 43/43 Python tests PASS (pytest --basetemp=.pytest_temp).
+   - Debug APK assembled and installed on connected device OPPO CPH2753 (Android 16).
+   - Tested live "Search Nearby" on device with "Keys" target:
+     - Logcat confirmed: TFLite GpuDelegate initialized successfully for locate_model.tflite.
+     - Logcat confirmed: Completed 5 GPU warmup passes successfully.
+     - Logcat confirmed: Throughput increased to 6-7 FPS; framesInWindow=5/3 (5 fresh frames inside the 1,000 ms sliding window).
+     - Logcat confirmed: Detection arrived in 3 distinct consecutive frames:
+       TargetSearchEngine: CONFIRMED target=keys direction=CENTER at centerX=0.6057291.
+     - Logcat confirmed: Directional speech output triggered immediately:
+       NaviSenseTTS: TTS speak utterance='found_...': 'Target found center'.
+4. Hard Contract Boundary Respected:
+   - confirmationWindowMs = 1000L and minConfirmationFrames = 3 preserved without modification (zero weakening of PRD §20).
+   - Frozen files intact:
+     - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+     - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Source revision and evidence reference: main bf966fd; TfliteGpuLocateBackend.kt, MainActivity.kt, CameraXAnalyzer.kt, Yuv420RgbConverter.kt, locate_model_contract.json, android/app/src/main/assets/models/locate_model.tflite
+Recipient(s): Rishav, Rohan, Spandan, Subham
+For response: Rishav, Spandan, and Subham ACK for Search Nearby GPU acceleration and successful live directional speech confirmation.
+```
