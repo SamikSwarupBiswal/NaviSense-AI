@@ -1532,4 +1532,37 @@ Message and requested action:
 Source revision and evidence reference: main aaedb44; laptop/tools/capture_tabletop.py, datasets/raw/laptop/SES_01_LAPTOP_WOOD/
 Recipient(s): Spandan, Samik, Rishav, Rohan
 For response: Spandan note dataset status and capture tool resumption fix.
-`
+```
+
+```text
+Entry ID: SAMIK-2026-09-15-014 / 2026-09-15T16:40:00+05:30 / T+ unverified
+Author and type: Samik | PROGRESS & IMPLEMENTATION
+Phase / step / S-instance / H-contract: Phase 6 / Optical Expansion & Looming Detection, RiskEngine & Multimodal Haptics
+Message and requested action:
+1. Optical Expansion & Looming Collision Detection (PRD §17.1, Phase 6):
+   - Implemented normalized optical expansion rate calculation in dev.navisense.tracking.ActiveTrack:
+     Expansion Rate = (current_area - prev_area) / (prev_area * dt) (units s^-1).
+   - Added isApproaching(currentMonotonicMs, thresholdRate=0.50f) to detect approaching collision hazards within walking corridor.
+   - Enhanced dev.navisense.contracts.RiskEvaluationResult with isApproachingHazard: Boolean and expansionRate: Float?.
+2. Deterministic Multi-Source RiskEngine Implementation (dev.navisense.navigation.RiskEngine):
+   - Implemented IRiskEngine with independent ultrasonic and vision rules per PRD §17.1 - §17.4:
+     * Ultrasonic: <= 50 cm immediate STOP, 51..100 cm SLOW, 101..150 cm AWARENESS; 1.0s de-escalation hold margin (+15 cm).
+     * Vision: Walking corridor evaluation, track qualification (>= 3 frames in 1.0s, confidence >= 0.40).
+     * Looming Hazard Escalation: Expanding corridor tracks (>= 0.50 s^-1) elevate to SLOW ("<Label> approaching"); near-bottom expanding tracks elevate to STOP.
+     * Path clearance: Evaluates BLOCKED, CLEAR_OBSERVED, and UNKNOWN with 500 ms sensor and 1000 ms camera staleness watchdogs.
+3. Multimodal Haptic Alert Integration (dev.navisense.app):
+   - Added dev.navisense.app.HapticFeedbackManager and VIBRATE permission in AndroidManifest.xml.
+   - Wired tactile emergency alerts (dual-pulse pattern) on PathStatus.BLOCKED in MainActivity, with instant cancellation on User STOP.
+4. Automated Verification:
+   - 58/58 unit tests PASS (0 failures, 0 errors) via ./gradlew.bat testDebugUnitTest:
+     * dev.navisense.PerceptionUnitTests: 13/13 passed (including optical expansion rate calculation).
+     * dev.navisense.navigation.RiskEngineTest: 7/7 passed (immediate STOP, release hold + margin, looming approaching hazard, near-bottom looming STOP, receding track, sensor priority, path clearance, staleness watchdogs).
+   - Debug APK build successful via ./gradlew.bat assembleDebug.
+5. Frozen Contract Check:
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Source revision and evidence reference: main c8d79b9; android/app/src/main/java/dev/navisense/tracking/VisualTracker.kt, android/app/src/main/java/dev/navisense/navigation/RiskEngine.kt, android/app/src/main/java/dev/navisense/app/HapticFeedbackManager.kt, android/app/src/test/java/dev/navisense/navigation/RiskEngineTest.kt
+Recipient(s): Rishav, Rohan, Subham, Spandan
+For response: Rishav review RiskEngine and HapticFeedbackManager for coordinator integration.
+```
+
