@@ -2295,3 +2295,39 @@ Source revision and evidence reference: commit 325f0d8 on main; VoiceCommand.kt,
 Recipient(s): Samik, Subham, Rohan, Spandan
 For response: Samik ACK VoiceCommand integration and physical device verification; team review.
 ```
+
+```text
+Entry ID: RISHAV-SAMIK-2026-09-16-023 / 2026-09-16T04:46:00+05:30 / T+ unverified
+Author and type: Rishav, Samik | PROGRESS, IMPLEMENTATION & TEST
+Phase / step / S-instance / H-contract: Phase 7 / Outdoor Walking Pedestrian Navigation & Obstacle Preemption
+Message and requested action:
+1. Implemented Google Maps Pedestrian Navigation with Voice Destination Recognition & Safety Preemption:
+   - Addressed user requirement: Integrated Google Routes API pedestrian walking navigation (`travelMode: WALK`), voice destination input via Android SpeechRecognizer, hardware compass heading estimation, and multimodal obstacle preemption.
+2. Architecture & Subsystems:
+   - dev.navisense.navigation.maps.models: Defined GeoPoint, ManeuverType, WalkingStep, WalkingRoute, NavigationGuidance, NavigationEngineStatus.
+   - dev.navisense.navigation.maps.GoogleRoutesService: Pedestrian route calculator using Google Routes API v2 (with offline mock fallback route generator and Geocoding service).
+   - dev.navisense.navigation.maps.DeviceCompassProvider: Sensor.TYPE_ROTATION_VECTOR compass orientation provider with circular low-pass azimuth smoothing (eliminating pedestrian GPS bearing latency at speeds < 3 km/h).
+   - dev.navisense.navigation.maps.PedestrianNavigationEngine: Turn-by-turn guidance engine computing relative turn bearings (relative to phone heading), 25m advance alerts, 6m immediate turn cues, 4m step advancement, 5m destination arrival, and >30m off-route detection.
+   - dev.navisense.voice.VoiceDestinationRecognizer: Natural speech destination extractor stripping conversational prefixes ("take me to", "navigate to", "walk to", "go to") with automatic capitalization.
+   - dev.navisense.voice.VoiceCommand: Added NavigateTo(destination) to domain model and integrated with VoiceCommandParser & VoiceCommandManager.
+3. Multimodal Obstacle Safety Arbitration:
+   - SessionCoordinator extended with AppMode.OUTDOOR_WALKING.
+   - Pedestrian turn guidance runs at AlertPriority.DIRECTIONAL (Level 3).
+   - Any detected obstacle (ultrasonic < 0.8m or camera looming) escalates immediately to AlertPriority.STOP (Level 1), preempting ongoing spoken turn directions via SpeechArbiter.
+4. UI & Permissions:
+   - MainActivity & activity_main.xml: Added btnVoiceWalkingNav, wired FusedLocationProviderClient (1.5s interval, 1m min distance), compass listener, runtime location permissions (ACCESS_FINE_LOCATION, ACCESS_COARSE_LOCATION).
+5. Verification & Test Evidence:
+   - PedestrianNavigationEngineTest: 4/4 PASS (turn angle calculations, 25m alert, 6m cue, 5m arrival, off-route).
+   - GoogleRoutesParsingTest: 4/4 PASS (mock route generation, fallback, polyline decoding, distance calculations).
+   - NavigationSafetyPreemptionTest: 2/2 PASS (obstacle STOP preempts directional guidance).
+   - VoiceCommandParserTest: 8/8 PASS (including NavigateTo variations).
+   - Full Unit Test Suite: 104/104 JVM unit tests PASS (./gradlew testDebugUnitTest).
+   - APK Build: ./gradlew assembleDebug BUILD SUCCESSFUL in 2s.
+6. Frozen File Hashes:
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Source revision and evidence reference: commit 26750d6 on main; dev.navisense.navigation.maps.*, VoiceDestinationRecognizer.kt, VoiceCommand.kt, SessionCoordinator.kt, MainActivity.kt, PedestrianNavigationEngineTest.kt, GoogleRoutesParsingTest.kt, NavigationSafetyPreemptionTest.kt
+Recipient(s): Rohan, Subham, Spandan
+For response: Team ACK; Rohan/Samik verify on connected physical device outdoors.
+```
+
