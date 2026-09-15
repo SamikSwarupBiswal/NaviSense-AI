@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Espressif ESP32-S3 native USB CDC (VID 0x303A, PID 0x1001) -->
+    <usb-device vendor-id="12346" product-id="4097" />
+    <usb-device vendor-id="12346" />
+
+    <!-- Silicon Labs CP210x (VID 0x10C4) -->
+    <usb-device vendor-id="4292" />
+
+    <!-- WCH CH340 / CH341 (VID 0x1A86) -->
+    <usb-device vendor-id="6790" />
+
+    <!-- FTDI FT232R (VID 0x0403) -->
+    <usb-device vendor-id="1027" />
+
+    <!-- Standard USB CDC ACM classes -->
+    <usb-device class="2" />
+    <usb-device class="10" />
+</resources>

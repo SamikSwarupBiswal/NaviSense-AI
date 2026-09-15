@@ -6,30 +6,30 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/navisense_black"
-    android:padding="24dp">
+    android:padding="16dp">
 
-    <!-- App Title (Single H1 equivalent) -->
+    <!-- App Header -->
     <TextView
         android:id="@+id/tvAppTitle"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:text="@string/app_name"
         android:textColor="@color/navisense_white"
-        android:textSize="28sp"
+        android:textSize="24sp"
         android:textStyle="bold"
         android:contentDescription="@string/app_name"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- System Status Indicator Box -->
+    <!-- Live Camera Preview Window -->
     <com.google.android.material.card.MaterialCardView
-        android:id="@+id/cardStatus"
+        android:id="@+id/cardCameraPreview"
         android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        app:cardBackgroundColor="@color/navisense_card_surface"
-        app:cardCornerRadius="12dp"
+        android:layout_height="200dp"
+        android:layout_marginTop="10dp"
+        app:cardBackgroundColor="@color/navisense_black"
+        app:cardCornerRadius="14dp"
         app:cardElevation="4dp"
         app:strokeColor="@color/navisense_yellow"
         app:strokeWidth="2dp"
@@ -37,11 +37,55 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <androidx.camera.view.PreviewView
+                android:id="@+id/viewFinder"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:contentDescription="Live Camera Preview"
+                app:scaleType="fillCenter" />
+
+            <!-- Live Camera Label Overlay -->
+            <TextView
+                android:id="@+id/tvCameraOverlay"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="top|start"
+                android:layout_margin="8dp"
+                android:background="#99000000"
+                android:paddingHorizontal="8dp"
+                android:paddingVertical="4dp"
+                android:text="LIVE CAMERA"
+                android:textColor="@color/navisense_yellow"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+        </FrameLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- System Status Indicator Box -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/cardStatus"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        app:cardBackgroundColor="@color/navisense_card_surface"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="4dp"
+        app:strokeColor="@color/navisense_yellow"
+        app:strokeWidth="1.5dp"
+        app:layout_constraintTop_toBottomOf="@id/cardCameraPreview"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="16dp">
+            android:padding="12dp">
 
             <TextView
                 android:id="@+id/tvSystemMode"
@@ -49,17 +93,17 @@
                 android:layout_height="wrap_content"
                 android:text="@string/status_idle"
                 android:textColor="@color/navisense_white"
-                android:textSize="20sp"
+                android:textSize="18sp"
                 android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/tvPathStatus"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="4dp"
                 android:text="@string/status_path_unknown"
                 android:textColor="@color/status_unknown"
-                android:textSize="16sp" />
+                android:textSize="15sp" />
 
             <TextView
                 android:id="@+id/tvSensorStatus"
@@ -73,70 +117,76 @@
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 
-    <!-- Start Walking Action (Primary Navigation Button) -->
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btnStartWalking"
+    <!-- Action Buttons Container -->
+    <LinearLayout
+        android:id="@+id/actionsContainer"
         android:layout_width="0dp"
-        android:layout_height="72dp"
-        android:layout_marginTop="24dp"
-        android:backgroundTint="@color/btn_start_bg"
-        android:text="@string/btn_start_walking"
-        android:textColor="@color/btn_start_text"
-        android:textSize="22sp"
-        android:textStyle="bold"
-        android:contentDescription="@string/btn_start_walking_desc"
-        app:cornerRadius="16dp"
+        android:layout_height="0dp"
+        android:layout_marginTop="10dp"
+        android:layout_marginBottom="10dp"
+        android:orientation="vertical"
+        android:gravity="center_vertical"
         app:layout_constraintTop_toBottomOf="@id/cardStatus"
+        app:layout_constraintBottom_toTopOf="@id/btnStop"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        app:layout_constraintEnd_toEndOf="parent">
 
-    <!-- Search Nearby Action -->
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btnSearchNearby"
-        android:layout_width="0dp"
-        android:layout_height="64dp"
-        android:layout_marginTop="16dp"
-        android:backgroundTint="@color/navisense_yellow"
-        android:text="@string/btn_search_nearby"
-        android:textColor="@color/navisense_black"
-        android:textSize="18sp"
-        android:textStyle="bold"
-        android:contentDescription="@string/btn_search_nearby_desc"
-        app:cornerRadius="16dp"
-        app:layout_constraintTop_toBottomOf="@id/btnStartWalking"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        <!-- Start Walking Action (Primary Navigation Button) -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnStartWalking"
+            android:layout_width="match_parent"
+            android:layout_height="64dp"
+            android:backgroundTint="@color/btn_start_bg"
+            android:text="@string/btn_start_walking"
+            android:textColor="@color/btn_start_text"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:contentDescription="@string/btn_start_walking_desc"
+            app:cornerRadius="14dp" />
 
-    <!-- Confirm Arrival Action (Visible during Target Navigation) -->
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btnConfirmArrival"
-        android:layout_width="0dp"
-        android:layout_height="64dp"
-        android:layout_marginTop="16dp"
-        android:backgroundTint="@color/navisense_white"
-        android:text="@string/btn_arrival"
-        android:textColor="@color/navisense_black"
-        android:textSize="18sp"
-        android:textStyle="bold"
-        android:visibility="gone"
-        android:contentDescription="@string/btn_arrival_desc"
-        app:cornerRadius="16dp"
-        app:layout_constraintTop_toBottomOf="@id/btnSearchNearby"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        <!-- Search Nearby Action -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnSearchNearby"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:layout_marginTop="10dp"
+            android:backgroundTint="@color/navisense_yellow"
+            android:text="@string/btn_search_nearby"
+            android:textColor="@color/navisense_black"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:contentDescription="@string/btn_search_nearby_desc"
+            app:cornerRadius="14dp" />
+
+        <!-- Confirm Arrival Action (Visible during Target Navigation) -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnConfirmArrival"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:layout_marginTop="10dp"
+            android:backgroundTint="@color/navisense_white"
+            android:text="@string/btn_arrival"
+            android:textColor="@color/navisense_black"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:visibility="gone"
+            android:contentDescription="@string/btn_arrival_desc"
+            app:cornerRadius="14dp" />
+
+    </LinearLayout>
 
     <!-- STOP Button (Critical Accessible Safety Control - Fixed at bottom) -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnStop"
         android:layout_width="0dp"
-        android:layout_height="80dp"
+        android:layout_height="72dp"
         android:backgroundTint="@color/btn_stop_bg"
         android:text="@string/btn_stop"
         android:textColor="@color/btn_stop_text"
-        android:textSize="26sp"
+        android:textSize="24sp"
         android:textStyle="bold"
         android:contentDescription="@string/btn_stop_desc"
-        app:cornerRadius="20dp"
+        app:cornerRadius="18dp"
         app:strokeColor="@color/navisense_white"
         app:strokeWidth="2dp"
         app:layout_constraintBottom_toBottomOf="parent"
