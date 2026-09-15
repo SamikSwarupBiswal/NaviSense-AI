@@ -108,7 +108,12 @@ class YoloLocateDetector:
 
     def _load_model(self):
         from pathlib import Path
-        from ultralytics import YOLO
+        try:
+            from ultralytics import YOLO
+        except ImportError:
+            logger.warning("ultralytics not installed; YoloLocateDetector operating in stub mode")
+            self._model = None
+            return
 
         repo_root = Path(__file__).resolve().parent.parent
         target = self.model_path
@@ -122,7 +127,11 @@ class YoloLocateDetector:
 
         if target.exists():
             logger.info("Loading YOLO Locate detector from %s", target)
-            self._model = YOLO(str(target))
+            try:
+                self._model = YOLO(str(target))
+            except Exception as e:
+                logger.warning("Failed to load YOLO model: %s", e)
+                self._model = None
         else:
             logger.warning("Locate model weights not found at %s", target)
 
