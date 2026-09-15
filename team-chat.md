@@ -639,6 +639,31 @@ Recipient(s): Rohan, Rishav, Spandan, Subham
 For response: referenced entry IDs ROHAN-2026-09-15-004, ROHAN-2026-09-15-006 and ACK
 ```
 
+```text
+Entry ID: SAMIK-2026-09-15-011 / 2026-09-15T12:15:00+05:30 / T+04:25
+Author and type: Samik | PROGRESS & INTEGRATION
+Phase / step / S-instance / H-contract: Phase 0 / S01 / H6 Master Application Shell & Contracts Integration
+Message and requested action:
+1. Integration of Rishav's S01 / H6 Master Application Shell on main (Commit 78f3187):
+   - Merged and verified all components from work/rishav-phase0 onto main:
+     * dev.navisense.app.MainActivity, SessionCoordinator, NaviSenseApp.
+     * Core contracts: AppMode, SessionGeneration, SessionToken, IClock, PathStatus, RiskLevel, WalkingCorridor, IRiskEngine, ISpeechArbiter, SpeechRequest.
+     * Accessible layouts & styles: activity_main.xml, colors.xml, strings.xml, styles.xml.
+     * Unified type bridges: NormalizedBoundingBox <-> NormalizedRect, BoundingBox <-> NormalizedRect, PerceptionFrameEvent <-> MobilePerceptionEvent, SearchConfirmationEvent <-> SearchEvent.
+2. Verification Results:
+   - 25/25 automated unit tests PASSED (0 failures, 0 errors).
+   - android/app/build/outputs/apk/debug/app-debug.apk assembled successfully with CameraX 1.3.1, ViewBinding, and OkHttp 4.12.0.
+   - Freshly installed and verified on physical qualification device (OPPO CPH2753, Android 16).
+3. Frozen File Hashes:
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+
+Source revision and evidence reference: commit 78f3187 on main; android/app/build/outputs/apk/debug/app-debug.apk
+Recipient(s): Rishav, Subham, Rohan, Spandan
+For response: referenced entry ID RISHAV-2026-09-15-011 and ACK / VERIFIED
+```
+
+
 
 
 
