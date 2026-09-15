@@ -27,19 +27,38 @@ def draw_guidelines(frame, zones):
     if cv2 is None:
         return frame
     h, w = frame.shape[:2]
-    # Draw vertical separator lines at 33% and 66% width
+def draw_guidelines(frame, sample_counts: dict):
+    """Draw spatial zone overlay boundaries and hotkey guidance on preview frame."""
+    if cv2 is None:
+        return frame
+    h, w = frame.shape[:2]
     x_33 = int(w * 0.33)
     x_66 = int(w * 0.66)
 
     overlay = frame.copy()
+    # Zone lines
     cv2.line(overlay, (x_33, 0), (x_33, h), (0, 255, 255), 2)
     cv2.line(overlay, (x_66, 0), (x_66, h), (0, 255, 255), 2)
 
-    cv2.putText(overlay, "LEFT ZONE", (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
-    cv2.putText(overlay, "CENTER ZONE", (x_33 + 20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
-    cv2.putText(overlay, "RIGHT ZONE", (x_66 + 20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+    # Zone labels
+    cv2.putText(overlay, "LEFT ZONE", (20, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
+    cv2.putText(overlay, "CENTER ZONE", (x_33 + 20, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
+    cv2.putText(overlay, "RIGHT ZONE", (x_66 + 20, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
 
-    return cv2.addWeighted(overlay, 0.8, frame, 0.2, 0)
+    # Top stats bar
+    keys_c = sample_counts.get("keys", 0)
+    wall_c = sample_counts.get("wallet", 0)
+    neg_c = sample_counts.get("neg", 0)
+    both_c = sample_counts.get("both", 0)
+    stats = f"Keys: {keys_c}/50 | Wallet: {wall_c}/50 | Both: {both_c} | Negatives: {neg_c}/20"
+    cv2.putText(overlay, stats, (20, 65), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 255, 0), 2)
+
+    # Bottom guidance overlay
+    cv2.putText(overlay, "[k] Keys  [w] Wallet  [n] Negative", (20, h - 45), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+    cv2.putText(overlay, "[b] Both(K:Left,W:Right) [v] Both(K:Right,W:Left)", (20, h - 25), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 1)
+    cv2.putText(overlay, "[c] Both(K:Ctr,W:Right)  [x] Both(K:Left,W:Ctr)  [q] Quit", (20, h - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 1)
+
+    return cv2.addWeighted(overlay, 0.85, frame, 0.15, 0)
 
 
 def save_labeled_sample(
@@ -47,10 +66,13 @@ def save_labeled_sample(
     output_dir: Path,
     session_id: str,
     sample_idx: int,
-    class_id: Optional[int],
-    box_norm: Optional[tuple] = None,
+    annotations: Optional[list] = None,
 ) -> Path:
-    """Save captured image and corresponding YOLO .txt annotation file."""
+    """Save captured image and corresponding YOLO .txt annotation file.
+    
+    annotations is a list of tuples: (class_id, (cx, cy, bw, bh))
+    If annotations is None or empty: saves an empty 0-byte label file (negative frame).
+    """
     images_dir = output_dir / session_id / "images"
     labels_dir = output_dir / session_id / "labels"
     images_dir.mkdir(parents=True, exist_ok=True)
@@ -66,13 +88,14 @@ def save_labeled_sample(
         # Placeholder for mock / headless mode
         img_path.write_bytes(b"\xff\xd8\xff\xe0" + b"\x00" * 100)
 
-    if class_id is None:
+    if not annotations:
         # Negative frame per CAPTURE_CHECKLIST.md §4: 0-byte .txt file
         lbl_path.write_text("")
     else:
-        # YOLO format: <class_id> <cx> <cy> <w> <h>
-        cx, cy, bw, bh = box_norm if box_norm else (0.5, 0.5, 0.2, 0.2)
-        lbl_path.write_text(f"{class_id} {cx:.6f} {cy:.6f} {bw:.6f} {bh:.6f}\n")
+        lines = []
+        for cls_id, (cx, cy, bw, bh) in annotations:
+            lines.append(f"{cls_id} {cx:.6f} {cy:.6f} {bw:.6f} {bh:.6f}\n")
+        lbl_path.write_text("".join(lines))
 
     return img_path
 
@@ -84,25 +107,41 @@ def run_capture(
     mock_mode: bool = False,
 ):
     out_path = Path(output_dir)
-    print("=" * 70)
+    print("=" * 75)
     print("NaviSense Tabletop Capture Tool (Phase 1 Preparation for Spandan)")
-    print("=" * 70)
+    print("=" * 75)
     print(f"Session ID  : {session_id}")
     print(f"Output Path : {out_path.resolve()}")
-    print("Controls:")
-    print("  [k] : Capture frame for 'keys' (class 0)")
-    print("  [w] : Capture frame for 'wallet' (class 1)")
-    print("  [n] : Capture negative frame (clean table/non-target items, 0-byte label)")
+    print("\nControls:")
+    print("  [k] : Capture frame for 'keys' only (class 0)")
+    print("  [w] : Capture frame for 'wallet' only (class 1)")
+    print("  --- DUAL OBJECT CAPTURES (Both Together) ---")
+    print("  [b] : BOTH -> Keys in Left Zone, Wallet in Right Zone")
+    print("  [v] : BOTH -> Keys in Right Zone, Wallet in Left Zone")
+    print("  [c] : BOTH -> Keys in Center Zone, Wallet in Right Zone")
+    print("  [x] : BOTH -> Keys in Left Zone, Wallet in Center Zone")
+    print("  --- NEGATIVE / UTILITY ---")
+    print("  [n] : Capture NEGATIVE frame (clean/clutter, 0-byte label)")
     print("  [s] : Change session ID")
     print("  [q] : Quit")
-    print("=" * 70)
+    print("=" * 75)
+
+    counts = {"keys": 0, "wallet": 0, "both": 0, "neg": 0}
 
     if mock_mode or cv2 is None:
-        print("[MOCK MODE] Mock capture mode active (cv2 unavailable or mock requested).")
-        print("Saving 3 test sample files to verify pipeline...")
-        save_labeled_sample(None, out_path, session_id, 1, 0, (0.5, 0.5, 0.15, 0.15))
-        save_labeled_sample(None, out_path, session_id, 2, 1, (0.3, 0.4, 0.20, 0.20))
-        save_labeled_sample(None, out_path, session_id, 3, None)
+        print("[MOCK MODE] Mock capture mode active.")
+        print("Saving test sample files (single, both, negative)...")
+        # Single keys
+        save_labeled_sample(None, out_path, session_id, 1, [(0, (0.50, 0.55, 0.18, 0.18))])
+        # Single wallet
+        save_labeled_sample(None, out_path, session_id, 2, [(1, (0.50, 0.55, 0.20, 0.20))])
+        # Both keys & wallet
+        save_labeled_sample(
+            None, out_path, session_id, 3,
+            [(0, (0.20, 0.55, 0.18, 0.18)), (1, (0.80, 0.55, 0.20, 0.20))]
+        )
+        # Negative
+        save_labeled_sample(None, out_path, session_id, 4, None)
         print(f"Saved mock samples to {out_path / session_id}")
         return
 
@@ -119,37 +158,66 @@ def run_capture(
                 print("Failed to read from camera.")
                 break
 
-            display_frame = draw_guidelines(frame, None)
-            cv2.putText(
-                display_frame,
-                f"Session: {session_id} | Samples: {sample_idx-1}",
-                (20, display_frame.shape[0] - 20),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.6,
-                (0, 255, 0),
-                2,
-            )
-
+            display_frame = draw_guidelines(frame, counts)
             cv2.imshow("NaviSense Tabletop Capture", display_frame)
             key = cv2.waitKey(1) & 0xFF
 
             if key == ord("q") or key == 27:  # 'q' or ESC
                 break
+
             elif key == ord("k"):
-                # Save keys (class 0)
-                path = save_labeled_sample(frame, out_path, session_id, sample_idx, class_id=0)
-                print(f"[{sample_idx}] Saved KEYS sample: {path.name}")
+                # Keys only (center)
+                path = save_labeled_sample(frame, out_path, session_id, sample_idx, [(0, (0.50, 0.55, 0.18, 0.18))])
+                counts["keys"] += 1
+                print(f"[{sample_idx}] Saved KEYS: {path.name} (Total keys: {counts['keys'] + counts['both']})")
                 sample_idx += 1
+
             elif key == ord("w"):
-                # Save wallet (class 1)
-                path = save_labeled_sample(frame, out_path, session_id, sample_idx, class_id=1)
-                print(f"[{sample_idx}] Saved WALLET sample: {path.name}")
+                # Wallet only (center)
+                path = save_labeled_sample(frame, out_path, session_id, sample_idx, [(1, (0.50, 0.55, 0.20, 0.20))])
+                counts["wallet"] += 1
+                print(f"[{sample_idx}] Saved WALLET: {path.name} (Total wallet: {counts['wallet'] + counts['both']})")
                 sample_idx += 1
+
+            elif key == ord("b"):
+                # BOTH: Keys Left, Wallet Right
+                anns = [(0, (0.20, 0.55, 0.18, 0.18)), (1, (0.80, 0.55, 0.20, 0.20))]
+                path = save_labeled_sample(frame, out_path, session_id, sample_idx, anns)
+                counts["both"] += 1
+                print(f"[{sample_idx}] Saved BOTH (Keys:Left, Wallet:Right): {path.name}")
+                sample_idx += 1
+
+            elif key == ord("v"):
+                # BOTH: Keys Right, Wallet Left
+                anns = [(0, (0.80, 0.55, 0.18, 0.18)), (1, (0.20, 0.55, 0.20, 0.20))]
+                path = save_labeled_sample(frame, out_path, session_id, sample_idx, anns)
+                counts["both"] += 1
+                print(f"[{sample_idx}] Saved BOTH (Keys:Right, Wallet:Left): {path.name}")
+                sample_idx += 1
+
+            elif key == ord("c"):
+                # BOTH: Keys Center, Wallet Right
+                anns = [(0, (0.48, 0.55, 0.18, 0.18)), (1, (0.82, 0.55, 0.20, 0.20))]
+                path = save_labeled_sample(frame, out_path, session_id, sample_idx, anns)
+                counts["both"] += 1
+                print(f"[{sample_idx}] Saved BOTH (Keys:Center, Wallet:Right): {path.name}")
+                sample_idx += 1
+
+            elif key == ord("x"):
+                # BOTH: Keys Left, Wallet Center
+                anns = [(0, (0.18, 0.55, 0.18, 0.18)), (1, (0.52, 0.55, 0.20, 0.20))]
+                path = save_labeled_sample(frame, out_path, session_id, sample_idx, anns)
+                counts["both"] += 1
+                print(f"[{sample_idx}] Saved BOTH (Keys:Left, Wallet:Center): {path.name}")
+                sample_idx += 1
+
             elif key == ord("n"):
-                # Save negative frame
-                path = save_labeled_sample(frame, out_path, session_id, sample_idx, class_id=None)
-                print(f"[{sample_idx}] Saved NEGATIVE sample (0-byte label): {path.name}")
+                # Negative frame
+                path = save_labeled_sample(frame, out_path, session_id, sample_idx, None)
+                counts["neg"] += 1
+                print(f"[{sample_idx}] Saved NEGATIVE (Clean Table): {path.name} (Total neg: {counts['neg']})")
                 sample_idx += 1
+
             elif key == ord("s"):
                 new_session = input("\nEnter new session ID: ").strip()
                 if new_session:
@@ -161,6 +229,9 @@ def run_capture(
         cap.release()
         cv2.destroyAllWindows()
         print("\nCapture session finished.")
+        total_k = counts["keys"] + counts["both"]
+        total_w = counts["wallet"] + counts["both"]
+        print(f"Summary -> Keys: {total_k}/50 | Wallets: {total_w}/50 | Negatives: {counts['neg']}/20")
 
 
 if __name__ == "__main__":
@@ -177,3 +248,4 @@ if __name__ == "__main__":
         session_id=args.session,
         mock_mode=args.mock,
     )
+
