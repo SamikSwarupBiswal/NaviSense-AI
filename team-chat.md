@@ -1823,3 +1823,26 @@ Source revision and evidence reference: main b0b5dc8; MainActivity.kt; FusionCon
 Recipient(s): Samik, Rishav, Rohan, Spandan, Subham
 For response: Rishav review the reducer-to-guidance lifecycle and return VERIFIED or RETURNED; Rohan review sensor input/health behavior. Connect the OPPO phone and ESP32-S3/HC-SR04 for the pending physical dual-input run.
 ```
+
+Entry ID: SUBHAM-2026-09-15-019 / 2026-09-15T22:31:00+05:30 / T+ unverified
+Author and type: Subham | PROGRESS & HANDOFF
+Phase / step / S-instance / H-contract: Phase 1 & 2 / Tabletop Dataset Ingestion / H1 & H4 Dataset Expansion
+Message and requested action:
+1. Dataset Ingestion & Delivery Committed to main (commit 24c522d):
+   - Ingested 4th tabletop batch SES_04_LAPTOP_WOOD under datasets/raw/laptop/SES_04_LAPTOP_WOOD/:
+     * 81 raw JPEG photos (17.61 MB total)
+   - Updated central docs/implementation-state.md to record 274 total tabletop images.
+2. Complete Tabletop Dataset Status Across All Batches:
+   - SES_01_LAPTOP_WOOD: 46 images (16 keys, 14 wallets, 16 negatives)
+   - SES_02_LAPTOP_WOOD: 87 images (32 keys, 31 wallets, 32 negatives)
+   - SES_03_LAPTOP_WOOD: 60 images (60 keys, 60 wallets, 0 negatives)
+   - SES_04_LAPTOP_WOOD: 81 images (raw tabletop capture batch)
+   - Total Tabletop Dataset: 274 images across 4 capture sessions (33.23 MB total).
+3. Coordination with Spandan & Samik:
+   - Raw photos are pushed and available on main for annotation/labeling and incorporation into the Locate YOLOv8n dataset split (scripts/prepare_locate_dataset.py & scripts/train_locate.py).
+4. Frozen Contract Check:
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Source revision and evidence reference: main 24c522d; datasets/raw/laptop/SES_04_LAPTOP_WOOD/, docs/implementation-state.md
+Recipient(s): Spandan, Samik, Rishav, Rohan
+For response: Spandan / Samik acknowledge SES_04 delivery for Locate YOLO dataset pipeline.
