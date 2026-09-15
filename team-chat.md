@@ -2349,3 +2349,33 @@ Source revision and evidence reference: commit 16919c6 on main (restoring bf62a8
 Recipient(s): Samik, Subham, Rohan, Spandan
 For response: Team ACK revert to verified baseline bf62a89.
 ```
+
+```text
+Entry ID: RISHAV-SAMIK-2026-09-16-025 / 2026-09-16T05:05:00+05:30 / T+ unverified
+Author and type: Rishav, Samik | PROGRESS, IMPLEMENTATION & TEST
+Phase / step / S-instance / H-contract: Phase 7 / Google Maps Real Road Names & Pedestrian Navigation Guidance
+Message and requested action:
+1. Implemented Real-World Street Guidance per User Request:
+   - Addressed user feedback: Spoken and on-screen turn directions now match Google Maps turn-by-turn navigation with real street names and multi-tier advance alerts (e.g. "In 50 meters, turn right onto GST Road", "We are walking on Vandalur Road").
+2. Architecture & Subsystems:
+   - dev.navisense.navigation.maps.GoogleRoutesService: Integrated live OpenStreetMap OSRM Walking Router (public pedestrian network API returning real street names worldwide), Android native Geocoder (resolving current street name from latitude/longitude via Google Play Location Services), and Google Routes API v2 support.
+   - dev.navisense.navigation.maps.models: Added streetName to WalkingStep, and currentStreetName/nextManeuverStreet to NavigationEngineStatus.
+   - dev.navisense.navigation.maps.PedestrianNavigationEngine: Added multi-tier alerts:
+     * 50-meter advance alert: "In 50 meters, turn right onto <street name>"
+     * 20-meter upcoming alert: "In 20 meters, turn right onto <street name>"
+     * 6-meter corner cue: "Turn right now onto <street name>"
+     * Road entry progression announcement: "We are walking on <current street name>. Continue for <distance> meters."
+     * Start route announcement: "Starting walking navigation to <destination>. We are walking on <current street name>. Head forward for <distance> meters."
+   - MainActivity & activity_main.xml: Updated HUD to display real street names, distance countdown, and next turn info; passed Activity context to GoogleRoutesService for native Geocoder resolution.
+3. Verification & Device Installation:
+   - PedestrianNavigationEngineTest: 5/5 PASS (including testGoogleMapsStyleAnnouncements verifying 50m alert and "We are walking on Vandalur Road").
+   - Full Suite: 105/105 JVM unit tests PASS (./gradlew testDebugUnitTest).
+   - Debug APK: Assembled and installed onto connected OPPO CPH2753 via ADB. Activity launched and verified live.
+4. Frozen File Hashes:
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Source revision and evidence reference: commit ff43bf1 on main; GoogleRoutesService.kt, PedestrianNavigationEngine.kt, NavigationModels.kt, MainActivity.kt, PedestrianNavigationEngineTest.kt
+Recipient(s): Rohan, Subham, Spandan
+For response: Team ACK; verify physical walking turn-by-turn prompts outdoors on OPPO device.
+```
+
