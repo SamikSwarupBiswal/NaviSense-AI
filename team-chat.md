@@ -197,6 +197,7 @@ For response: referenced entry ID SUBHAM-2026-09-15-009 and ACK
 ```
 
 ```text
+<<<<<<< HEAD
 Entry ID: RISHAV-2026-09-15-010 / 2026-09-15T11:10:00+05:30 / T+03:20
 Author and type: Rishav | REVIEW
 Phase / step / S-instance / H-contract: Phase 0 / S04 Receipt & Review (Subham H4) and H2/H5 Review (Samik)
@@ -358,6 +359,7 @@ For response: All collaborators ACK receipt and adherence to the mandatory workf
 ```
 
 ```text
+<<<<<<< HEAD
 Entry ID: ROHAN-2026-09-15-001 / 2026-09-15T11:30:00+05:30 / T+03:40
 Author and type: Rohan | PROGRESS & SETUP ACK
 Phase / step / S-instance / H-contract: Phase 0 / Collaborator Setup & Workflow ACK
@@ -486,10 +488,102 @@ Formally logging downstream milestone commitments, freezes, and acceptance gate 
    - Demonstrate immediate proximity STOP bypassing vision and sensor disconnect resilience without app crash.
    - Provide comprehensive documentation of acoustic limitations (angled walls, soft fabrics, drop-offs/steps) for final disclosure.
 Source revision and evidence reference: docs/rohan/guidance.md, docs/rohan/implementation-plan.md, docs/AGENTS.md
+```text
+Entry ID: ROHAN-2026-09-15-005 / 2026-09-15T11:50:00+05:30 / T+04:00
+Author and type: Rohan | PROGRESS
+Phase / step / S-instance / H-contract: Phase 0 / Subsystem Commitments & Acceptance Gate Roadmap
+Message and requested action:
+Formally logging downstream milestone commitments, freezes, and acceptance gate ownership for Rohan (Hardware, Firmware, Mount, USB):
+1. Milestone Deliverables:
+   - Handoff S13 (T+11:30): Deliver stable Android USB adapter handling bounded line parsing (128-byte limit, CRLF/LF), monotonic receipt timestamps (<= 300 ms validity), sequence loss diagnostics, and 3-valid-packet recovery logic.
+   - S17 Freeze (T+15:30): Physical sensor mount, wiring, and firmware configuration frozen.
+   - Bench Pre-Marking: Pre-mark 6 bench distances (30, 50, 75, 100, 150, 200 cm) and set up dual timestamp recording (physical optical entry beam + external high-speed audio mic).
+2. Acceptance Gates Led:
+   - AC-08 (T+17:00–17:20) — Sensor Bench Calibration: 120 physical readings across 6 pre-marked distances (requires >= 90% validity per distance, median absolute error <= 5 cm).
+   - AC-06 (T+19:00–19:30) — Physical Obstacle to Audible STOP Latency: 20 bench presentations (10 at 30 cm, 10 at 40 cm) under live inference load. Proves risk decision <= 100 ms, audible onset <= 500 ms, and physical entry-to-audio <= 750 ms with zero missed STOPs.
+   - AC-09 (T+19:30–20:00) — USB Transport Stability & Recovery: 10-minute continuous stream without crash or drift, followed by 5 physical cable disconnect/reconnect cycles (recovery <= 2.0 s).
+3. Peer Reviews & Collaboration:
+   - Reviews: AC-05 (Samik mobile inference latency) and AC-14 (Subham full flow integration).
+   - Contributes to: AC-01 (Mobility run), AC-07 (Supervised walking trials), AC-10 (Replay cases), and AC-12 (Sensor disconnect/degradation).
+4. Final Demo & S18 Role (T+23:30–24:00):
+   - Manage physical hardware and mount during live demo.
+   - Demonstrate immediate proximity STOP bypassing vision and sensor disconnect resilience without app crash.
+   - Provide comprehensive documentation of acoustic limitations (angled walls, soft fabrics, drop-offs/steps) for final disclosure.
+Source revision and evidence reference: docs/rohan/guidance.md, docs/rohan/implementation-plan.md, docs/AGENTS.md
 Recipient(s): Team (Rishav, Samik, Subham, Spandan)
 For response: Team review and alignment.
 ```
 
+```text
+Entry ID: SUBHAM-2026-09-15-010 / 2026-09-15T11:05:00+05:30 / T+03:00
+Author and type: Subham | HANDOFF
+Phase / step / S-instance / H-contract: Phase 0 / Step 01 / S04 / H4 Handoff Package & Phase 0 Exit Review
+Message and requested action:
+Subham Phase 0 Comprehensive Handoff Package & Inter-Subsystem Prerequisite Summary:
+
+1. Delivered Phase 0 Handoff S04 / H4 Artifacts & Source Code:
+   - FastAPI REST API Schemas (laptop/api/schemas.py): Strictly typed LocateStatus (FOUND, AMBIGUOUS, STALE, HISTORICAL_ONLY, NOT_FOUND, UNSUPPORTED), HealthResponse, LocateResponse, and Candidate with normalized bounding box validation [x1, y1, x2, y2] in [0.0, 1.0] and confidence [0.0, 1.0].
+   - Response Fixture Suite (laptop/tests/fixtures/responses.json): Complete response fixtures covering all 6 query status outcomes and health statuses per PRD §23.
+   - Schemas & Boundary Test Suite (laptop/tests/test_api_schemas.py): 8/8 automated unit tests passed verifying box coordinate bounds, invalid coordinate rejection, age calculation, stale threshold (>60.0s), and ambiguous candidate isolation.
+   - Android Memory Client Contract (android/app/src/main/java/dev/navisense/networking/MemoryClientContract.kt): Sealed class LocateResult (Found, Ambiguous, Stale, HistoricalOnly, NotFound, Unsupported, NetworkError), MemoryCandidate, and MemoryClientContract interface specifying MAX_TIMEOUT_MS = 2000L, MAX_RESPONSE_BYTES = 65536L (64 KiB cap), STALE_THRESHOLD_SECONDS = 60.0s, bearer token auth, and sessionGeneration cancellation support.
+   - Authoritative SQLite Schema (laptop/config/settings.py / PRD §11-12): SQLite persistence model for camera_profiles, scan_snapshots, and observed_objects supporting single-transaction atomic commits per 2.0s Hard Scan (10 frames, >=0.60 confidence in >=6 frames), transaction rollback on cancellation/Clear history, and camera profile invalidation.
+   - Comprehensive Phase 0 Handoffs & Requests Document: docs/subham/phase0-handoffs-and-requests.md.
+
+2. Phase 0 Information & Prerequisite Requests Matrix:
+   - To Spandan (Models Lead):
+     * [INFO NEEDED]: Sign-off on baseline classes (keys, wallet) and canonical alias mapping (key, keys, house keys, car keys, wallet, billfold, purse) in models/locate/metadata.json.
+     * [ARTIFACT NEEDED]: Smoke Locate model export (TFLite/PyTorch/ONNX) for Laptop (S02 / H1) with RGB 640x640 input specification, >=0.60 confidence threshold, and normalized xyxy coordinates.
+   - To Rishav (System Integration & Voice UX Lead):
+     * [CONTRACT CONFIRMATION]: Confirm MemoryClientContract interface matches Voice UX coordinator requirements for triggering locateObject(queryName, sessionGeneration).
+     * [AUTH & NETWORK]: Confirm bearer token storage/injection mechanism on Android and hotspot IP configuration (laptop endpoint e.g., http://192.168.43.100:8000).
+     * [STALE CALLBACK HANDLING]: Confirm SessionAuthority.isValid(sessionGeneration) check on LocateResult return to discard late network callbacks on mode switch or User STOP.
+   - To Rohan (Hardware Lead):
+     * [NETWORK ISOLATION]: Confirm sensor node operates exclusively over USB CDC/OTG with the phone and does not interfere with the laptop local HTTP subnet.
+     * [ERROR TAXONOMY]: Confirm distinction between sensor transport disconnects and laptop memory HTTP timeout/unreachable errors.
+   - To Samik (Android Perception & Search Lead):
+     * [TARGET SEARCH ENGINE ALIGNMENT]: ACK received (SAMIK-2026-09-15-008). Confirmed TargetSearchEngine.startSearch(targetClass, sessionGeneration, startMonotonicMs) consumes target_class from LocateResult.Found upon arrival.
+
+3. Phase 0 Exit Review & Phase 1 Entry Status:
+   - Phase 0 Exit Review: VERIFIED-FIXTURES (Handoff S04/H4 contracts delivered and tested).
+   - Phase 1 Entry Status: READY-FIXTURES (Standing by for Spandan S02 smoke model export to integrate laptop webcam detector adapter).
+
+Source revision and evidence reference: laptop/api/schemas.py, laptop/tests/fixtures/responses.json, laptop/tests/test_api_schemas.py, android/app/src/main/java/dev/navisense/networking/MemoryClientContract.kt, docs/subham/phase0-handoffs-and-requests.md
+Recipient(s): Spandan, Rishav, Rohan, Samik
+For response: referenced entry IDs SUBHAM-2026-09-15-008, SUBHAM-2026-09-15-009, SAMIK-2026-09-15-008 and ACK / VERIFIED
+```
+
+```text
+Entry ID: SUBHAM-2026-09-15-011 / 2026-09-15T11:30:00+05:30 / T+03:40
+Author and type: Subham | PROGRESS
+Phase / step / S-instance / H-contract: Phase 0 / Review ACK & Subsystem Alignment
+Message and requested action:
+1. ACK to RISHAV-2026-09-15-010: Received VERIFIED FOR HANDOFF for S04 / H4 (Laptop Locate REST API Schemas, SQLite Schema, PRD Fixtures, MemoryClientContract). Confirmed alignment on SessionCoordinator integration, bearer token security via BuildConfig, and stale callback invalidation via SessionAuthority.
+2. ACK to RISHAV-2026-09-15-011: Inspected master Android application shell v0, build configuration, permissions, and accessibility baseline. Confirmed OkHttp 4.12.0 dependency is available for Android MemoryClient implementation.
+3. ACK to RISHAV-2026-09-15-012 (Item 4 for Subham):
+   - [Mock Server Script]: Will provide python -m laptop.api.mock_server to launch local FastAPI service returning PRD v1 fixtures for offline/fixture testing without webcam.
+   - [Response Latency SLA]: Confirmed laptop locate query response latency <= 1000 ms to stay comfortably within the 2000 ms client timeout limit.
+4. ACK to SAMIK-2026-09-15-009: Confirmed full adherence to the Mandatory Collaborator Git & Relay Workflow rule. Verified frozen file SHA-256 hashes (docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA, docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E).
+
+Source revision and evidence reference: laptop/api/schemas.py, docs/subham/phase0-handoffs-and-requests.md
+Recipient(s): Rishav, Samik, Spandan, Rohan
+For response: referenced entry IDs RISHAV-2026-09-15-010, RISHAV-2026-09-15-011, RISHAV-2026-09-15-012, SAMIK-2026-09-15-009 and ACK
+```
+
+```text
+Entry ID: SUBHAM-2026-09-15-012 / 2026-09-15T11:55:00+05:30 / T+04:05
+Author and type: Subham | PROGRESS
+Phase / step / S-instance / H-contract: Phase 0 / Hardware Alignment ACK
+Message and requested action:
+1. ACK to ROHAN-2026-09-15-003 (Item 2):
+   - Confirmed Rohan's verification of 100% transport independence and network isolation for the ESP32-S3 sensor node over USB CDC/OTG.
+   - Verified that Wi-Fi/Bluetooth are disabled on ESP32-S3, keeping the local Wi-Fi hotspot HTTP subnet (192.168.43.0/24) 100% dedicated to laptop memory API queries.
+   - Verified error taxonomy alignment: sensor connection states (DISCONNECTED, STALE, DEGRADED_INVALID) produce distinct prompts from laptop API errors (HTTP 504 timeout, connection refused, age > 60s stale).
+2. ACK to ROHAN-2026-09-15-005: Reviewed Rohan's acceptance gate roadmap (AC-08, AC-06, AC-09) and peer review role for AC-14 (Full Memory-to-Search Integration). Standing by for joint S16 candidate integration at T+14:30.
+
+Source revision and evidence reference: docs/subham/phase0-handoffs-and-requests.md, docs/rohan/hardware-spec.md
+Recipient(s): Rohan, Rishav, Samik, Spandan
+For response: referenced entry IDs ROHAN-2026-09-15-003, ROHAN-2026-09-15-005 and ACK
+```
 
 ```text
 Entry ID: SPANDAN-2026-09-15-001 / 2026-09-15T11:55:00+05:30 / T+04:05
