@@ -160,7 +160,7 @@ class SearchRegressionTest {
     }
 
     @Test fun confirmedSearchSpeaksEveryDirectionWithoutInventingCenter() {
-        fun phraseFor(direction: TargetDirection?): String {
+        fun phraseFor(target: String, direction: TargetDirection?): String {
             val fakeClock = FakeClock(1000L)
             val phrases = mutableListOf<String>()
             val speech = object : dev.navisense.voice.ISpeechArbiter {
@@ -176,12 +176,12 @@ class SearchRegressionTest {
                 clock = fakeClock,
                 speechArbiter = speech
             )
-            val token = coordinator.startNearbySearch("wallet")
+            val token = coordinator.startNearbySearch(target)
             coordinator.markNearbySearchReady(token.generation)
             coordinator.onSearchEvent(
                 SearchEvent(
                     sessionGeneration = token.generation,
-                    targetClass = "wallet",
+                    targetClass = target,
                     status = SearchStatus.CONFIRMED,
                     direction = direction,
                     candidateCount = 1,
@@ -191,9 +191,14 @@ class SearchRegressionTest {
             return phrases.last()
         }
 
-        assertEquals("Wallet detected on the left. Point the phone left.", phraseFor(TargetDirection.LEFT))
-        assertEquals("Wallet detected straight ahead in the camera view.", phraseFor(TargetDirection.CENTER))
-        assertEquals("Wallet detected on the right. Point the phone right.", phraseFor(TargetDirection.RIGHT))
-        assertEquals("Wallet detected. Direction unavailable.", phraseFor(null))
+        assertEquals("Wallet detected on the left. Point the phone left.", phraseFor("wallet", TargetDirection.LEFT))
+        assertEquals("Wallet detected straight ahead in the camera view.", phraseFor("wallet", TargetDirection.CENTER))
+        assertEquals("Wallet detected on the right. Point the phone right.", phraseFor("wallet", TargetDirection.RIGHT))
+        assertEquals("Wallet detected. Direction unavailable.", phraseFor("wallet", null))
+
+        assertEquals("Keys detected on the left. Point the phone left.", phraseFor("keys", TargetDirection.LEFT))
+        assertEquals("Keys detected straight ahead in the camera view.", phraseFor("keys", TargetDirection.CENTER))
+        assertEquals("Keys detected on the right. Point the phone right.", phraseFor("keys", TargetDirection.RIGHT))
+        assertEquals("Keys detected. Direction unavailable.", phraseFor("keys", null))
     }
 }

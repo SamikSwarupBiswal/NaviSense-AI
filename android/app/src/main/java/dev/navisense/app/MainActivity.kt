@@ -810,7 +810,9 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                 btnConfirmArrival.visibility = View.GONE
             }
             AppMode.FOUND -> {
-                tvSystemMode.text = getString(R.string.status_found)
+                if (coordinator.currentSearchState != SearchUiState.FOUND) {
+                    tvSystemMode.text = getString(R.string.status_found)
+                }
                 btnStartWalking.visibility = View.VISIBLE
                 btnSearchNearby.visibility = View.VISIBLE
                 btnConfirmArrival.visibility = View.GONE
