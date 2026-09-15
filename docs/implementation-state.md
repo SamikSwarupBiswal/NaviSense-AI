@@ -2,7 +2,7 @@
 
 Last updated: 2026-09-14 (Asia/Kolkata).
 
-Product authority: [PRD v3.2](README.md). Ownership baseline: [frozen shared guidance](guidance.md). Timed execution: [24-hour plan](implementation-plan.md). Rules: [AGENTS](../AGENTS.md).
+Product authority: [PRD v3.2](README.md). Ownership baseline: [frozen shared guidance](guidance.md). Timed execution: [24-hour plan](implementation-plan.md). Rules: [AGENTS](AGENTS.md).
 
 **Current state: requirements and work allocation documented; implementation not yet evidenced in this workspace.** The workspace inspection found documentation only. Source code, trained/exported artifacts, firmware, test runs, and physical-device results have not been recorded here. This does not establish whether members have work elsewhere; import or link that evidence before updating its status.
 
@@ -42,8 +42,8 @@ Gate results use **NOT RUN / RUNNING / PASS / FAIL / BLOCKED**. A PASS requires 
 | Member / guide | Owned work | State | Evidence | Next action |
 |---|---|---|---|---|
 | [Spandan](spandan/guidance.md) | Models, datasets, training, exports and quality evaluation | Planned | Not supplied | Propose demo classes/aliases and supply smoke artifacts/metadata to Subham and Samik |
-| [Subham](subham/guidance.md) | Laptop Locate, Hard Scan, SQLite, API and Android memory client | Planned | Not supplied | Check laptop prerequisites and prepare exact PRD response/scan fixtures |
-| [Rohan](rohan/guidance.md) | Hardware, firmware, mount, USB and Android sensor adapter | Planned | Not supplied | Record actual assembly and prove electrical/USB host prerequisites |
+| [Subham](subham/guidance.md) | Laptop Locate, Hard Scan, SQLite, API and Android memory client | In progress | REST API schemas, SQLite schema, response fixtures (8/8 tests pass), Android MemoryClientContract | Await Rishav review of S04/H4 contracts; integrate webcam adapter |
+| [Rohan](rohan/guidance.md) | Hardware, firmware, mount, USB and Android sensor adapter | In progress | Hardware spec, 10Hz ESP32 firmware, serial test tool, replay harness, Android USB parser | Physical connection & stream benchmark on phone tomorrow |
 | [Samik](samik/guidance.md) | Android camera, both inference adapters, tracking and search engine | In progress | Contracts (H2/H5), transforms, PRD §17.2 quality check, tracker, search engine & 13/13 unit tests passing | Await S02 smoke model export from Spandan; connect phone for on-device load |
 | [Rishav](rishav/guidance.md) | Risk, voice UX, accessible shell, lifecycle and integration | Planned | Not supplied | Establish app skeleton, session/event contracts and offline TTS check |
 
@@ -55,7 +55,7 @@ Phase numbers match the PRD and guides; Phase 0 is the prerequisite compatibilit
 
 | Phase | Responsible owners | State | Evidence / next exit requirement |
 |---|---|---|---|
-| 0 — Compatibility and contracts | All; Rishav coordinates | Planned | Record devices, classes, model/runtime smoke results, USB/TTS checks and agreed interfaces |
+| 0 — Compatibility and contracts | All; Rishav coordinates | In progress | Hardware spec, ESP32 firmware & test suite ready; perception contracts H2/H5 ready; memory schemas & client H4 ready; phone/laptop smoke in progress |
 | 1 — Stationary Vision | Spandan; Subham laptop adapter; Samik phone check | Planned | Model/data provenance and actual laptop detections with receiver-checked exports |
 | 2 — Hard Scan + Memory | Subham | Planned | Transactional scans, zones, query/clear/profile behavior and API evidence |
 | 3 — Sensor Node | Rohan | Planned | Verified assembly, exact protocol and sensor bench measurements |
@@ -107,8 +107,8 @@ Project-owner acceptance: **not recorded**. Documentation link/schema checks do 
 |---|---|---|---|---|
 | H1 — Model artifacts | Spandan | Subham and Samik | Planned | Artifacts/hashes, manifests, reference outputs and receiver verification |
 | H2 — Mobile perception | Samik | Rishav | Ready for review | dev.navisense.contracts.MobilePerceptionEvent implemented; 13/13 tests passing |
-| H3 — Sensor events | Rohan | Rishav | Planned | Actual distance/health events, parser results and live receiver check |
-| H4 — Memory | Subham | Rishav | Planned | Service/client, contract cases and actual phone query check |
+| H3 — Sensor events | Rohan | Rishav | Ready for review | Hardware spec, ESP32 firmware, serial tool (20/20 PASS), replay harness (10/10 PASS), Android USB package ready |
+| H4 — Memory | Subham | Rishav | Ready for review | REST API schemas, response fixtures (8/8 tests PASS), SQLite schema, MemoryClientContract |
 | H5 — Search events | Samik | Rishav | Ready for review | dev.navisense.contracts.SearchEvent & TargetSearchEngine implemented; 13/13 tests passing |
 | H6 — Build integration | Each source owner | Rishav | Planned | Exact changes, reproducible build/test commands and integrated results |
 
@@ -119,7 +119,7 @@ No active implementation blocker has been confirmed. The following prerequisites
 | Open item | Resolver | Required next evidence |
 |---|---|---|
 | Actual phone and Android version | Rishav, Samik, Rohan | Selected device and access for smoke tests |
-| Board, GPIOs, power, USB interface and mount | Rohan | Recorded verified assembly configuration |
+| Board, GPIOs, power, USB interface and mount | Rohan | Recorded in docs/rohan/hardware-spec.md: ESP32-S3 DevKit, GPIO 4 (TRIG), GPIO 5 (ECHO via 1k/2k divider), 5V phone OTG, chest rig |
 | Demo Locate classes/aliases | Spandan with Subham/Samik | Agreed vocabulary and collection plan |
 | Model/runtime/export compatibility | Spandan, Samik | Both artifacts load correctly on the actual phone |
 | App package paths and event/session contracts | Rishav with producers | Shared skeleton and producer/receiver agreement |
@@ -156,6 +156,8 @@ Next action / blocker resolver:
 | 2026-09-14 | Codex | Requirements, hardening and user-assigned five-member guidance present | PRD and six guidance documents inspected; documentation exists, engineering acceptance not established |
 | 2026-09-14 | Codex | Implementation-state tracker initialized | Member work/phases/handoffs planned; all 16 product gates NOT RUN; no progress invented |
 | 2026-09-14 | Samik | Implemented Phase 0 perception contracts, transforms, quality gating, tracking, and target search | Created dev.navisense Android module; authored H2 & H5 contracts; 13/13 unit tests passed in 49ms |
+| 2026-09-14 | Rohan | Hardware spec, ESP32 firmware, serial tool, replay test suite & Android USB module implemented | docs/rohan/hardware-spec.md, esp32/navisense_sensor/, scripts/test_sensor_serial.py (20/20 PASS), scripts/verify_sensor_fusion_replay.py (10/10 PASS), android/app/src/main/java/dev/navisense/usb/ |
+| 2026-09-15 | Subham | Delivered S04/H4 laptop API schemas, response fixtures (8/8 passed), SQLite schema, and MemoryClientContract | laptop/api/schemas.py, laptop/tests/fixtures/responses.json, dev.navisense.networking.MemoryClientContract |
 
 ## 11. Schedule and Governance State
 
@@ -181,7 +183,7 @@ A VERIFIED phase exit is not whole-product acceptance.
 
 | Phase | Lead | Peer reviewer | Entry | Exit | Actual time / permitted scope / evidence |
 |---|---|---|---|---|---|
-| 0 | Rishav | Subham | PENDING | PENDING | Not recorded |
+| 0 | Rishav | Subham | READY-FIXTURES | PENDING | Hardware spec, 10Hz ESP32 firmware, serial tool, replay harness & Android USB parser ready; physical host stream verification pending repo creation tomorrow |
 | 1 | Spandan | Samik and Subham | PENDING | PENDING | Not recorded |
 | 2 | Subham | Rishav | PENDING | PENDING | Not recorded |
 | 3 | Rohan | Rishav | PENDING | PENDING | Not recorded |

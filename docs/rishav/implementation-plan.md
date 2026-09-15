@@ -2,7 +2,7 @@
 
 Owner: **Rishav**. Responsibility: **Risk, voice UX, lifecycle and integration**. Status: **planned, not executed**.
 
-Read [AGENTS](../../AGENTS.md), [PRD v3.2](../README.md) Sections 6, 13–21, 24–29, 32–36, [master timed plan](../implementation-plan.md), [ownership guide](guidance.md), and [implementation state](../implementation-state.md) before implementation.
+Read [AGENTS](../AGENTS.md), [PRD v3.2](../README.md) Sections 6, 13–21, 24–29, 32–36, [master timed plan](../implementation-plan.md), [ownership guide](guidance.md), and [implementation state](../implementation-state.md) before implementation.
 
 ## 1. Start Here
 

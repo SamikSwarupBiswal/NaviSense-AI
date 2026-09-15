@@ -2,7 +2,7 @@
 
 Owner: **Spandan**. Responsibility: **Models and datasets**. Status: **planned, not executed**.
 
-Read [AGENTS](../../AGENTS.md), [PRD v3.2](../README.md) Sections 8–9, 10–11, 20, 29–31, [master timed plan](../implementation-plan.md), [ownership guide](guidance.md), and [implementation state](../implementation-state.md) before implementation.
+Read [AGENTS](../AGENTS.md), [PRD v3.2](../README.md) Sections 8–9, 10–11, 20, 29–31, [master timed plan](../implementation-plan.md), [ownership guide](guidance.md), and [implementation state](../implementation-state.md) before implementation.
 
 ## 1. Start Here
 

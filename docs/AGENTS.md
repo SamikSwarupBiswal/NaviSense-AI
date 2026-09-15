@@ -7,10 +7,10 @@ These instructions apply to this repository and every owner/AI working in it. Fo
 Before implementation or continuation, read completely:
 
 1. This AGENTS.md.
-2. [Canonical README / PRD](docs/README.md).
-3. [Frozen main guidance](docs/guidance.md).
-4. [Current implementation state](docs/implementation-state.md).
-5. [Master 24-hour plan](docs/implementation-plan.md).
+2. [Canonical README / PRD](README.md).
+3. [Frozen main guidance](guidance.md).
+4. [Current implementation state](implementation-state.md).
+5. [Master 24-hour plan](implementation-plan.md).
 6. The assigned member's ownership guide and individual execution plan.
 7. Relevant current communication messages and actual source/tests for the next task.
 
@@ -64,8 +64,8 @@ The following files are frozen after the current requested documentation changes
 
 | Frozen file | SHA-256 |
 |---|---|
-| [docs/README.md](docs/README.md) | 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA |
-| [docs/guidance.md](docs/guidance.md) | A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E |
+| [docs/README.md](README.md) | 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA |
+| [docs/guidance.md](guidance.md) | A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E |
 
 Before and after a phase or a task that could affect documents, compute both hashes and compare with this table. From the repository root in PowerShell:
 
@@ -87,11 +87,11 @@ The frozen product boundary includes mandatory Android Locate, standalone walkin
 
 | Owner | Scope | Read next |
 |---|---|---|
-| Spandan | Models, datasets, training, exports and model quality | [Guide](docs/spandan/guidance.md), [execution plan](docs/spandan/implementation-plan.md) |
-| Subham | Laptop Locate/Hard Scan, SQLite, API and Android memory client | [Guide](docs/subham/guidance.md), [execution plan](docs/subham/implementation-plan.md) |
-| Rohan | Hardware, mount, firmware, USB and Android sensor adapter | [Guide](docs/rohan/guidance.md), [execution plan](docs/rohan/implementation-plan.md) |
-| Samik | Android camera, both inference adapters, tracking and search engine | [Guide](docs/samik/guidance.md), [execution plan](docs/samik/implementation-plan.md) |
-| Rishav | Risk logic, voice UX, accessible shell, lifecycle and integration | [Guide](docs/rishav/guidance.md), [execution plan](docs/rishav/implementation-plan.md) |
+| Spandan | Models, datasets, training, exports and model quality | [Guide](spandan/guidance.md), [execution plan](spandan/implementation-plan.md) |
+| Subham | Laptop Locate/Hard Scan, SQLite, API and Android memory client | [Guide](subham/guidance.md), [execution plan](subham/implementation-plan.md) |
+| Rohan | Hardware, mount, firmware, USB and Android sensor adapter | [Guide](rohan/guidance.md), [execution plan](rohan/implementation-plan.md) |
+| Samik | Android camera, both inference adapters, tracking and search engine | [Guide](samik/guidance.md), [execution plan](samik/implementation-plan.md) |
+| Rishav | Risk logic, voice UX, accessible shell, lifecycle and integration | [Guide](rishav/guidance.md), [execution plan](rishav/implementation-plan.md) |
 
 Rishav owns shared Android build/manifest/contracts integration and global session/mode authority. Each producer owns its subsystem and tests. Submit exact shared-file change requests to Rishav; do not overwrite another owner's package to bypass a dependency.
 

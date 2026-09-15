@@ -2,7 +2,7 @@
 
 Authority: [PRD v3.2](../README.md). Coordination: [shared guidance](../guidance.md).
 
-Detailed 24-hour execution plan: [numbered implementation steps](implementation-plan.md). Follow [AGENTS](../../AGENTS.md) for frozen boundaries, communication, continuation and mandatory phase reviews.
+Detailed 24-hour execution plan: [numbered implementation steps](implementation-plan.md). Follow [AGENTS](../AGENTS.md) for frozen boundaries, communication, continuation and mandatory phase reviews.
 
 **Ownership: assigned by the user. Implementation status: planned, not completed or accepted.** No laptop service, database, API or Subham test result is claimed complete.
 

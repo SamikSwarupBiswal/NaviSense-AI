@@ -2,7 +2,7 @@
 
 Authority: [PRD v3.2](../README.md). Coordination: [shared guidance](../guidance.md).
 
-Detailed 24-hour execution plan: [numbered implementation steps](implementation-plan.md). Follow [AGENTS](../../AGENTS.md) for frozen boundaries, communication, continuation and mandatory phase reviews.
+Detailed 24-hour execution plan: [numbered implementation steps](implementation-plan.md). Follow [AGENTS](../AGENTS.md) for frozen boundaries, communication, continuation and mandatory phase reviews.
 
 **Ownership: assigned by the user. Implementation status: planned, not completed or accepted.** No Android inference speed, accuracy, or search result is established.
 
@@ -51,16 +51,7 @@ If export speed/quality fails, work with Spandan and rerun affected gates. Do no
 
 ## Current Handoff Record
 
-Owner / phase: Samik / Phase 0
-Status: ready for review
-Source revision and changed paths: android/app/src/main/java/dev/navisense/contracts/, camera/, inference/, tracking/, search/
-Artifact locations and hashes: MobilePerceptionEvent (H2), SearchEvent (H5), PerceptionUnitTests (13/13 passing)
-Exact run/test commands and prerequisites: .\gradlew.bat testDebugUnitTest
-Results: pass (13/13 unit tests passed in 49ms; verified transforms, PRD §17.2 dark/featureless quality gating, 1-to-1 tracking, area growth, and PRD §20 search confirmation/direction/timeout)
-Known limitations and untested behavior: On-device physical phone benchmark pending physical USB attachment over adb.
-Receiver / reviewer: Rishav (for contracts and integration); Spandan (for smoke model metadata)
-Blocker and person needed to resolve it: None. Physical phone needed for AC-05 live timing.
-Next action: Await S02 smoke model export from Spandan; connect phone for on-device load and timing test.
+Status: planned. Phone, runtime, artifacts and measured results: not yet recorded. Primary receiver: Rishav; model producer: Spandan. Next action: Phase 0 two-model phone smoke and event contract agreement. Use the shared status format when work starts.
 
 ## Communication branch — mandatory
 

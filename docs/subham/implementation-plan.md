@@ -2,7 +2,7 @@
 
 Owner: **Subham**. Responsibility: **Laptop memory, API and Android client**. Status: **planned, not executed**.
 
-Read [AGENTS](../../AGENTS.md), [PRD v3.2](../README.md) Sections 10–13, 23–26, 29, [master timed plan](../implementation-plan.md), [ownership guide](guidance.md), and [implementation state](../implementation-state.md) before implementation.
+Read [AGENTS](../AGENTS.md), [PRD v3.2](../README.md) Sections 10–13, 23–26, 29, [master timed plan](../implementation-plan.md), [ownership guide](guidance.md), and [implementation state](../implementation-state.md) before implementation.
 
 ## 1. Start Here
 

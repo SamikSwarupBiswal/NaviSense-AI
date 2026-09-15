@@ -1,6 +1,6 @@
 # NaviSense AI — 24-Hour Implementation Plan
 
-Schedule version: 1. Governance: [AGENTS](../AGENTS.md); mandatory phase entry/exit reviews apply. Prepared for the user's **24-hour hackathon**.
+Schedule version: 1. Governance: [AGENTS](AGENTS.md); mandatory phase entry/exit reviews apply. Prepared for the user's **24-hour hackathon**.
 Product authority: [PRD v3.2](README.md).
 Owners and interfaces: [guidance](guidance.md). Actual progress: [implementation state](implementation-state.md).
 

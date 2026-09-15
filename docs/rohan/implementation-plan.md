@@ -2,7 +2,7 @@
 
 Owner: **Rohan**. Responsibility: **Hardware, firmware and Android USB**. Status: **planned, not executed**.
 
-Read [AGENTS](../../AGENTS.md), [PRD v3.2](../README.md) Sections 7, 13–19, 26–30, [master timed plan](../implementation-plan.md), [ownership guide](guidance.md), and [implementation state](../implementation-state.md) before implementation.
+Read [AGENTS](../AGENTS.md), [PRD v3.2](../README.md) Sections 7, 13–19, 26–30, [master timed plan](../implementation-plan.md), [ownership guide](guidance.md), and [implementation state](../implementation-state.md) before implementation.
 
 ## 1. Start Here
 
