@@ -175,6 +175,23 @@
             android:contentDescription="@string/btn_search_nearby_desc"
             app:cornerRadius="14dp" />
 
+        <!-- Voice Walking Navigation (Google Maps) Action -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnVoiceWalkingNav"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:layout_marginTop="8dp"
+            android:backgroundTint="@color/navisense_white"
+            android:text="@string/btn_voice_nav"
+            android:textColor="@color/navisense_black"
+            android:textSize="17sp"
+            android:textStyle="bold"
+            app:icon="@android:drawable/ic_dialog_map"
+            app:iconGravity="textStart"
+            app:iconTint="@color/navisense_black"
+            android:contentDescription="@string/btn_voice_nav_desc"
+            app:cornerRadius="14dp" />
+
         <!-- Voice Control / Mic Action -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnVoiceCommand"

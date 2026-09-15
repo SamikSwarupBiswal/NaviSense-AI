@@ -97,6 +97,22 @@ object VoiceCommandParser {
             }
         }
 
+        // Pedestrian Navigation: "take me to <dest>", "navigate to <dest>", "directions to <dest>", "walk to <dest>"
+        val navPrefixes = listOf(
+            "take me to", "i want to go to", "navigate to", "directions to", "find route to", "route to", "walk to", "go to"
+        )
+        for (navPrefix in navPrefixes) {
+            if (text.startsWith("$navPrefix ")) {
+                val destRaw = text.removePrefix("$navPrefix ").trim()
+                if (destRaw.isNotEmpty() && !KEYS_KEYWORDS.contains(destRaw) && !WALLET_KEYWORDS.contains(destRaw)) {
+                    val formattedDest = destRaw.split(" ").joinToString(" ") { word ->
+                        word.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+                    }
+                    return VoiceCommand.NavigateTo(formattedDest)
+                }
+            }
+        }
+
         // Start Walking
         for (walkKey in WALK_KEYWORDS) {
             if (text == walkKey || text.startsWith("$walkKey ") || text.endsWith(" $walkKey")) {

@@ -27,12 +27,26 @@ import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
 import dev.navisense.R
 import dev.navisense.camera.CameraXAnalyzer
 import dev.navisense.camera.DetectionOverlayView
 import dev.navisense.contracts.AppMode
 import dev.navisense.contracts.AppVisionMode
 import dev.navisense.contracts.PathStatus
+import dev.navisense.navigation.maps.DeviceCompassProvider
+import dev.navisense.navigation.maps.GoogleRoutesService
+import dev.navisense.navigation.maps.models.GeoPoint
+import dev.navisense.navigation.maps.models.NavigationEngineStatus
+import dev.navisense.navigation.maps.models.WalkingRoute
+import dev.navisense.voice.VoiceDestinationRecognizer
+import kotlinx.coroutines.launch
 import dev.navisense.contracts.SensorEvent
 import dev.navisense.contracts.SensorHealth
 import dev.navisense.contracts.SensorWireRecord
@@ -93,6 +107,15 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
     private lateinit var btnVoiceCommand: Button
     private lateinit var btnConfirmArrival: Button
     private lateinit var btnStop: Button
+    private lateinit var btnVoiceWalkingNav: Button
+
+    // Pedestrian Maps & Orientation Subsystem
+    private lateinit var compassProvider: DeviceCompassProvider
+    private lateinit var routesService: GoogleRoutesService
+    private var voiceRecognizer: VoiceDestinationRecognizer? = null
+    private lateinit var fusedLocationClient: FusedLocationProviderClient
+    private var locationCallback: LocationCallback? = null
+    private var lastKnownLocation: GeoPoint = GeoPoint(12.8406, 80.1534)
 
     private var voiceCommandManager: VoiceCommandManager? = null
 
@@ -138,6 +161,18 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
             speakVoiceFeedback(getString(R.string.voice_cmd_opened))
         } else {
             tvVoiceStatus.text = "Voice Control: Mic Permission Denied"
+        }
+    }
+
+    private val requestNavPermissionsLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val locationGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true
+        val audioGranted = permissions[Manifest.permission.RECORD_AUDIO] == true
+        if (locationGranted && audioGranted) {
+            startVoiceNavigationFlow()
+        } else {
+            announce("Location and microphone permissions are required for voice navigation.")
         }
     }
 
@@ -209,11 +244,30 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
         btnStartWalking = findViewById(R.id.btnStartWalking)
         btnSearchNearby = findViewById(R.id.btnSearchNearby)
         btnVoiceCommand = findViewById(R.id.btnVoiceCommand)
+        btnVoiceWalkingNav = findViewById(R.id.btnVoiceWalkingNav)
         btnConfirmArrival = findViewById(R.id.btnConfirmArrival)
         btnStop = findViewById(R.id.btnStop)
 
+        compassProvider = DeviceCompassProvider(this)
+        routesService = GoogleRoutesService()
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+
+        voiceRecognizer = VoiceDestinationRecognizer(
+            context = this,
+            onDestinationParsed = { destination ->
+                onDestinationReceived(destination)
+            },
+            onError = { errorMsg ->
+                announce(errorMsg)
+            }
+        )
+
         btnVoiceCommand.setOnClickListener {
             toggleVoiceRecognition()
+        }
+
+        btnVoiceWalkingNav.setOnClickListener {
+            checkNavPermissionsAndStart()
         }
 
         btnStartWalking.setOnClickListener {
@@ -236,6 +290,7 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
         // Critical safety button: immediate Stop without confirmation dialog
         btnStop.setOnClickListener {
             hapticFeedback.cancel()
+            stopOutdoorNavigationSensors()
             coordinator.userStop()
             window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             announce(getString(R.string.status_idle))
@@ -297,6 +352,8 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
         cameraProvider?.unbindAll()
         cameraExecutor.shutdown()
 
+        stopOutdoorNavigationSensors()
+        voiceRecognizer?.destroy()
         detectionOverlay.clearDetections()
         hapticFeedback.cancel()
         voiceCommandManager?.destroy()
@@ -675,7 +732,7 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
 
     override fun onRiskEvaluated(result: RiskEvaluationResult) {
         runOnUiThread {
-            if (coordinator.currentMode == AppMode.MOBILITY) {
+            if (coordinator.currentMode == AppMode.MOBILITY || coordinator.currentMode == AppMode.OUTDOOR_WALKING) {
                 when (result.combinedRisk) {
                     RiskLevel.STOP -> {
                         if (result.isEscalation) {
@@ -803,23 +860,127 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
             .show()
     }
 
+    override fun onNavigationStatusUpdated(status: NavigationEngineStatus) {
+        runOnUiThread {
+            tvSystemMode.text = "Walking to ${status.destinationName} (${status.totalRemainingDistanceMeters.toInt()}m left)"
+            tvPathStatus.text = status.currentInstruction
+        }
+    }
+
+    private fun checkNavPermissionsAndStart() {
+        val fineLocation = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val audio = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        if (fineLocation && audio) {
+            startVoiceNavigationFlow()
+        } else {
+            requestNavPermissionsLauncher.launch(
+                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.RECORD_AUDIO)
+            )
+        }
+    }
+
+    private fun startVoiceNavigationFlow() {
+        announce("Please say your destination.")
+        voiceRecognizer?.startListening()
+    }
+
+    private fun onDestinationReceived(destination: String) {
+        announce("Calculating walking route to $destination.")
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            fusedLocationClient.lastLocation.addOnSuccessListener { loc ->
+                val origin = if (loc != null) GeoPoint(loc.latitude, loc.longitude) else lastKnownLocation
+                lastKnownLocation = origin
+                fetchAndStartWalkingRoute(origin, destination)
+            }.addOnFailureListener {
+                fetchAndStartWalkingRoute(lastKnownLocation, destination)
+            }
+        } else {
+            fetchAndStartWalkingRoute(lastKnownLocation, destination)
+        }
+    }
+
+    private fun fetchAndStartWalkingRoute(origin: GeoPoint, destination: String) {
+        lifecycleScope.launch {
+            val geocodeResult = routesService.geocodeDestination(destination)
+            val targetPoint = geocodeResult.getOrDefault(GeoPoint(origin.latitude + 0.0005, origin.longitude + 0.0005))
+
+            val routeResult = routesService.computeWalkingRoute(origin, targetPoint, destination)
+            routeResult.onSuccess { route ->
+                coordinator.startOutdoorWalking(route)
+                startOutdoorNavigationSensors()
+                window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            }.onFailure { err ->
+                announce("Unable to find walking route: ${err.message}")
+            }
+        }
+    }
+
+    private fun startOutdoorNavigationSensors() {
+        compassProvider.startListening { azimuth ->
+            coordinator.onHeadingUpdated(azimuth)
+        }
+        startLocationTracking()
+    }
+
+    private fun stopOutdoorNavigationSensors() {
+        compassProvider.stopListening()
+        stopLocationTracking()
+    }
+
+    private fun startLocationTracking() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) return
+
+        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1500L)
+            .setMinUpdateIntervalMillis(1000L)
+            .setMinUpdateDistanceMeters(1.0f)
+            .build()
+
+        val callback = object : LocationCallback() {
+            override fun onLocationResult(result: LocationResult) {
+                val loc = result.lastLocation ?: return
+                val point = GeoPoint(loc.latitude, loc.longitude)
+                lastKnownLocation = point
+                coordinator.onLocationUpdated(point, loc.accuracy)
+            }
+        }
+        locationCallback = callback
+        fusedLocationClient.requestLocationUpdates(locationRequest, callback, Looper.getMainLooper())
+    }
+
+    private fun stopLocationTracking() {
+        locationCallback?.let {
+            fusedLocationClient.removeLocationUpdates(it)
+            locationCallback = null
+        }
+    }
+
     private fun updateUiState(mode: AppMode) {
         when (mode) {
             AppMode.IDLE -> {
                 tvSystemMode.text = getString(R.string.status_idle)
                 btnStartWalking.visibility = View.VISIBLE
                 btnSearchNearby.visibility = View.VISIBLE
+                btnVoiceWalkingNav.visibility = View.VISIBLE
                 btnConfirmArrival.visibility = View.GONE
+                stopOutdoorNavigationSensors()
             }
             AppMode.MOBILITY -> {
                 tvSystemMode.text = getString(R.string.status_mobility)
                 btnStartWalking.visibility = View.GONE
                 btnSearchNearby.visibility = View.GONE
+                btnVoiceWalkingNav.visibility = View.GONE
                 if (coordinator.activeTargetClass != null) {
                     btnConfirmArrival.visibility = View.VISIBLE
                 } else {
                     btnConfirmArrival.visibility = View.GONE
                 }
+            }
+            AppMode.OUTDOOR_WALKING -> {
+                tvSystemMode.text = getString(R.string.status_outdoor_nav)
+                btnStartWalking.visibility = View.GONE
+                btnSearchNearby.visibility = View.GONE
+                btnVoiceWalkingNav.visibility = View.GONE
+                btnConfirmArrival.visibility = View.GONE
             }
             AppMode.FINAL_SEARCH -> {
                 tvSystemMode.text = when (coordinator.currentSearchState) {
@@ -837,6 +998,7 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                 }
                 btnStartWalking.visibility = View.GONE
                 btnSearchNearby.visibility = View.GONE
+                btnVoiceWalkingNav.visibility = View.GONE
                 btnConfirmArrival.visibility = View.GONE
             }
             AppMode.FOUND -> {
@@ -845,12 +1007,14 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                 }
                 btnStartWalking.visibility = View.VISIBLE
                 btnSearchNearby.visibility = View.VISIBLE
+                btnVoiceWalkingNav.visibility = View.VISIBLE
                 btnConfirmArrival.visibility = View.GONE
             }
             AppMode.PAUSED -> {
                 tvSystemMode.text = getString(R.string.status_paused)
                 btnStartWalking.visibility = View.VISIBLE
                 btnSearchNearby.visibility = View.VISIBLE
+                btnVoiceWalkingNav.visibility = View.VISIBLE
                 btnConfirmArrival.visibility = View.GONE
             }
             else -> {
@@ -925,6 +1089,9 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                     speakVoiceFeedback(getString(R.string.voice_cmd_walking_started))
                     coordinator.startMobility()
                     window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                }
+                is VoiceCommand.NavigateTo -> {
+                    onDestinationReceived(command.destination)
                 }
                 is VoiceCommand.Stop -> {
                     speakVoiceFeedback(getString(R.string.voice_cmd_stopped))

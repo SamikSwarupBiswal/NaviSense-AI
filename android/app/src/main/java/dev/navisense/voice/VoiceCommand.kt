@@ -15,6 +15,11 @@ sealed class VoiceCommand {
     object StartWalking : VoiceCommand()
 
     /**
+     * Start pedestrian walking navigation to a spoken destination via Google Routes.
+     */
+    data class NavigateTo(val destination: String) : VoiceCommand()
+
+    /**
      * Immediately halt navigation or search and return to IDLE.
      */
     object Stop : VoiceCommand()

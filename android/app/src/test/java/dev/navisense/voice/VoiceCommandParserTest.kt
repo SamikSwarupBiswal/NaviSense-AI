@@ -107,6 +107,22 @@ class VoiceCommandParserTest {
     }
 
     @Test
+    fun testNavigateToVariations() {
+        val testCases = mapOf(
+            "take me to central library" to "Central Library",
+            "navigate to cafeteria" to "Cafeteria",
+            "directions to the park" to "The Park",
+            "walk to train station" to "Train Station",
+            "go to building b" to "Building B"
+        )
+        for ((phrase, expectedDest) in testCases) {
+            val cmd = VoiceCommandParser.parse(phrase)
+            assertTrue("Expected NavigateTo for '$phrase', got $cmd", cmd is VoiceCommand.NavigateTo)
+            assertEquals(expectedDest, (cmd as VoiceCommand.NavigateTo).destination)
+        }
+    }
+
+    @Test
     fun testBlankAndUnknown() {
         assertTrue(VoiceCommandParser.parse(null) is VoiceCommand.Unknown)
         assertTrue(VoiceCommandParser.parse("") is VoiceCommand.Unknown)
