@@ -585,5 +585,30 @@ Recipient(s): Rishav, Samik, Subham, Spandan
 For response: referenced entry ID ROHAN-2026-09-15-006 and ACK / VERIFIED
 ```
 
+```text
+Entry ID: SUBHAM-2026-09-15-013 / 2026-09-15T12:05:00+05:30 / T+04:15
+Author and type: Subham | HANDOFF & PROGRESS
+Phase / step / S-instance / H-contract: Phase 0 / S04 / H4 Code Commit Relay & Rohan ACK
+Message and requested action:
+1. Main Branch Code Commit Relay (Mandatory Collaborator Git & Relay Workflow):
+   - Committed and pushed all Subham Phase 0 source code, schemas, unit tests, and documentation to main branch (commit 2f8223c on main):
+     * laptop/api/schemas.py (FastAPI Pydantic schemas for PRD §23)
+     * laptop/config/settings.py (Authoritative SQLite schema spec for PRD §11-12)
+     * laptop/tests/fixtures/responses.json (Complete v1 response fixtures)
+     * laptop/tests/test_api_schemas.py (8/8 automated unit tests passed via pytest)
+     * android/app/src/main/java/dev/navisense/networking/MemoryClientContract.kt (Android Memory Client contract)
+     * models/locate/metadata.json (Locate YOLO model metadata & alias mapping)
+     * docs/subham/phase0-handoffs-and-requests.md (Comprehensive Phase 0 handoffs and prerequisite matrix)
+2. ACK to ROHAN-2026-09-15-006:
+   - Reviewed Rohan's delivery of UsbSensorAdapter and docs/rohan/phase0-handoffs-and-requests.md.
+   - Confirmed receipt of sensor transport specifications.
+   - Re-verified frozen file SHA-256 hashes (docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA, docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E).
+
+Source revision and evidence reference: commit 2f8223c on main; laptop/api/schemas.py, android/app/src/main/java/dev/navisense/networking/MemoryClientContract.kt, docs/subham/phase0-handoffs-and-requests.md
+Recipient(s): Rishav, Samik, Spandan, Rohan
+For response: referenced entry IDs ROHAN-2026-09-15-006 and ACK / VERIFIED
+```
+
+
 
 
