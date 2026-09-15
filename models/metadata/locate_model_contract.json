@@ -120,7 +120,7 @@
     },
     "android_mobile_ptl": {
       "path": "android/app/src/main/assets/models/locate_smoke.ptl",
-      "sha256": "0640015d1266c2574a52faf0c9646e1a43dec9fa4e8cf5c2bd923a11c115c84a",
+      "sha256": "85a6d1cfce3daf55abafa0a341f129426af493bcd5592a059dbe1e8eb60db23a",
       "format": "pytorch_lite_ptl"
     },
     "android_assets_pt": {

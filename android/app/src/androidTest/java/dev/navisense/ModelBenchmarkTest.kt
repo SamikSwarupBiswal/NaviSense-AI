@@ -1,9 +1,11 @@
 package dev.navisense
 
 import android.content.Context
+import android.graphics.BitmapFactory
 import android.os.SystemClock
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 import dev.navisense.contracts.AppVisionMode
 import dev.navisense.inference.ModelMetadata
 import dev.navisense.inference.PyTorchLiteInferenceBackend
@@ -16,6 +18,7 @@ import org.junit.runner.RunWith
 class ModelBenchmarkTest {
 
     private val context: Context get() = ApplicationProvider.getApplicationContext()
+    private val testContext: Context get() = InstrumentationRegistry.getInstrumentation().context
 
     @Test
     fun testStaleCacheReplacement() {
@@ -98,6 +101,70 @@ class ModelBenchmarkTest {
         val avgInferenceMs = totalInferenceMs.toDouble() / runs
         println("BENCHMARK: Locate synthetic pipeline mean (quality + preprocessing + forward + decode): ${avgInferenceMs} ms; completed forward calls=${backend.completedForwardPasses}")
 
+        backend.close()
+        runner.close()
+    }
+
+    @Test
+    fun testLocateModelDetectsLabeledWalletImageOnDevice() {
+        assertLocateFixture("locate_wallet_positive.jpg", "wallet")
+    }
+
+    @Test
+    fun testLocateModelDetectsLabeledKeysImageOnDevice() {
+        assertLocateFixture("locate_keys_positive.jpg", "keys")
+    }
+
+    private fun assertLocateFixture(assetName: String, expectedLabel: String) {
+        val modelPath = PyTorchLiteInferenceBackend.copyAssetToCache(context, "models/locate_smoke.ptl")
+        val backend = PyTorchLiteInferenceBackend(
+            modelPath = modelPath,
+            numClasses = 2,
+            confThreshold = 0.25f,
+            iouThreshold = 0.45f
+        )
+        val runner = YoloModelRunner(backend)
+        assertTrue(runner.load(ModelMetadata(
+            modelIdentity = "locate-v0.2.0-spandan-85a6d1cf",
+            mode = AppVisionMode.LOCATE_SEARCH,
+            inputWidth = 640,
+            inputHeight = 640,
+            classLabels = listOf("keys", "wallet"),
+            confidenceThreshold = 0.25f,
+            nmsIouThreshold = 0.45f
+        )))
+
+        val bitmap = testContext.assets.open(assetName).use(BitmapFactory::decodeStream)
+        assertNotNull("Positive $expectedLabel fixture must decode", bitmap)
+        val argb = IntArray(bitmap.width * bitmap.height)
+        bitmap.getPixels(argb, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
+        val rgb = ByteArray(argb.size * 3)
+        argb.forEachIndexed { index, color ->
+            rgb[index * 3] = ((color shr 16) and 0xFF).toByte()
+            rgb[index * 3 + 1] = ((color shr 8) and 0xFF).toByte()
+            rgb[index * 3 + 2] = (color and 0xFF).toByte()
+        }
+
+        val now = SystemClock.elapsedRealtime()
+        val event = runner.detect(
+            framePixels = rgb,
+            frameWidth = bitmap.width,
+            frameHeight = bitmap.height,
+            rotationDegrees = 0,
+            frameId = 1L,
+            captureMonotonicMs = now,
+            deliveryMonotonicMs = now,
+            sessionGeneration = 1L,
+            geometryVersion = 1
+        )
+
+        assertEquals(dev.navisense.contracts.FrameQualityStatus.USABLE, event.qualityStatus)
+        val detection = event.detections.filter { it.label == expectedLabel }.maxByOrNull { it.confidence }
+        assertNotNull("Expected the labeled $expectedLabel fixture to produce a detection", detection)
+        assertTrue("$expectedLabel confidence must meet the Search Nearby threshold", detection!!.confidence >= 0.60f)
+        assertEquals(1, backend.completedForwardPasses)
+
+        bitmap.recycle()
         backend.close()
         runner.close()
     }
