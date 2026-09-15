@@ -242,7 +242,7 @@ class CameraXAnalyzer(
                 vPlane = image.planes[2].asYuvPlane()
             )
 
-            val runnerEvent = session.runner.detect(
+            val rawRunnerEvent = session.runner.detect(
                 framePixels = rgb,
                 frameWidth = geometry.width,
                 frameHeight = geometry.height,
@@ -253,6 +253,19 @@ class CameraXAnalyzer(
                 sessionGeneration = session.sessionGeneration,
                 geometryVersion = geometryVersion
             )
+            val runnerEvent = if (
+                rawRunnerEvent.qualityStatus == FrameQualityStatus.USABLE &&
+                rawRunnerEvent.errorMessage == null &&
+                session.mode == AppVisionMode.MOBILITY
+            ) {
+                rawRunnerEvent.copy(
+                    detections = session.tracker.update(
+                        detections = rawRunnerEvent.detections,
+                        currentMonotonicMs = rawRunnerEvent.captureMonotonicMs,
+                        geometryVersion = rawRunnerEvent.geometryVersion
+                    )
+                )
+            } else rawRunnerEvent
             // Overlay output is informational only. Safety consumers still receive
             // the freshness-filtered event below and must never use stale boxes.
             onOverlayDetections(runnerEvent.detections)
@@ -332,14 +345,6 @@ class CameraXAnalyzer(
                     event.deliveryMonotonicMs,
                     event.geometryVersion,
                     "Model runner changed contract during frame processing"
-                )
-            } else if (event.qualityStatus == FrameQualityStatus.USABLE && event.errorMessage == null && session.mode == AppVisionMode.MOBILITY) {
-                event.copy(
-                    detections = session.tracker.update(
-                        detections = event.detections,
-                        currentMonotonicMs = event.captureMonotonicMs,
-                        geometryVersion = event.geometryVersion
-                    )
                 )
             } else {
                 event

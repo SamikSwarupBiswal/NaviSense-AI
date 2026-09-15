@@ -15,10 +15,10 @@ data class SensorRecord(
     val receiptMonotonicMs: Long  // Android SystemClock.elapsedRealtime() timestamp
 ) {
     /**
-     * Checks if this record qualifies for immediate STOP consideration (<= 50 cm).
-     * Per PRD Section 14.2: A fresh valid <= 50 cm record may trigger STOP immediately
+     * Checks if this record qualifies for immediate STOP consideration (<= 100 cm).
+     * Per PRD Section 14.2: A fresh valid <= 100 cm record may trigger STOP immediately
      * without establishing full clearance or recovery.
      */
     val isImmediateStopCandidate: Boolean
-        get() = isValid && distanceCm in 2..50
+        get() = isValid && distanceCm in 2..100
 }

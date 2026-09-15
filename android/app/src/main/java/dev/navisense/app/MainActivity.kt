@@ -174,6 +174,7 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
 
         viewFinder = findViewById(R.id.viewFinder)
         detectionOverlay = findViewById(R.id.detectionOverlay)
+        detectionOverlay.visibility = View.GONE
         tvSystemMode = findViewById(R.id.tvSystemMode)
         tvPathStatus = findViewById(R.id.tvPathStatus)
         tvSensorStatus = findViewById(R.id.tvSensorStatus)
@@ -299,8 +300,8 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                     onSearchEvent = { event ->
                         coordinator.onSearchEvent(event)
                     },
-                    onOverlayDetections = { detections ->
-                        detectionOverlay.setDetections(detections)
+                    onOverlayDetections = { _ ->
+                        // Detection boxes removed from live camera preview per user request
                     }
                 )
                 cameraAnalyzer = analyzer

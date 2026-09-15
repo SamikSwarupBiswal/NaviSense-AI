@@ -71,19 +71,19 @@ class RiskEngineTest {
 
     @Test
     fun testUltrasonicDeescalationRequiresOneSecondHoldAndMargin() {
-        // Step 1: Initial emergency STOP at 45 cm (<= 50 cm)
-        riskEngine.onSensorEvent(createSensorEvent(distanceCm = 45, timestampMs = 1000L))
+        // Step 1: Initial emergency STOP at 80 cm (<= 100 cm)
+        riskEngine.onSensorEvent(createSensorEvent(distanceCm = 80, timestampMs = 1000L))
 
-        // Step 2: Distance increases to 80 cm (> 65 cm required for STOP release) at t=1500 ms (release timer starts)
-        val heldResult = riskEngine.onSensorEvent(createSensorEvent(distanceCm = 80, timestampMs = 1500L))
+        // Step 2: Distance increases to 120 cm (> 115 cm required for STOP release) at t=1500 ms (release timer starts)
+        val heldResult = riskEngine.onSensorEvent(createSensorEvent(distanceCm = 120, timestampMs = 1500L))
         assertEquals("Must hold STOP for at least 1.0s", RiskLevel.STOP, heldResult.sensorRisk)
 
         // Still held at t=2000 ms (only 500 ms elapsed since release timer started at t=1500 ms)
-        val stillHeld = riskEngine.onSensorEvent(createSensorEvent(distanceCm = 80, timestampMs = 2000L))
+        val stillHeld = riskEngine.onSensorEvent(createSensorEvent(distanceCm = 120, timestampMs = 2000L))
         assertEquals("Must continue holding STOP", RiskLevel.STOP, stillHeld.sensorRisk)
 
-        // Step 3: At t=2501 ms (> 1000 ms elapsed since t=1500 ms), release steps down to SLOW (51..100 cm)
-        val releasedResult = riskEngine.onSensorEvent(createSensorEvent(distanceCm = 80, timestampMs = 2501L))
+        // Step 3: At t=2501 ms (> 1000 ms elapsed since t=1500 ms) with safe distance 120 cm, release steps down to SLOW (101..150 cm)
+        val releasedResult = riskEngine.onSensorEvent(createSensorEvent(distanceCm = 120, timestampMs = 2501L))
         assertEquals("Must step down to SLOW after hold expires", RiskLevel.SLOW, releasedResult.sensorRisk)
     }
 
@@ -250,28 +250,24 @@ class RiskEngineTest {
 
     @Test
     fun testExactSensorDistanceBandsAndEqualityReleaseBoundary() {
-        assertEquals(RiskLevel.STOP, riskEngine.onSensorEvent(createSensorEvent(50, 1000L)).sensorRisk)
+        assertEquals(RiskLevel.STOP, riskEngine.onSensorEvent(createSensorEvent(100, 1000L)).sensorRisk)
         riskEngine.reset()
-        assertEquals(RiskLevel.SLOW, riskEngine.onSensorEvent(createSensorEvent(51, 1000L)).sensorRisk)
+        assertEquals(RiskLevel.SLOW, riskEngine.onSensorEvent(createSensorEvent(101, 1000L)).sensorRisk)
         riskEngine.reset()
-        assertEquals(RiskLevel.SLOW, riskEngine.onSensorEvent(createSensorEvent(100, 1000L)).sensorRisk)
-        riskEngine.reset()
-        assertEquals(RiskLevel.AWARENESS, riskEngine.onSensorEvent(createSensorEvent(101, 1000L)).sensorRisk)
-        riskEngine.reset()
-        assertEquals(RiskLevel.AWARENESS, riskEngine.onSensorEvent(createSensorEvent(150, 1000L)).sensorRisk)
+        assertEquals(RiskLevel.SLOW, riskEngine.onSensorEvent(createSensorEvent(150, 1000L)).sensorRisk)
         riskEngine.reset()
         assertEquals(RiskLevel.NONE, riskEngine.onSensorEvent(createSensorEvent(151, 1000L)).sensorRisk)
 
         riskEngine.reset()
-        riskEngine.onSensorEvent(createSensorEvent(45, 1000L))
-        riskEngine.onSensorEvent(createSensorEvent(65, 1500L))
-        val equalityDoesNotRelease = riskEngine.onSensorEvent(createSensorEvent(65, 2600L))
+        riskEngine.onSensorEvent(createSensorEvent(80, 1000L))
+        riskEngine.onSensorEvent(createSensorEvent(115, 1500L))
+        val equalityDoesNotRelease = riskEngine.onSensorEvent(createSensorEvent(115, 2600L))
         assertEquals(RiskLevel.STOP, equalityDoesNotRelease.sensorRisk)
     }
 
     @Test
     fun testSingleAlignedTrackMayLabelButCannotChangeSeverity() {
-        riskEngine.onSensorEvent(createSensorEvent(80, 600L))
+        riskEngine.onSensorEvent(createSensorEvent(120, 600L))
         val box = NormalizedRect(0.40f, 0.40f, 0.60f, 0.60f)
         val detection = DetectedObject(1, "chair", 0.90f, box)
         riskEngine.onPerceptionEvent(createPerceptionEvent(listOf(detection), 400L))

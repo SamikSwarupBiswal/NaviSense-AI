@@ -52,7 +52,8 @@
             <dev.navisense.camera.DetectionOverlayView
                 android:id="@+id/detectionOverlay"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent" />
+                android:layout_height="match_parent"
+                android:visibility="gone" />
 
             <!-- Live Camera Label Overlay -->
             <TextView

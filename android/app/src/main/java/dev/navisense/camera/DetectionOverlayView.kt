@@ -103,6 +103,7 @@ class DetectionOverlayView @JvmOverloads constructor(
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
+        if (visibility != View.VISIBLE) return
 
         val detections = synchronized(lock) { currentDetections }
         if (detections.isEmpty()) return
