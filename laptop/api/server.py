@@ -28,7 +28,7 @@ from laptop.api.schemas import (
     ServiceStatus,
 )
 from laptop.config.settings import LaptopConfig, SpatialZone
-from laptop.scanner import HardScanEngine
+from laptop.scanner import HardScanEngine, OpenCvFrameSource, YoloLocateDetector
 from laptop.storage.db import (
     DatabaseManager,
     ObservationRecord,
@@ -86,7 +86,7 @@ def verify_bearer_token(
 def create_app(
     config: Optional[LaptopConfig] = None,
     db_manager: Optional[DatabaseManager] = None,
-    scanner: Optional[HardScanner] = None,
+    scanner: Optional[HardScanEngine] = None,
     camera_probe_fn: Optional[Any] = None,
     required_token: Optional[str] = None,
 ) -> FastAPI:
@@ -94,6 +94,16 @@ def create_app(
     cfg = config or LaptopConfig()
     db = db_manager or DatabaseManager()
     probe_camera = camera_probe_fn if camera_probe_fn is not None else check_camera_available
+
+    if scanner is None:
+        frame_source = OpenCvFrameSource(cfg.camera_device_index)
+        detector = YoloLocateDetector(conf_threshold=cfg.detection_confidence_threshold)
+        scanner = HardScanEngine(
+            db_manager=db,
+            config=cfg,
+            frame_source=frame_source,
+            detector=detector,
+        )
 
     app = FastAPI(
         title="NaviSense Laptop Locate Service",
@@ -301,7 +311,7 @@ def create_app(
         try:
             # If scanner is active, invalidate in-flight scan
             if scanner is not None and scanner.is_scanning:
-                scanner.cancel_scan()
+                scanner.cancel_active_scan()
 
             success = db.clear_history()
             return {"status": "cleared", "success": success}
@@ -328,15 +338,17 @@ def create_app(
         if scanner is None:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="HardScanner engine is not configured on this server instance",
+                detail="HardScanEngine is not configured on this server instance",
             )
         try:
             res = scanner.execute_scan()
             return {
                 "scan_id": res.scan_id,
-                "status": res.status.value,
-                "accepted_count": res.accepted_count,
-                "duration_seconds": res.duration_seconds,
+                "status": "success" if res.success else "failed",
+                "success": res.success,
+                "accepted_count": len(res.accepted_observations),
+                "sampled_frames": res.sampled_frames,
+                "duration_seconds": round(res.duration_seconds, 3),
                 "error_message": res.error_message,
             }
         except Exception as e:

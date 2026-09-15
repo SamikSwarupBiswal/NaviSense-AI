@@ -59,6 +59,114 @@ class IFrameSource(Protocol):
         ...
 
 
+class OpenCvFrameSource:
+    """Captures real-time frames from a stationary webcam using OpenCV."""
+
+    def __init__(self, camera_index: int = 0):
+        self.camera_index = camera_index
+        self._cap = None
+
+    def _get_cap(self):
+        import cv2
+        if self._cap is None or not self._cap.isOpened():
+            self._cap = cv2.VideoCapture(self.camera_index)
+        return self._cap
+
+    def capture_frame(self) -> Optional[Any]:
+        try:
+            import cv2
+            cap = self._get_cap()
+            if cap is None or not cap.isOpened():
+                return None
+            ret, frame = cap.read()
+            if not ret or frame is None:
+                return None
+            return frame
+        except Exception as e:
+            logger.warning("OpenCV frame capture failed: %s", e)
+            return None
+
+    def release(self):
+        if self._cap is not None:
+            self._cap.release()
+            self._cap = None
+
+
+class YoloLocateDetector:
+    """YOLO locate detector running inference on captured frames."""
+
+    def __init__(
+        self,
+        model_path: str = "models/locate/locate_best.pt",
+        conf_threshold: float = 0.50,
+    ):
+        from pathlib import Path
+        self.model_path = Path(model_path)
+        self.conf_threshold = conf_threshold
+        self._model = None
+        self._load_model()
+
+    def _load_model(self):
+        from pathlib import Path
+        from ultralytics import YOLO
+
+        target = self.model_path
+        if not target.exists():
+            fallback = Path("models/smoke/locate_smoke.pt")
+            if fallback.exists():
+                target = fallback
+
+        if target.exists():
+            logger.info("Loading YOLO Locate detector from %s", target)
+            self._model = YOLO(str(target))
+        else:
+            logger.warning("Locate model weights not found at %s", target)
+
+    def detect(self, image_data: Any) -> List[Detection]:
+        if self._model is None or image_data is None:
+            return []
+
+        try:
+            results = self._model.predict(
+                source=image_data,
+                conf=self.conf_threshold,
+                verbose=False,
+            )
+            detections: List[Detection] = []
+            if not results:
+                return detections
+
+            r = results[0]
+            boxes = r.boxes
+            if boxes is None or len(boxes) == 0:
+                return detections
+
+            orig_h, orig_w = r.orig_shape
+
+            for box in boxes:
+                cls_id = int(box.cls[0].item())
+                conf = float(box.conf[0].item())
+                cls_name = r.names.get(cls_id, str(cls_id)).lower()
+
+                xyxy = box.xyxy[0].tolist()
+                x1 = max(0.0, min(1.0, xyxy[0] / orig_w))
+                y1 = max(0.0, min(1.0, xyxy[1] / orig_h))
+                x2 = max(0.0, min(1.0, xyxy[2] / orig_w))
+                y2 = max(0.0, min(1.0, xyxy[3] / orig_h))
+
+                detections.append(
+                    Detection(
+                        class_name=cls_name,
+                        confidence=conf,
+                        box=(x1, y1, x2, y2),
+                    )
+                )
+            return detections
+        except Exception as e:
+            logger.warning("YOLO Locate detection failed: %s", e)
+            return []
+
+
 def compute_iou(
     box_a: Tuple[float, float, float, float],
     box_b: Tuple[float, float, float, float],
@@ -115,9 +223,13 @@ class HardScanEngine:
         self,
         db_manager: DatabaseManager,
         config: Optional[LaptopConfig] = None,
+        frame_source: Optional[IFrameSource] = None,
+        detector: Optional[IDetector] = None,
     ):
         self.db = db_manager
         self.config = config or LaptopConfig()
+        self.default_frame_source = frame_source
+        self.default_detector = detector
         self._lock = threading.Lock()
         self._active_scan_id: Optional[str] = None
         self._is_cancelled = False
@@ -164,12 +276,19 @@ class HardScanEngine:
 
     def execute_scan(
         self,
-        frame_source: IFrameSource,
-        detector: IDetector,
+        frame_source: Optional[IFrameSource] = None,
+        detector: Optional[IDetector] = None,
         custom_scan_id: Optional[str] = None,
         area: str = "hackathon_hall",
     ) -> HardScanResult:
         """Execute stationary Hard Scan session per PRD §10 & §11.2."""
+        source = frame_source or self.default_frame_source
+        det = detector or self.default_detector
+        if source is None:
+            raise ValueError("No frame source provided or configured for Hard Scan")
+        if det is None:
+            raise ValueError("No detector provided or configured for Hard Scan")
+
         scan_start_mono = time.monotonic()
         scan_id = custom_scan_id or f"scan_{uuid.uuid4().hex[:12]}"
 
@@ -213,7 +332,7 @@ class HardScanEngine:
                     time.sleep(sleep_needed)
 
                 frame_mono = time.monotonic()
-                frame_data = frame_source.capture_frame()
+                frame_data = source.capture_frame()
 
                 if frame_data is None:
                     return HardScanResult(
@@ -259,7 +378,7 @@ class HardScanEngine:
                         error_message="Scan cancelled during inference",
                         duration_seconds=time.monotonic() - scan_start_mono,
                     )
-                dets = detector.detect(frame.image_data)
+                dets = det.detect(frame.image_data)
                 frame_detections.append(dets)
 
             # -------------------------------------------------------------
