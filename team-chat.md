@@ -2379,3 +2379,23 @@ Recipient(s): Rohan, Subham, Spandan
 For response: Team ACK; verify physical walking turn-by-turn prompts outdoors on OPPO device.
 ```
 
+```text
+Entry ID: RISHAV-SAMIK-2026-09-16-026 / 2026-09-16T05:08:00+05:30 / T+ unverified
+Author and type: Rishav, Samik | REVERT, SYNC & RESTORATION
+Phase / step / S-instance / H-contract: Phase 7 / Restoration to Verified Baseline bf62a89
+Message and requested action:
+1. Reverted Navigation Branch per Direct User Request:
+   - In accordance with direct user command ("revert"), reverted commit ff43bf1 on main (commit 0aedb1b).
+   - Codebase on main is verified 100% byte-for-byte identical to the verified stable baseline bf62a89 (git diff bf62a89 is empty).
+2. Device State:
+   - Debug APK re-assembled clean from restored baseline and installed to connected OPPO CPH2753 via ADB.
+   - MainActivity launched live in stable baseline state.
+3. Frozen File Hashes:
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Source revision and evidence reference: commit 0aedb1b on main (restoring bf62a89); git diff bf62a89 is empty
+Recipient(s): Rohan, Subham, Spandan
+For response: Team ACK revert to verified baseline bf62a89.
+```
+
+
