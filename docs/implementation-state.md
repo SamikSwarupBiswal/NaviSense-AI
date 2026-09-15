@@ -45,7 +45,7 @@ Gate results use **NOT RUN / RUNNING / PASS / FAIL / BLOCKED**. A PASS requires 
 | [Subham](subham/guidance.md) | Laptop Locate, Hard Scan, SQLite, API and Android memory client | In progress | REST API schemas, SQLite schema, response fixtures (8/8 tests pass), MemoryClientContract, mock server script | Capture laptop tabletop dataset per checklist; implement webcam adapter & 2.0s Hard Scan |
 | [Rohan](rohan/guidance.md) | Hardware, firmware, mount, USB and Android sensor adapter | In progress | Hardware spec, 10Hz ESP32 firmware, serial test tool (20/20 pass), replay harness (10/10 pass), dev.navisense.usb package & UsbSensorAdapter (unit tests pass) | Physical bench ranging across 6 distances (AC-08); benchmark live USB OTG streaming to phone |
 | [Samik](samik/guidance.md) | Android camera, both inference adapters, tracking and search engine | Delivered to Rishav for app wiring | CameraXAnalyzer, CameraTimestampMapper, Yuv420RgbConverter, KEEP_ONLY_LATEST concurrency gating implemented; 50/50 JVM tests pass, 9/9 OPPO device tests pass | Rishav binds CameraXAnalyzer to MainActivity / lifecycle and SessionCoordinator; capture phone dataset batches |
-| [Rishav](rishav/guidance.md) | Risk, voice UX, accessible shell, lifecycle and integration | In progress | Master app shell v0 merged on main (commit 78f3187), core contracts, accessible UI, 25/25 unit tests pass | Wire UsbSensorAdapter & immediate STOP; implement offline TTS arbiter with 4 priority levels |
+| [Rishav](rishav/guidance.md) | Risk, voice UX, accessible shell, lifecycle and integration | In progress | Master app shell v0 merged; Phase 6 RiskEngine (AC-10 replay suite pass), Phase 7 SpeechArbiter (cooldown/preemption pass), Phase 8 MemoryClient & SessionCoordinator wiring delivered (78/78 JVM tests pass across 14 test suites; debug APK compiled at 259,810,917 bytes) | Live on-device qualification upon OPPO CPH2753 reconnection; full integration rehearsal |
 
 Ownership above is the user's current allocation. Work reported by Codex must be labelled Codex-prepared/implemented/tested as appropriate, not attributed as completed member work without confirmation.
 
@@ -61,9 +61,9 @@ Phase numbers match the PRD and guides; Phase 0 is the prerequisite compatibilit
 | 3 — Sensor Node | Rohan | In progress | 10Hz firmware & 1k/2k divider verified; USB serial adapter implemented; physical bench ranging next |
 | 4 — Android Camera AI | Samik; Spandan artifacts; Rishav shell | Camera producer ready | CameraXAnalyzer, YUV converter, timestamp mapper, runner, tracker, and search engine verified (50/50 JVM tests, 9/9 OPPO device tests); MainActivity lifecycle wiring handed off to Rishav |
 | 5 — USB Integration | Rohan; Rishav lifecycle integration | In progress | UsbSensorAdapter unit tests pass; Android USB host verified; live cable streaming and lifecycle hookup next |
-| 6 — Fusion + Risk | Rishav; Samik/Rohan inputs | In progress | RiskEngine contracts defined; sensor <= 50cm emergency STOP wiring & staleness watchdog next |
-| 7 — Voice UX | Rishav; all producers support cancellation | In progress | SpeechArbiter contracts defined; offline Android TextToSpeech wrapper with <= 250ms STOP cancel next |
-| 8 — Memory + Final Search | Rishav integration; Subham client; Samik search | Planned | Real refresh/selection/arrival/search flow, plus independent nearby search |
+| 6 — Fusion + Risk | Rishav; Samik/Rohan inputs | Ready for review | RiskEngine implemented & verified (10/10 boundary/hold/watchdog tests pass); corridor reducer & <= 50cm emergency STOP active |
+| 7 — Voice UX | Rishav; all producers support cancellation | Ready for review | SpeechArbiter implemented & verified (6/6 priority/cooldown/cancellation tests pass); AndroidTextToSpeechPlayer wrapper integrated |
+| 8 — Memory + Final Search | Rishav integration; Subham client; Samik search | In progress | MemoryClient & SessionCoordinator wiring implemented (12/12 unit tests pass); live endpoint integration with laptop service next |
 | 9 — Calibration and Acceptance | All; Rishav consolidates | Planned | Complete gates, evidence review, supervised rehearsal and explicit owner acceptance |
 
 ## 5. User-Experience Readiness

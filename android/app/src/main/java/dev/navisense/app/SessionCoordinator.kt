@@ -14,6 +14,8 @@ import dev.navisense.navigation.IRiskEngine
 import dev.navisense.navigation.RiskEngine
 import dev.navisense.navigation.RiskEvaluationResult
 import dev.navisense.navigation.RiskLevel
+import dev.navisense.networking.LocateResult
+import dev.navisense.networking.MemoryClientContract
 import dev.navisense.voice.AlertPriority
 import dev.navisense.voice.ISpeechArbiter
 import dev.navisense.voice.SpeechRequest
@@ -26,7 +28,8 @@ class SessionCoordinator(
     val sessionGeneration: SessionGeneration,
     val clock: IClock,
     val riskEngine: IRiskEngine = RiskEngine(clock = clock),
-    val speechArbiter: ISpeechArbiter? = null
+    val speechArbiter: ISpeechArbiter? = null,
+    val memoryClient: MemoryClientContract? = null
 ) {
     @Volatile
     var currentMode: AppMode = AppMode.IDLE
@@ -42,6 +45,10 @@ class SessionCoordinator(
 
     @Volatile
     var activeTargetClass: String? = null
+        private set
+
+    @Volatile
+    var activeTargetZone: String? = null
         private set
 
     private val stateListeners = mutableListOf<StateChangeListener>()
@@ -73,6 +80,7 @@ class SessionCoordinator(
         val newGen = sessionGeneration.advance()
         currentMode = AppMode.MOBILITY
         activeTargetClass = null
+        activeTargetZone = null
         currentPathStatus = PathStatus.UNKNOWN
         riskEngine.reset()
         speechArbiter?.invalidateSession(newGen)
@@ -98,6 +106,7 @@ class SessionCoordinator(
         val newGen = sessionGeneration.advance()
         currentMode = AppMode.FINAL_SEARCH
         activeTargetClass = targetClass
+        activeTargetZone = null
         currentPathStatus = PathStatus.UNKNOWN
         riskEngine.reset()
         speechArbiter?.invalidateSession(newGen)
@@ -113,6 +122,129 @@ class SessionCoordinator(
         val token = SessionToken(newGen, currentMode)
         notifyModeChanged(token)
         return token
+    }
+
+    /**
+     * Starts guided target navigation toward a stationary memory candidate (PRD Section 13.3 & 13.4).
+     * Begins walking assistance toward target zone with announcement:
+     * "Last seen at {zone}. Obstacle assistance started."
+     */
+    @Synchronized
+    fun startTargetGuidance(targetClass: String, zoneName: String): SessionToken {
+        val newGen = sessionGeneration.advance()
+        currentMode = AppMode.MOBILITY
+        activeTargetClass = targetClass
+        activeTargetZone = zoneName
+        currentPathStatus = PathStatus.UNKNOWN
+        riskEngine.reset()
+        speechArbiter?.invalidateSession(newGen)
+        speechArbiter?.speak(
+            SpeechRequest(
+                utteranceId = "target_guidance_$newGen",
+                phrase = "Last seen at $zoneName. Obstacle assistance started.",
+                priority = AlertPriority.DIRECTIONAL,
+                sessionGeneration = newGen,
+                requestMonotonicMs = clock.nowMonotonicMs()
+            )
+        )
+        val token = SessionToken(newGen, currentMode)
+        notifyModeChanged(token)
+        return token
+    }
+
+    /**
+     * Queries the stationary laptop memory service for an object location and triggers guidance if found.
+     * Adheres to PRD Section 13.3 (refresh before Guide, session generation invalidation, and failure announcements).
+     */
+    suspend fun locateAndGuide(queryName: String): LocateResult {
+        val client = memoryClient
+            ?: return LocateResult.NetworkError(queryName, null, "Memory client not initialized")
+
+        val currentGen = sessionGeneration.get()
+        val result = client.locateObject(queryName, currentGen)
+
+        // Session generation check: ignore stale callback if session changed during network call
+        if (!sessionGeneration.isValid(currentGen)) {
+            return LocateResult.NetworkError(queryName, null, "Session generation $currentGen superseded during lookup")
+        }
+
+        when (result) {
+            is LocateResult.Found -> {
+                val zoneLabel = result.candidate.zoneName ?: result.candidate.zoneId
+                startTargetGuidance(
+                    targetClass = result.canonicalName,
+                    zoneName = zoneLabel
+                )
+            }
+            is LocateResult.Ambiguous -> {
+                speechArbiter?.speak(
+                    SpeechRequest(
+                        utteranceId = "ambiguous_${clock.nowMonotonicMs()}",
+                        phrase = "Multiple candidates found for ${result.queryName}",
+                        priority = AlertPriority.INFORMATIONAL,
+                        sessionGeneration = sessionGeneration.get(),
+                        requestMonotonicMs = clock.nowMonotonicMs()
+                    )
+                )
+            }
+            is LocateResult.Stale -> {
+                val zoneLabel = result.candidate.zoneName ?: result.candidate.zoneId
+                speechArbiter?.speak(
+                    SpeechRequest(
+                        utteranceId = "stale_${clock.nowMonotonicMs()}",
+                        phrase = "Last seen ${result.ageSeconds.toInt()} seconds ago at $zoneLabel",
+                        priority = AlertPriority.INFORMATIONAL,
+                        sessionGeneration = sessionGeneration.get(),
+                        requestMonotonicMs = clock.nowMonotonicMs()
+                    )
+                )
+            }
+            is LocateResult.HistoricalOnly -> {
+                speechArbiter?.speak(
+                    SpeechRequest(
+                        utteranceId = "historical_${clock.nowMonotonicMs()}",
+                        phrase = "Object was seen in previous scan. Location unconfirmed.",
+                        priority = AlertPriority.INFORMATIONAL,
+                        sessionGeneration = sessionGeneration.get(),
+                        requestMonotonicMs = clock.nowMonotonicMs()
+                    )
+                )
+            }
+            is LocateResult.NotFound -> {
+                speechArbiter?.speak(
+                    SpeechRequest(
+                        utteranceId = "not_found_${clock.nowMonotonicMs()}",
+                        phrase = "${result.queryName} not found",
+                        priority = AlertPriority.INFORMATIONAL,
+                        sessionGeneration = sessionGeneration.get(),
+                        requestMonotonicMs = clock.nowMonotonicMs()
+                    )
+                )
+            }
+            is LocateResult.Unsupported -> {
+                speechArbiter?.speak(
+                    SpeechRequest(
+                        utteranceId = "unsupported_${clock.nowMonotonicMs()}",
+                        phrase = "${result.queryName} is unsupported",
+                        priority = AlertPriority.INFORMATIONAL,
+                        sessionGeneration = sessionGeneration.get(),
+                        requestMonotonicMs = clock.nowMonotonicMs()
+                    )
+                )
+            }
+            is LocateResult.NetworkError -> {
+                speechArbiter?.speak(
+                    SpeechRequest(
+                        utteranceId = "net_err_${clock.nowMonotonicMs()}",
+                        phrase = "Memory lookup failed",
+                        priority = AlertPriority.INFORMATIONAL,
+                        sessionGeneration = sessionGeneration.get(),
+                        requestMonotonicMs = clock.nowMonotonicMs()
+                    )
+                )
+            }
+        }
+        return result
     }
 
     /**
@@ -159,16 +291,19 @@ class SessionCoordinator(
      * - Clears target.
      * - Resets path status to UNKNOWN.
      * - Immediately cancels audio playback (<= 250 ms).
+     * - Cancels pending memory client requests.
      */
     @Synchronized
     fun userStop(): SessionToken {
         val newGen = sessionGeneration.advance()
         currentMode = AppMode.IDLE
         activeTargetClass = null
+        activeTargetZone = null
         currentPathStatus = PathStatus.UNKNOWN
         riskEngine.reset()
         speechArbiter?.invalidateSession(newGen)
         speechArbiter?.cancelAll()
+        memoryClient?.cancelPending()
         val token = SessionToken(newGen, currentMode)
         notifyModeChanged(token)
         return token
@@ -181,10 +316,13 @@ class SessionCoordinator(
     fun fatalPause(): SessionToken {
         val newGen = sessionGeneration.advance()
         currentMode = AppMode.PAUSED
+        activeTargetClass = null
+        activeTargetZone = null
         currentPathStatus = PathStatus.UNKNOWN
         riskEngine.reset()
         speechArbiter?.invalidateSession(newGen)
         speechArbiter?.cancelAll()
+        memoryClient?.cancelPending()
         val token = SessionToken(newGen, currentMode)
         notifyModeChanged(token)
         return token
