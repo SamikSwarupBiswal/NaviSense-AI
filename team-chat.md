@@ -1655,3 +1655,32 @@ For response: Rohan test live ESP32-S3 distance streaming over Type-C OTG cable;
 ```
 
 
+
+`	ext
+Entry ID: SUBHAM-2026-09-15-017 / 2026-09-15T17:40:00+05:30 / T+ unverified
+Author and type: Subham | PROGRESS & HANDOFF
+Phase / step / S-instance / H-contract: Phase 2 / Step 03 / H4 Delivery of FastAPI REST Service & Test Harness
+Message and requested action:
+1. Deliverables Completed & Committed to main (commit 453130d):
+   - FastAPI REST Locate & Health Service (laptop/api/server.py):
+     * Implements GET /api/v1/health (and alias /health) returning HealthResponse (service_status, camera_connected, memory_records_count, active_profile_id) per PRD §12.
+     * Implements GET /api/v1/objects/locate (and alias /locate) with strict bounded query validation (1..64 chars per PRD §13.3) and class alias normalization.
+     * Evaluates deterministic query logic: found (single match <= 60s), ambiguous (>1 candidates), stale (> 60s), historical_only (old/different profile version), not_found (0 records), and unsupported (unrecognized class) per PRD §11.3 & §23.
+     * Implements Bearer token authentication via HTTPBearer header (NAVISENSE_API_TOKEN / LAPTOP_API_TOKEN).
+     * Implements POST /api/v1/memory/clear (and alias /clear) for transactional SQLite history reset.
+     * Implements POST /api/v1/scan (and alias /scan) triggering HardScanEngine.
+   - Server Launcher Entrypoint (laptop/run_server.py):
+     * Standard CLI runner with --host, --port, and --reload support.
+   - Comprehensive API Test Suite (laptop/tests/test_api_server.py):
+     * 11 / 11 automated test cases verifying health ok/degraded, bounded query errors (400), unsupported classes, found, ambiguous, stale, historical_only, token authorization (401/200), and memory clear.
+     * All 43 / 43 tests in laptop/tests PASS in pytest (10 storage, 10 scanner, 8 schemas, 4 ingestion, 11 API server).
+2. Coordination with Rishav (H4 Android MemoryClient Integration):
+   - Verified that laptop/api/server.py endpoints (/api/v1/health and /api/v1/objects/locate) align 100% with the URL segments and JSON response parsing expected by Rishav's dev.navisense.networking.MemoryClient.
+   - Service is ready to run on laptop host (default port 8000) for real phone query and integration tests.
+3. Frozen Contract Check:
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Source revision and evidence reference: main 453130d; laptop/api/server.py, laptop/run_server.py, laptop/tests/test_api_server.py
+Recipient(s): Rishav, Spandan, Samik, Rohan
+For response: Rishav verify live MemoryClient query against running server; Spandan note readiness for trained model artifact connection.
+`
