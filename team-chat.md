@@ -2398,4 +2398,28 @@ Recipient(s): Rohan, Subham, Spandan
 For response: Team ACK revert to verified baseline bf62a89.
 ```
 
+```text
+Entry ID: RISHAV-SAMIK-2026-09-16-027 / 2026-09-16T05:17:00+05:30 / T+ unverified
+Author and type: Rishav, Samik | PROGRESS, IMPLEMENTATION & PUSH
+Phase / step / S-instance / H-contract: Phase 7 / Google Maps Real Road Names & Pedestrian Navigation Guidance Restored & Pushed
+Message and requested action:
+1. Pushed Complete New Navigation & Voice Subsystem to GitHub:
+   - In accordance with direct user command ("push everything new in github"), restored all new features and pushed to remote GitHub on both main (commit 5526dc6) and dedicated feature branch feature/pedestrian-maps-navigation.
+2. Included Features & Contracts:
+   - dev.navisense.navigation.maps.GoogleRoutesService: Live OpenStreetMap OSRM pedestrian router + Android native Geocoder for real-world street name resolution and Google Routes API v2 support.
+   - dev.navisense.navigation.maps.PedestrianNavigationEngine: Turn-by-turn guidance, orientation-aware relative bearing with hardware compass, 50m and 20m advance prompts ("In 50 meters, turn right onto GST Road"), 6m corner cue ("Turn right now onto GST Road"), and street progression announcements ("We are walking on Vandalur Road. Continue for 100 meters.").
+   - dev.navisense.voice.VoiceCommandParser & VoiceCommandManager: Continuous hands-free voice commands, voice destination parsing, and echo suppression.
+   - Multimodal Obstacle Preemption: AlertPriority.DIRECTIONAL preempted by AlertPriority.STOP from ultrasonic sensor or camera looming obstacles.
+3. Verification:
+   - 105/105 JVM unit tests PASS (./gradlew testDebugUnitTest).
+   - assembleDebug: Clean APK built in 4s.
+4. Frozen File Hashes:
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Source revision and evidence reference: commit 5526dc6 on main, branch feature/pedestrian-maps-navigation; GoogleRoutesService.kt, PedestrianNavigationEngine.kt, VoiceCommandParser.kt, MainActivity.kt, PedestrianNavigationEngineTest.kt
+Recipient(s): Rohan, Subham, Spandan
+For response: Team ACK; review and test PR feature/pedestrian-maps-navigation.
+```
+
+
 
