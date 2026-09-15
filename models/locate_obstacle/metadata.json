@@ -1,0 +1,48 @@
+{
+  "model_family": "yolov8n",
+  "task": "locate_obstacle",
+  "version": "v0.3.0-obstacle-gpu",
+  "classes": [
+    "keys",
+    "wallet",
+    "chair",
+    "table",
+    "couch",
+    "door"
+  ],
+  "input": {
+    "shape": [
+      1,
+      640,
+      640,
+      3
+    ],
+    "color_format": "RGB",
+    "format": "NHWC"
+  },
+  "output": {
+    "shape": [
+      1,
+      10,
+      8400
+    ],
+    "channels": [
+      "cx",
+      "cy",
+      "w",
+      "h",
+      "keys",
+      "wallet",
+      "chair",
+      "table",
+      "couch",
+      "door"
+    ]
+  },
+  "artifacts": {
+    "tflite_gpu": {
+      "file": "locate_obstacle_model.tflite",
+      "sha256": "a81890f165ee12d46c1c2b38993552cadea53265c44148dde57a12482a1f9646"
+    }
+  }
+}
