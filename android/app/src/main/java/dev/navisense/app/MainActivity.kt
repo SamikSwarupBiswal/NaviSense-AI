@@ -46,6 +46,7 @@ import java.util.concurrent.Executors
 class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener {
 
     private lateinit var coordinator: SessionCoordinator
+    private lateinit var hapticFeedback: IHapticFeedback
 
     private lateinit var tvSystemMode: TextView
     private lateinit var tvPathStatus: TextView
@@ -109,6 +110,7 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
 
         val app = application as NaviSenseApp
         coordinator = app.sessionCoordinator
+        hapticFeedback = HapticFeedbackManager(this)
 
         tvSystemMode = findViewById(R.id.tvSystemMode)
         tvPathStatus = findViewById(R.id.tvPathStatus)
@@ -140,6 +142,7 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
 
         // Critical safety button: immediate Stop without confirmation dialog
         btnStop.setOnClickListener {
+            hapticFeedback.cancel()
             coordinator.userStop()
             window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             announce(getString(R.string.status_idle))
@@ -185,6 +188,7 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
         cameraProvider?.unbindAll()
         cameraExecutor.shutdown()
 
+        hapticFeedback.cancel()
         coordinator.removeListener(this)
         coordinator.userStop()
     }
@@ -260,6 +264,7 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                 PathStatus.BLOCKED -> {
                     tvPathStatus.text = getString(R.string.status_path_blocked)
                     tvPathStatus.setTextColor(getColor(R.color.status_stop))
+                    hapticFeedback.triggerEmergencyStopVibration()
                 }
                 PathStatus.UNKNOWN -> {
                     tvPathStatus.text = getString(R.string.status_path_unknown)

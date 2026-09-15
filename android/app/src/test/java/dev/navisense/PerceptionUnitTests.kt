@@ -187,6 +187,12 @@ class PerceptionUnitTests {
         assertNotNull(growth)
         assertEquals(0.5625f, growth!!, 0.01f)
         assertTrue(growth >= 0.25f) // Triggers PRD §17.1 growth rule
+
+        val expansionRate = track.computeExpansionRate(currentMonotonicMs = 600L)
+        assertNotNull(expansionRate)
+        // deltaArea = 0.0225, prevArea = 0.04, dt = 0.5s -> 0.0225 / (0.04 * 0.5) = 1.125 s^-1
+        assertEquals(1.125f, expansionRate!!, 0.01f)
+        assertTrue(track.isApproaching(currentMonotonicMs = 600L, thresholdRate = 0.50f))
     }
 
     // =========================================================================

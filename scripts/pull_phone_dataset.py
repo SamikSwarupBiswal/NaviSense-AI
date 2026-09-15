@@ -23,24 +23,30 @@ def find_adb() -> str:
 
 def pull_dataset(dest_dir: Path) -> int:
     adb = find_adb()
-    remote_path = "/sdcard/Android/data/dev.navisense/files/captured_dataset"
+    candidate_paths = [
+        "/sdcard/Android/data/dev.navisense.debug/files/captured_dataset",
+        "/sdcard/Android/data/dev.navisense/files/captured_dataset",
+    ]
 
     dest_dir.mkdir(parents=True, exist_ok=True)
     print(f"Connecting to Android device via adb: {adb}")
-    print(f"Pulling from remote: {remote_path} -> {dest_dir.resolve()}")
 
-    cmd = [adb, "pull", remote_path, str(dest_dir)]
-    res = subprocess.run(cmd)
+    for remote_path in candidate_paths:
+        # Check if remote path exists
+        check = subprocess.run([adb, "shell", f"ls {remote_path}"], capture_output=True, text=True)
+        if check.returncode == 0:
+            print(f"Found remote dataset at: {remote_path}")
+            print(f"Pulling from remote: {remote_path} -> {dest_dir.resolve()}")
+            cmd = [adb, "pull", remote_path, str(dest_dir)]
+            res = subprocess.run(cmd)
+            if res.returncode == 0:
+                images = list(dest_dir.rglob("*.jpg"))
+                labels = list(dest_dir.rglob("*.txt"))
+                print(f"\n[SUCCESS] Pulled {len(images)} images and {len(labels)} label files to {dest_dir.resolve()}")
+                return 0
 
-    if res.returncode == 0:
-        # Count files
-        images = list((dest_dir / "captured_dataset" / "images").glob("*.jpg")) if (dest_dir / "captured_dataset" / "images").exists() else []
-        labels = list((dest_dir / "captured_dataset" / "labels").glob("*.txt")) if (dest_dir / "captured_dataset" / "labels").exists() else []
-        print(f"\n[SUCCESS] Pulled {len(images)} images and {len(labels)} label files to {dest_dir.resolve()}")
-        return 0
-    else:
-        print(f"\n[ERROR] Failed to pull dataset from device. Return code: {res.returncode}")
-        return res.returncode
+    print("\n[ERROR] No captured_dataset directory found under dev.navisense.debug or dev.navisense.")
+    return 1
 
 
 if __name__ == "__main__":
