@@ -1,0 +1,42 @@
+{
+  "manifest_version": "1.0.0",
+  "project": "NaviSense AI",
+  "dataset_name": "NaviSense-Locate-v1",
+  "created_by": "Spandan",
+  "classes": {
+    "0": "keys",
+    "1": "wallet"
+  },
+  "splits_summary": {
+    "train_images": 0,
+    "val_images": 0,
+    "test_images": 0,
+    "total_images": 0,
+    "total_keys_instances": 0,
+    "total_wallet_instances": 0,
+    "total_negative_frames": 0
+  },
+  "sessions": [
+    {
+      "session_id": "SES_01_LAPTOP_WOOD",
+      "device": "laptop_webcam",
+      "environment": "tabletop_wood_bright",
+      "target_split": "train",
+      "images": []
+    },
+    {
+      "session_id": "SES_02_PHONE_SEARCH",
+      "device": "android_phone",
+      "environment": "close_range_search_varied_angles",
+      "target_split": "train",
+      "images": []
+    },
+    {
+      "session_id": "SES_03_HELDOUT_TEST",
+      "device": "both",
+      "environment": "novel_tabletop_and_lighting",
+      "target_split": "test",
+      "images": []
+    }
+  ]
+}

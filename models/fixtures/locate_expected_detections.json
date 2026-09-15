@@ -1,0 +1,57 @@
+{
+  "fixture_version": "1.0.0",
+  "reference_image": {
+    "file_path": "models/reference_images/locate_ref_table.png",
+    "sha256": "4a463a96616c9054fb2c50b3f320f887e89130510ea3ceb9b0fde384f361a817",
+    "dimensions": [
+      640,
+      640,
+      3
+    ],
+    "color_space": "RGB"
+  },
+  "ground_truth_objects": [
+    {
+      "class_id": 1,
+      "class_name": "wallet",
+      "bbox_xyxy": [
+        100,
+        220,
+        220,
+        340
+      ],
+      "bbox_normalized": [
+        0.15625,
+        0.34375,
+        0.34375,
+        0.53125
+      ],
+      "zone": "table_left",
+      "description": "Simulated leather bifold wallet"
+    },
+    {
+      "class_id": 0,
+      "class_name": "keys",
+      "bbox_xyxy": [
+        420,
+        260,
+        520,
+        360
+      ],
+      "bbox_normalized": [
+        0.65625,
+        0.40625,
+        0.8125,
+        0.5625
+      ],
+      "zone": "table_right",
+      "description": "Simulated metal keyring with two keys"
+    }
+  ],
+  "verification_instructions": {
+    "target_iou": 0.5,
+    "target_conf": 0.6,
+    "subham_laptop_opencv_test": "Load locate_ref_table.png, convert BGR->RGB, scale [0,1], pass to Locate detector, confirm table_left wallet and table_right keys.",
+    "samik_android_test": "Feed bitmap into CameraX/TensorImage pipeline, confirm class_id 0 and 1 match class ordering without inverted indices."
+  }
+}

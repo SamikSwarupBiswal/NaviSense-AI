@@ -41,7 +41,7 @@ Gate results use **NOT RUN / RUNNING / PASS / FAIL / BLOCKED**. A PASS requires 
 
 | Member / guide | Owned work | State | Evidence | Next action |
 |---|---|---|---|---|
-| [Spandan](spandan/guidance.md) | Models, datasets, training, exports and quality evaluation | Planned | Not supplied | Propose demo classes/aliases and supply smoke artifacts/metadata to Subham and Samik |
+| [Spandan](spandan/guidance.md) | Models, datasets, training, exports and quality evaluation | Ready for review | S02/H1 smoke artifacts (locate_smoke.pt, mobility_smoke.pt, .ptl), contracts in models/metadata/, reference image/fixture, CAPTURE_CHECKLIST.md, and scripts/ | Subham laptop adapter check; Samik Android phone load benchmark |
 | [Subham](subham/guidance.md) | Laptop Locate, Hard Scan, SQLite, API and Android memory client | In progress | REST API schemas, SQLite schema, response fixtures (8/8 tests pass), Android MemoryClientContract | Await Rishav review of S04/H4 contracts; integrate webcam adapter |
 | [Rohan](rohan/guidance.md) | Hardware, firmware, mount, USB and Android sensor adapter | In progress | Hardware spec, 10Hz ESP32 firmware, serial test tool, replay harness, Android USB parser | Physical connection & stream benchmark on phone tomorrow |
 | [Samik](samik/guidance.md) | Android camera, both inference adapters, tracking and search engine | In progress | Contracts (H2/H5), transforms, PRD §17.2 quality check, tracker, search engine & 13/13 unit tests passing | Await S02 smoke model export from Spandan; connect phone for on-device load |
@@ -105,7 +105,7 @@ Project-owner acceptance: **not recorded**. Documentation link/schema checks do 
 
 | Handoff | Producer | Receiver | State | Missing deliverable / evidence |
 |---|---|---|---|---|
-| H1 — Model artifacts | Spandan | Subham and Samik | Planned | Artifacts/hashes, manifests, reference outputs and receiver verification |
+| H1 — Model artifacts | Spandan | Subham and Samik | Ready for review | S02 smoke artifacts in models/smoke/ and android/assets/, metadata contracts in models/metadata/, reference fixtures, capture checklist; receiver load tests pending |
 | H2 — Mobile perception | Samik | Rishav | Ready for review | dev.navisense.contracts.MobilePerceptionEvent implemented; 13/13 tests passing |
 | H3 — Sensor events | Rohan | Rishav | Ready for review | Hardware spec, ESP32 firmware, serial tool (20/20 PASS), replay harness (10/10 PASS), Android USB package ready |
 | H4 — Memory | Subham | Rishav | Ready for review | REST API schemas, response fixtures (8/8 tests PASS), SQLite schema, MemoryClientContract |
@@ -120,8 +120,8 @@ No active implementation blocker has been confirmed. The following prerequisites
 |---|---|---|
 | Actual phone and Android version | Rishav, Samik, Rohan | Selected device and access for smoke tests |
 | Board, GPIOs, power, USB interface and mount | Rohan | Recorded in docs/rohan/hardware-spec.md: ESP32-S3 DevKit, GPIO 4 (TRIG), GPIO 5 (ECHO via 1k/2k divider), 5V phone OTG, chest rig |
-| Demo Locate classes/aliases | Spandan with Subham/Samik | Agreed vocabulary and collection plan |
-| Model/runtime/export compatibility | Spandan, Samik | Both artifacts load correctly on the actual phone |
+| Demo Locate classes/aliases | Spandan with Subham/Samik | RESOLVED: Object 1 = "keys" (aliases: key, keychain, car keys), Object 2 = "wallet" (aliases: billfold, purse, cardholder) recorded in models/metadata/demo_classes.json |
+| Model/runtime/export compatibility | Spandan, Samik | RESOLVED (Smoke): NCHW [1,3,640,640] input, raw [1,6,8400] / [1,9,8400] outputs; PyTorch .pt for laptop, Lite Interpreter .ptl for mobile. Verified via scripts/verify_smoke.py (100% PASS) |
 | App package paths and event/session contracts | Rishav with producers | Shared skeleton and producer/receiver agreement |
 | Laptop camera zones and permitted memory network | Subham | Validated camera profile and local setup, without secrets in docs |
 
@@ -158,6 +158,7 @@ Next action / blocker resolver:
 | 2026-09-14 | Samik | Implemented Phase 0 perception contracts, transforms, quality gating, tracking, and target search | Created dev.navisense Android module; authored H2 & H5 contracts; 13/13 unit tests passed in 49ms |
 | 2026-09-14 | Rohan | Hardware spec, ESP32 firmware, serial tool, replay test suite & Android USB module implemented | docs/rohan/hardware-spec.md, esp32/navisense_sensor/, scripts/test_sensor_serial.py (20/20 PASS), scripts/verify_sensor_fusion_replay.py (10/10 PASS), android/app/src/main/java/dev/navisense/usb/ |
 | 2026-09-15 | Subham | Delivered S04/H4 laptop API schemas, response fixtures (8/8 passed), SQLite schema, and MemoryClientContract | laptop/api/schemas.py, laptop/tests/fixtures/responses.json, dev.navisense.networking.MemoryClientContract |
+| 2026-09-15 | Spandan | Delivered S02/H1 smoke models, metadata contracts, reference fixture, capture checklist, and evaluation scripts | models/smoke/, models/metadata/, models/fixtures/, datasets/CAPTURE_CHECKLIST.md, android/app/src/main/assets/models/, scripts/verify_smoke.py (100% PASS), scripts/evaluate_ac02.py |
 
 ## 11. Schedule and Governance State
 

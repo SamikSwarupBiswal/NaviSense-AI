@@ -1,0 +1,132 @@
+{
+  "model_name": "NaviSense-Locate-YOLO",
+  "version": "v0.1.0-smoke",
+  "phase": "Phase 0",
+  "task": "locate_object_detection",
+  "intended_receivers": [
+    "Subham (Laptop)",
+    "Samik (Android)"
+  ],
+  "provenance": {
+    "base_architecture": "YOLOv8n / YOLO11n",
+    "status": "smoke_placeholder_weights",
+    "qualification": "UNQUALIFIED_SMOKE_ONLY",
+    "note": "For adapter interface validation and shape compliance only; not trained on custom dataset."
+  },
+  "input_specification": {
+    "tensor_name": "images",
+    "shape": [
+      1,
+      3,
+      640,
+      640
+    ],
+    "batch_size": 1,
+    "channels": 3,
+    "height": 640,
+    "width": 640,
+    "data_format": "NCHW",
+    "color_order": "RGB",
+    "dtype": "float32",
+    "range": [
+      0.0,
+      1.0
+    ],
+    "normalization": {
+      "scale": 0.00392156862745098,
+      "mean": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "std": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    "preprocessing": {
+      "resize_mode": "letterbox",
+      "maintain_aspect_ratio": true,
+      "padding_color": [
+        114,
+        114,
+        114
+      ],
+      "pad_stride": 32
+    }
+  },
+  "classes": {
+    "count": 2,
+    "order": [
+      "keys",
+      "wallet"
+    ],
+    "id_map": {
+      "0": "keys",
+      "1": "wallet"
+    }
+  },
+  "output_specification": {
+    "tensor_name": "output0",
+    "raw_shape": [
+      1,
+      6,
+      8400
+    ],
+    "dtype": "float32",
+    "channel_layout": {
+      "0": "cx (center_x in 640x640 letterbox coordinates)",
+      "1": "cy (center_y in 640x640 letterbox coordinates)",
+      "2": "w (width in 640x640 letterbox coordinates)",
+      "3": "h (height in 640x640 letterbox coordinates)",
+      "4": "score_keys (logit or probability)",
+      "5": "score_wallet (logit or probability)"
+    },
+    "decoding": {
+      "x1": "cx - w / 2.0",
+      "y1": "cy - h / 2.0",
+      "x2": "cx + w / 2.0",
+      "y2": "cy + h / 2.0",
+      "unpad_formula": "invert letterbox scale and offset to recover original image coordinates"
+    },
+    "nms": {
+      "candidate_conf_threshold": 0.25,
+      "prd_acceptance_conf_threshold": 0.6,
+      "iou_threshold": 0.5,
+      "max_detections": 100
+    }
+  },
+  "acceptance_gates": {
+    "gate": "AC-02",
+    "required_precision": 0.9,
+    "required_recall": 0.85,
+    "match_iou": 0.5,
+    "min_laptop_eval_instances": 50,
+    "min_mobile_eval_instances": 50,
+    "min_negative_frames": 20
+  },
+  "artifact": {
+    "file_path": "models/smoke/locate_smoke.pt",
+    "sha256": "02bbdf0758c1f9344802b71d9c924c7385740f6e4ed48df17c6136aa29334dac",
+    "format": "torchscript_pt",
+    "size_bytes": 1098679
+  },
+  "artifacts": {
+    "laptop_torchscript": {
+      "path": "models/smoke/locate_smoke.pt",
+      "sha256": "02bbdf0758c1f9344802b71d9c924c7385740f6e4ed48df17c6136aa29334dac",
+      "format": "torchscript_pt"
+    },
+    "android_mobile_ptl": {
+      "path": "android/app/src/main/assets/models/locate_smoke.ptl",
+      "sha256": "6b10accfabb7c7efbcb56fbb6b3198283bee56790987a5b87e403644746a8197",
+      "format": "pytorch_lite_ptl"
+    },
+    "android_assets_pt": {
+      "path": "android/app/src/main/assets/models/locate_smoke.pt",
+      "sha256": "eb3ed250b7fe4f2a5d6a2bd92ade0da5e372aa988d75fb8e9d4461eeaf3431e5",
+      "format": "torchscript_pt"
+    }
+  }
+}

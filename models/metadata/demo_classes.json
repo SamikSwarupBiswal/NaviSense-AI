@@ -1,0 +1,105 @@
+{
+  "version": "1.0.0",
+  "project": "NaviSense AI",
+  "lead": "Spandan",
+  "handoff": "S02 / H1",
+  "phase": "Phase 0",
+  "locate_demo_classes": [
+    {
+      "id": 0,
+      "canonical_name": "keys",
+      "spoken_aliases": [
+        "key",
+        "keychain",
+        "car keys",
+        "house keys"
+      ],
+      "description": "Metal ring with multiple house or car keys, key fob, or lanyard attached.",
+      "typical_dimensions_cm": {
+        "length": 8.0,
+        "width": 3.5,
+        "thickness": 1.5
+      },
+      "detection_priorities": "Small metallic object, reflective, variable arrangement, high clutter vulnerability."
+    },
+    {
+      "id": 1,
+      "canonical_name": "wallet",
+      "spoken_aliases": [
+        "billfold",
+        "purse",
+        "cardholder",
+        "pocketbook"
+      ],
+      "description": "Bifold, trifold, or slim leather/fabric cardholder and wallet.",
+      "typical_dimensions_cm": {
+        "length": 11.0,
+        "width": 8.5,
+        "thickness": 2.0
+      },
+      "detection_priorities": "Flat rectangular geometry, low contrast on dark table surfaces, partial occlusion under papers."
+    }
+  ],
+  "mobility_obstacle_classes": [
+    {
+      "id": 0,
+      "canonical_name": "person",
+      "spoken_aliases": [
+        "person",
+        "human",
+        "someone",
+        "pedestrian"
+      ],
+      "coco_class_id": 0
+    },
+    {
+      "id": 1,
+      "canonical_name": "chair",
+      "spoken_aliases": [
+        "chair",
+        "seat",
+        "stool",
+        "armchair"
+      ],
+      "coco_class_id": 56
+    },
+    {
+      "id": 2,
+      "canonical_name": "table",
+      "spoken_aliases": [
+        "table",
+        "desk",
+        "dining table"
+      ],
+      "coco_class_id": 60
+    },
+    {
+      "id": 3,
+      "canonical_name": "backpack",
+      "spoken_aliases": [
+        "backpack",
+        "bag",
+        "schoolbag",
+        "knapsack"
+      ],
+      "coco_class_id": 24
+    },
+    {
+      "id": 4,
+      "canonical_name": "bottle",
+      "spoken_aliases": [
+        "bottle",
+        "water bottle",
+        "flask",
+        "container"
+      ],
+      "coco_class_id": 39
+    }
+  ],
+  "rules": {
+    "locate_class_count": 2,
+    "mobility_class_count": 5,
+    "ownership_neutrality": "Spoken labels must NEVER imply user ownership (e.g. \"Keys detected\", not \"Your keys detected\" until verified by session authority).",
+    "unlabeled_fallback": "Any reflecting ultrasonic obstacle triggers generic proximity alert regardless of visual detection."
+  }
+}
