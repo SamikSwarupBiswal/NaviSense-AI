@@ -33,18 +33,19 @@ class TfliteGpuLocateBackend(
     private var gpuDelegate: GpuDelegate? = null
 
     // Pre-allocated direct NIO buffers (zero per-frame GC allocations)
+    private val numChannels: Int = 4 + numClasses
     private val inputBuffer: ByteBuffer = ByteBuffer.allocateDirect(1 * 640 * 640 * 3 * 4).apply {
         order(ByteOrder.nativeOrder())
     }
     private val inputFloatBuffer: FloatBuffer = inputBuffer.asFloatBuffer()
 
-    private val outputBuffer: ByteBuffer = ByteBuffer.allocateDirect(1 * 6 * 8400 * 4).apply {
+    private val outputBuffer: ByteBuffer = ByteBuffer.allocateDirect(1 * numChannels * 8400 * 4).apply {
         order(ByteOrder.nativeOrder())
     }
     private val outputFloatBuffer: FloatBuffer = outputBuffer.asFloatBuffer()
 
     // Output array cache for reading out tensor data without reallocations
-    private val outputArray = FloatArray(1 * 6 * 8400)
+    private val outputArray = FloatArray(1 * numChannels * 8400)
 
     var completedForwardPasses: Int = 0
         private set

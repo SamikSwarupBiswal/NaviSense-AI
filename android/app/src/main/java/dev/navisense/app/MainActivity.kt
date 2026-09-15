@@ -521,11 +521,11 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                         expectedSha256 = "d76302b62ba357a5dfa7531f201a7d7141ce55b1c940d3c6eae3b19d573b4936"
                     )
                     AppVisionMode.LOCATE_SEARCH -> LocalModelConfiguration(
-                        assetName = "models/locate_model.tflite",
-                        identity = "locate-v0.2.0-tflite-gpu-bf3968aa",
-                        labels = listOf("keys", "wallet"),
+                        assetName = "models/locate_obstacle_model.tflite",
+                        identity = "locate-v0.3.0-obstacle-gpu-a81890f1",
+                        labels = listOf("keys", "wallet", "chair", "table", "couch", "door"),
                         confidenceThreshold = 0.25f,
-                        expectedSha256 = "bf3968aadba9b7cd30c4e58adcd7a95c453e4c02f52c90e2d5608a52a6487bc5"
+                        expectedSha256 = "a81890f165ee12d46c1c2b38993552cadea53265c44148dde57a12482a1f9646"
                     )
                     AppVisionMode.OFF -> throw IllegalArgumentException("OFF has no local model")
                 }
@@ -646,15 +646,26 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
     override fun onRiskEvaluated(result: RiskEvaluationResult) {
         runOnUiThread {
             if (coordinator.currentMode == AppMode.MOBILITY) {
+                val obstacleLabel = result.associatedObjectLabel?.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+                    ?: result.visualObstacleLabel
                 when (result.combinedRisk) {
                     RiskLevel.STOP -> {
                         if (result.isEscalation) {
                             hapticFeedback.triggerEmergencyStopVibration()
                         }
+                        tvPathStatus.text = if (obstacleLabel != null) "STOP: $obstacleLabel ahead" else getString(R.string.status_path_blocked)
+                        tvPathStatus.setTextColor(getColor(R.color.status_stop))
                     }
                     RiskLevel.SLOW -> {
                         if (result.isApproachingHazard && result.isEscalation) {
                             hapticFeedback.triggerWarningVibration()
+                        }
+                        tvPathStatus.text = if (obstacleLabel != null) "Slow: $obstacleLabel ahead" else getString(R.string.status_path_blocked)
+                        tvPathStatus.setTextColor(getColor(R.color.status_unknown))
+                    }
+                    RiskLevel.AWARENESS -> {
+                        if (obstacleLabel != null) {
+                            tvPathStatus.text = "$obstacleLabel detected ahead"
                         }
                     }
                     else -> {}
@@ -693,10 +704,15 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                     )
                 }
                 SearchUiState.SEARCHING -> {
-                    tvSystemMode.text = getString(
-                        R.string.status_searching_for,
-                        target?.displayName ?: getString(R.string.search_target_generic)
-                    )
+                    val targetName = target?.displayName ?: getString(R.string.search_target_generic)
+                    tvSystemMode.text = when {
+                        event?.obstacleInPath != null ->
+                            "$targetName ahead (${event.obstacleInPath} in between). Move closer."
+                        event?.candidateCount ?: 0 > 0 ->
+                            "$targetName visible ahead. Move closer."
+                        else ->
+                            getString(R.string.status_searching_for, targetName)
+                    }
                 }
                 SearchUiState.MULTIPLE_CANDIDATES -> {
                     tvSystemMode.text = getString(
@@ -706,20 +722,29 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                 }
                 SearchUiState.FOUND -> {
                     val targetName = target?.displayName ?: getString(R.string.search_target_generic)
-                    tvSystemMode.text = when (event?.direction) {
-                        dev.navisense.contracts.TargetDirection.LEFT -> getString(
-                            R.string.status_search_found_left,
-                            targetName
-                        )
-                        dev.navisense.contracts.TargetDirection.CENTER -> getString(
-                            R.string.status_search_found_center,
-                            targetName
-                        )
-                        dev.navisense.contracts.TargetDirection.RIGHT -> getString(
-                            R.string.status_search_found_right,
-                            targetName
-                        )
-                        null -> getString(R.string.status_search_found_direction_unknown, targetName)
+                    tvSystemMode.text = if (event?.isCloseEnough == true) {
+                        when (event.direction) {
+                            dev.navisense.contracts.TargetDirection.LEFT -> "$targetName reached on the left."
+                            dev.navisense.contracts.TargetDirection.CENTER -> "$targetName reached straight ahead."
+                            dev.navisense.contracts.TargetDirection.RIGHT -> "$targetName reached on the right."
+                            null -> "$targetName reached."
+                        }
+                    } else {
+                        when (event?.direction) {
+                            dev.navisense.contracts.TargetDirection.LEFT -> getString(
+                                R.string.status_search_found_left,
+                                targetName
+                            )
+                            dev.navisense.contracts.TargetDirection.CENTER -> getString(
+                                R.string.status_search_found_center,
+                                targetName
+                            )
+                            dev.navisense.contracts.TargetDirection.RIGHT -> getString(
+                                R.string.status_search_found_right,
+                                targetName
+                            )
+                            null -> getString(R.string.status_search_found_direction_unknown, targetName)
+                        }
                     }
                 }
                 SearchUiState.TIMED_OUT -> {

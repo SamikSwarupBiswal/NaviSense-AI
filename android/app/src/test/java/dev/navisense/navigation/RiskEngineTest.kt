@@ -1,5 +1,6 @@
 package dev.navisense.navigation
 
+import dev.navisense.FakeClock
 import dev.navisense.contracts.*
 import org.junit.Assert.*
 import org.junit.Before
@@ -36,10 +37,11 @@ class RiskEngineTest {
     private fun createPerceptionEvent(
         detections: List<DetectedObject>,
         timestampMs: Long,
-        quality: FrameQualityStatus = FrameQualityStatus.USABLE
+        quality: FrameQualityStatus = FrameQualityStatus.USABLE,
+        sessionGeneration: Long = 1L
     ): PerceptionFrameEvent {
         return MobilePerceptionEvent(
-            sessionGeneration = 1L,
+            sessionGeneration = sessionGeneration,
             mode = AppVisionMode.MOBILITY,
             frameId = timestampMs,
             captureMonotonicMs = timestampMs,
@@ -296,5 +298,50 @@ class RiskEngineTest {
         riskEngine.onPerceptionEvent(frame)
         val duplicateFrame = frame.copy(detections = emptyList())
         assertEquals(RiskLevel.STOP, riskEngine.onPerceptionEvent(duplicateFrame).combinedRisk)
+    }
+
+    @Test
+    fun testVisionOnlyCorridorTrackProvidesVisualObstacleLabel() {
+        // Without ultrasonic sensor (phone-only walking mode), persistent corridor detection provides visualObstacleLabel
+        val box = NormalizedRect(0.40f, 0.40f, 0.60f, 0.60f)
+        val detection = DetectedObject(1, "chair", 0.90f, box)
+        riskEngine.onPerceptionEvent(createPerceptionEvent(listOf(detection), 100L))
+        riskEngine.onPerceptionEvent(createPerceptionEvent(listOf(detection), 200L))
+        val result = riskEngine.onPerceptionEvent(createPerceptionEvent(listOf(detection), 300L))
+
+        assertEquals("Chair", result.visualObstacleLabel)
+        assertEquals(RiskLevel.AWARENESS, result.visionRisk)
+        assertEquals(RiskLevel.AWARENESS, result.combinedRisk)
+    }
+
+    @Test
+    fun testWalkingModeSpeaksSpecificObstacleName() {
+        val fakeClock = FakeClock(1000L)
+        val spoken = mutableListOf<String>()
+        val speech = object : dev.navisense.voice.ISpeechArbiter {
+            override fun speak(request: dev.navisense.voice.SpeechRequest): Boolean {
+                spoken.add(request.phrase)
+                return true
+            }
+            override fun cancelAll() = Unit
+            override fun invalidateSession(newGeneration: Long) = Unit
+        }
+        val coordinator = dev.navisense.app.SessionCoordinator(
+            sessionGeneration = SessionGeneration(1L),
+            clock = fakeClock,
+            speechArbiter = speech
+        )
+        val token = coordinator.startMobility()
+
+        // Persistent chair in corridor
+        val box = NormalizedRect(0.40f, 0.40f, 0.60f, 0.60f)
+        val detection = DetectedObject(1, "chair", 0.90f, box)
+        coordinator.onPerceptionEvent(createPerceptionEvent(listOf(detection), 100L, sessionGeneration = token.generation))
+        coordinator.onPerceptionEvent(createPerceptionEvent(listOf(detection), 200L, sessionGeneration = token.generation))
+        coordinator.onPerceptionEvent(createPerceptionEvent(listOf(detection), 300L, sessionGeneration = token.generation))
+
+        // Check that specific obstacle name was spoken (Chair ahead.) instead of generic (Obstacle ahead.)
+        assertTrue("Expected 'Chair ahead.' in speech, got $spoken", spoken.contains("Chair ahead."))
+        assertFalse("Should not speak generic 'Obstacle ahead.' when label is known", spoken.contains("Obstacle ahead."))
     }
 }

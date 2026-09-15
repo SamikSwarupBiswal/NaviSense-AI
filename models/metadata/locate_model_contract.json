@@ -135,6 +135,15 @@
       "format": "tflite_fp16",
       "input_shape": [1, 640, 640, 3],
       "output_shape": [1, 6, 8400]
+    },
+    "android_locate_obstacle_tflite_gpu": {
+      "path": "android/app/src/main/assets/models/locate_obstacle_model.tflite",
+      "sha256": "a81890f165ee12d46c1c2b38993552cadea53265c44148dde57a12482a1f9646",
+      "size_bytes": 6186224,
+      "format": "tflite_fp16",
+      "classes": ["keys", "wallet", "chair", "table", "couch", "door"],
+      "input_shape": [1, 640, 640, 3],
+      "output_shape": [1, 10, 8400]
     }
   }
 }

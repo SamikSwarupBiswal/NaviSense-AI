@@ -19,12 +19,14 @@ datasets/mobility_combined/
 datasets/locate_combined_v2/train/
 datasets/locate_combined_v2/valid/
 datasets/locate_combined_v2/test/
+datasets/locate_obstacle_combined/
 datasets/raw/*
 !datasets/raw/laptop/
 *.zip
 *.db
 models/checkpoints/
 models/locate/runs/
+models/locate_obstacle/tflite_out/
 runs/
 yolov8n.pt
 

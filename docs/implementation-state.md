@@ -255,3 +255,17 @@ Earlier 2.8 ms Locate / 40 ms Mobility claims measured rejection of uniform imag
 Letterboxing now preserves aspect ratio with 114 padding and shares the inverse transform's geometry; portrait RGB and landscape padding fixtures pass. Search requires ordered, fresh, distinct capture/frame IDs, Locate mode/model identity, geometry reset and one-to-one matching per frame. Cache replacement is atomic on each asset load, including existing non-empty files; a device test replaces stale bytes and verifies the packaged bytes are restored. Native model resources are destroyed on close.
 
 H2/H5 remain awaiting concrete CameraX producer and Rishav integration/review. The status defect is corrected; live CameraX is not claimed implemented. Next owner actions: Samik implements owned camera producer; Rishav wires readiness/watchdog/session/risk/search outputs and reviews receipts. All 16 acceptance gates remain NOT RUN. Frozen hashes match AGENTS.md before edits; verify again at commit. Original failed benchmark attempt retained here; later retests do not erase it.
+
+### Walking Mode Obstacle Naming & Search Nearby In-Path Obstacle Integration — 2026-09-16
+
+1. **Walking Mode (Mobility Mode)**:
+   - Upgraded `RiskEngine.kt` to extract `visualObstacleLabel` from the strongest track in the walking corridor (`Chair`, `Table`, `Backpack`, `Bottle`, `Person`).
+   - Integrated with `SessionCoordinator.kt` and `MainActivity.kt` to announce specific obstacle labels: `"$obstacleLabel ahead."`, `"Slow down. $obstacleLabel ahead."`, and `"STOP. $obstacleLabel ahead."` rather than generic alerts.
+2. **Search Nearby (Locate Mode)**:
+   - Fine-tuned multi-class YOLO model on keys, wallet, and indoor obstacles (chair, table, couch, door).
+   - Converted model to TFLite FP16 with GPU delegate optimization (`locate_obstacle_model.tflite`, SHA-256 `a81890f165ee12d46c1c2b38993552cadea53265c44148dde57a12482a1f9646`).
+   - Upgraded `TargetSearchEngine.kt` to geometrically detect obstacles positioned in the horizontal walking corridor between user and target object.
+   - Gated target reach: confirmation is held in `SEARCHING` until target bounding box height reaches `>= 0.12f` (or area `>= 0.025f`), preventing premature "reached" announcements from afar.
+   - Clean UI: camera viewfinder remains clean with bounding boxes hidden (`DetectionOverlayView` set to `View.GONE`).
+   - All 92 Android JVM tests pass (`BUILD SUCCESSFUL`).
+
