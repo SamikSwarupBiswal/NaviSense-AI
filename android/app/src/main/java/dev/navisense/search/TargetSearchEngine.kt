@@ -18,7 +18,7 @@ class TargetSearchEngine(
     val confirmationWindowMs: Long = 1000L,
     val searchTimeoutMs: Long = 15000L,
     val minConfirmationFrames: Int = 3,
-    val minConfidence: Float = 0.60f,
+    val minConfidence: Float = 0.45f,
     val matchIouThreshold: Float = 0.30f,
     val reachBoxHeightThreshold: Float = 0.12f
 ) {

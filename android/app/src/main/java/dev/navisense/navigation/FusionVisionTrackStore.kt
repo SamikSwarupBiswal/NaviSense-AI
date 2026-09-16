@@ -116,9 +116,9 @@ internal class FusionVisionTrackStore(
     }
 
     private companion object {
-        const val MIN_CONFIDENCE = 0.40f
-        const val REQUIRED_FRAMES = 3
-        const val PERSISTENCE_WINDOW_MS = 1_000L
+        const val MIN_CONFIDENCE = 0.30f
+        const val REQUIRED_FRAMES = 2
+        const val PERSISTENCE_WINDOW_MS = 1_500L
         const val HISTORY_MS = 2_000L
         const val GROWTH_INTERVAL_MS = 500L
         const val GROWTH_TOLERANCE_MS = 150L

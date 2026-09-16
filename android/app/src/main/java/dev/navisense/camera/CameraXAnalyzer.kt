@@ -271,9 +271,12 @@ class CameraXAnalyzer(
                 rawRunnerEvent.errorMessage == null &&
                 session.mode == AppVisionMode.MOBILITY
             ) {
+                val obstacleDetections = rawRunnerEvent.detections.filter {
+                    it.label.lowercase() !in NON_MOBILITY_OBSTACLES
+                }
                 rawRunnerEvent.copy(
                     detections = session.tracker.update(
-                        detections = rawRunnerEvent.detections,
+                        detections = obstacleDetections,
                         currentMonotonicMs = rawRunnerEvent.captureMonotonicMs,
                         geometryVersion = rawRunnerEvent.geometryVersion
                     )
@@ -431,5 +434,6 @@ class CameraXAnalyzer(
         const val DIAGNOSTIC_FRAME_INTERVAL = 30L
         const val TAG = "NaviSenseCameraAnalyzer"
         val VALID_ROTATIONS = setOf(0, 90, 180, 270)
+        val NON_MOBILITY_OBSTACLES = setOf("keys", "wallet")
     }
 }

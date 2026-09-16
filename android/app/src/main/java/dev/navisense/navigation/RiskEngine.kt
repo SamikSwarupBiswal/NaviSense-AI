@@ -74,15 +74,18 @@ class RiskEngine(
             return buildResult(now) to true
         }
         lastUsableCameraDeliveryMs = now
-        tentativeCorridorCandidate = event.detections.any {
-            it.confidence >= MIN_VISION_CONFIDENCE && validBox(it.boundingBox) &&
-                corridor.isCorridorObstacle(it.boundingBox)
+        val obstacleCandidates = event.detections.filter {
+            it.label.lowercase() !in NON_MOBILITY_OBSTACLES &&
+                it.confidence >= MIN_VISION_CONFIDENCE && validBox(it.boundingBox)
+        }
+        tentativeCorridorCandidate = obstacleCandidates.any {
+            corridor.isCorridorObstacle(it.boundingBox)
         }
         if (tentativeCorridorCandidate) clearanceStartMs = null
 
         val tracks = visionTracks.update(
             event.frameId, event.captureMonotonicMs, event.geometryVersion,
-            event.detections.filter { it.confidence >= MIN_VISION_CONFIDENCE && validBox(it.boundingBox) }
+            obstacleCandidates
         )
         var rawVisionRisk = RiskLevel.NONE
         var strongestTrack: FusionVisionTrackStore.Track? = null
@@ -314,8 +317,9 @@ class RiskEngine(
         const val SENSOR_FRESH_MS = 300L; const val CAMERA_CAPTURE_FRESH_MS = 500L
         const val CAMERA_DELIVERY_DEADLINE_MS = 1_000L; const val ASSOCIATION_WINDOW_MS = 200L
         const val RELEASE_HOLD_MS = 1_000L; const val SENSOR_LOSS_HOLD_MS = 1_000L
-        const val CLEAR_HOLD_MS = 1_000L; const val MIN_VISION_CONFIDENCE = 0.40f
+        const val CLEAR_HOLD_MS = 1_000L; const val MIN_VISION_CONFIDENCE = 0.30f
         const val MIN_AREA_GROWTH = 0.25f; const val NEAR_BOTTOM = 0.85f
         const val NEAR_AREA = 0.20f
+        val NON_MOBILITY_OBSTACLES = setOf("keys", "wallet")
     }
 }

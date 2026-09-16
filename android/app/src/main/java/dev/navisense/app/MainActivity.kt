@@ -710,13 +710,11 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
             try {
                 val configuration = when (mode) {
                     AppVisionMode.MOBILITY -> LocalModelConfiguration(
-                        assetName = "models/mobility_smoke.ptl",
-                        identity = "mobility-v0.2.0-finetuned-d76302b6",
-                        labels = listOf("person", "chair", "table", "backpack", "bottle"),
-                        // Render/export contract candidates start at 0.25. The risk engine
-                        // independently enforces the PRD's >= 0.40 qualification threshold.
+                        assetName = "models/locate_obstacle_model.tflite",
+                        identity = "mobility-v0.3.0-obstacle-gpu-a81890f1",
+                        labels = listOf("keys", "wallet", "chair", "table", "couch", "door"),
                         confidenceThreshold = 0.25f,
-                        expectedSha256 = "d76302b62ba357a5dfa7531f201a7d7141ce55b1c940d3c6eae3b19d573b4936"
+                        expectedSha256 = "a81890f165ee12d46c1c2b38993552cadea53265c44148dde57a12482a1f9646"
                     )
                     AppVisionMode.LOCATE_SEARCH -> LocalModelConfiguration(
                         assetName = "models/locate_obstacle_model.tflite",
@@ -727,7 +725,7 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                     )
                     AppVisionMode.OFF -> throw IllegalArgumentException("OFF has no local model")
                 }
-                val backend = if (mode == AppVisionMode.LOCATE_SEARCH) {
+                val backend = if (mode == AppVisionMode.LOCATE_SEARCH || mode == AppVisionMode.MOBILITY) {
                     val modelPath = TfliteGpuLocateBackend.copyAssetToCache(this, configuration.assetName)
                     verifyFileSha256(modelPath, configuration.expectedSha256)
                     TfliteGpuLocateBackend(
