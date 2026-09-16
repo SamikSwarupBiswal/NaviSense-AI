@@ -85,6 +85,7 @@ import dev.navisense.map.LocationTracker
 import dev.navisense.map.MapNavigationCoordinator
 import dev.navisense.map.MapPOI
 import dev.navisense.map.MapRoutingEngine
+import dev.navisense.map.toWalkingRoute
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import kotlin.math.roundToInt
@@ -1053,6 +1054,42 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
         voiceRecognizer?.startListening()
     }
 
+    private fun findCampusPoi(query: String): MapPOI? {
+        val engine = mapRoutingEngine ?: return null
+        val q = query.lowercase(java.util.Locale.ROOT).trim()
+
+        // 1. Direct name, description or ID match
+        engine.pois.find { poi ->
+            val name = poi.name.lowercase(java.util.Locale.ROOT)
+            val desc = poi.description.lowercase(java.util.Locale.ROOT)
+            name == q || poi.id == q || name.contains(q) || q.contains(name)
+        }?.let { return it }
+
+        // 2. Campus aliases and shortcuts
+        return when {
+            q.contains("ab1") || q.contains("ab 1") || q.contains("academic block 1") -> engine.getPoi("poi_academic_block_1")
+            q.contains("ab2") || q.contains("ab 2") || q.contains("academic block 2") -> engine.getPoi("poi_academic_block_2")
+            q.contains("ab3") || q.contains("ab 3") || q.contains("academic block 3") -> engine.getPoi("poi_academic_block_3")
+            q.contains("ambrosia") || q.contains("gazebo") || q.contains("canteen") || q.contains("food court") || q.contains("food") -> engine.getPoi("poi_food_court")
+            q.contains("library") || q.contains("central library") -> engine.getPoi("poi_library")
+            q.contains("health center") || q.contains("medical") || q.contains("clinic") || q.contains("dispensary") || q.contains("hospital") -> engine.getPoi("poi_health_center")
+            q.contains("auditorium") || q.contains("audi") || q.contains("netaji") -> engine.getPoi("poi_auditorium")
+            q.contains("pool") || q.contains("swimming") || q.contains("gym") || q.contains("badminton") -> engine.getPoi("poi_swimming_pool")
+            q.contains("atm") || q.contains("sbi") || q.contains("bank") -> engine.getPoi("poi_sbi_atm")
+            q.contains("delta") -> engine.getPoi("poi_hostel_delta")
+            q.contains("gamma") -> engine.getPoi("poi_hostel_gamma")
+            q.contains("main gate") || q.contains("entrance gate") || q.contains("gate") -> engine.getPoi("poi_main_gate")
+            q.contains("admin") || q.contains("administration") -> engine.getPoi("poi_admin_block")
+            q.contains("sports") || q.contains("ground") -> engine.getPoi("poi_sports_complex")
+            q.contains("bus") || q.contains("kelambakkam") -> engine.getPoi("poi_kelambakkam_road")
+            else -> engine.pois.find { poi ->
+                val name = poi.name.lowercase(java.util.Locale.ROOT)
+                val desc = poi.description.lowercase(java.util.Locale.ROOT)
+                desc.contains(q)
+            }
+        }
+    }
+
     private fun onDestinationReceived(destination: String) {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             announce("Location permission required for navigation. Please grant permission.")
@@ -1070,7 +1107,7 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
         when (resolution) {
             is CampusResolutionResult.ExactMatch -> {
                 speakVoiceFeedback("Navigating to ${resolution.poi.name}")
-                startMapNavigationToPoi(resolution.poi)
+                startCampusNavigation(resolution.poi)
                 return
             }
             is CampusResolutionResult.DisambiguationRequired -> {
@@ -1082,7 +1119,11 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                 speakVoiceFeedback("Destination ${resolution.cleanQuery} is off campus. Checking outdoor route.")
             }
             is CampusResolutionResult.UnknownDestination -> {
-                // Not a recognized campus destination; proceed with standard lookup
+                val fallbackCampus = findCampusPoi(destination)
+                if (fallbackCampus != null) {
+                    startCampusNavigation(fallbackCampus)
+                    return
+                }
             }
         }
 
@@ -1107,15 +1148,73 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
             }
     }
 
-    private fun fetchAndStartWalkingRoute(origin: GeoPoint, destination: String) {
+    private fun startCampusNavigation(poi: MapPOI) {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            announce("Location permission required for campus navigation.")
+            requestLocationPermissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                )
+            )
+            return
+        }
+
+        announce("Acquiring GPS location for ${poi.name}...")
+        val cts = CancellationTokenSource()
+        fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, cts.token)
+            .addOnSuccessListener { loc ->
+                val origin = if (loc != null) GeoPoint(loc.latitude, loc.longitude) else lastKnownLocation
+                if (origin != null) {
+                    lastKnownLocation = origin
+                    routeToCampusPoi(origin, poi)
+                } else {
+                    announce("Waiting for GPS location fix. Please ensure device location is enabled.")
+                }
+            }.addOnFailureListener {
+                val origin = lastKnownLocation
+                if (origin != null) {
+                    routeToCampusPoi(origin, poi)
+                } else {
+                    announce("Location unavailable. Please check device location settings.")
+                }
+            }
+    }
+
+    private fun routeToCampusPoi(origin: GeoPoint, poi: MapPOI) {
+        val distToPoi = dev.navisense.navigation.maps.PedestrianProgressCalculator.computeDistanceMeters(
+            origin.latitude, origin.longitude, poi.lat, poi.lon
+        )
+        if (distToPoi <= 25.0) {
+            announce("You are near ${poi.name} entrance.")
+        }
+
+        val engine = mapRoutingEngine
+        val campusRoute = engine?.planRoute(origin.latitude, origin.longitude, poi.id, maxSnapDistanceMeters = 250.0)
+
+        if (campusRoute != null) {
+            val walkingRoute = campusRoute.toWalkingRoute()
+            coordinator.startOutdoorWalking(walkingRoute)
+            startOutdoorNavigationSensors()
+            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            Log.i(TAG, "Started campus walking navigation to ${poi.name} with ${walkingRoute.steps.size} steps")
+        } else {
+            Log.i(TAG, "Campus graph snap exceeded, falling back to dynamic routing to ${poi.name} (${poi.lat}, ${poi.lon})")
+            fetchAndStartWalkingRoute(origin, poi.name, targetGeoPoint = GeoPoint(poi.lat, poi.lon))
+        }
+    }
+
+    private fun fetchAndStartWalkingRoute(origin: GeoPoint, destination: String, targetGeoPoint: GeoPoint? = null) {
         announce("Calculating walking route to $destination.")
         lifecycleScope.launch {
-            val geocodeResult = routesService.geocodeDestination(destination, nearPoint = origin)
-            geocodeResult.onFailure {
-                announce("Unable to find destination: $destination. Please try saying the full address or landmark.")
-                return@launch
+            val targetPoint = targetGeoPoint ?: run {
+                val geocodeResult = routesService.geocodeDestination(destination, nearPoint = origin)
+                geocodeResult.onFailure {
+                    announce("Unable to find destination: $destination. Please try saying the full address or landmark.")
+                    return@launch
+                }
+                geocodeResult.getOrThrow()
             }
-            val targetPoint = geocodeResult.getOrThrow()
 
             val routeResult = routesService.computeWalkingRoute(origin, targetPoint, destination)
             routeResult.onSuccess { route ->
@@ -1306,50 +1405,7 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
     }
 
     private fun startMapNavigationToPoi(poi: MapPOI) {
-        val engine = mapRoutingEngine ?: run {
-            announce("Map data is still loading. Please try again in a moment.")
-            return
-        }
-
-        // Request location permissions if not yet granted
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            announce("Location permission required for campus navigation.")
-            requestLocationPermissionLauncher.launch(
-                arrayOf(
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION
-                )
-            )
-            return
-        }
-
-        // Start GPS tracking
-        locationTracker?.startTracking()
-
-        val origin = lastKnownLocation
-        if (origin == null) {
-            announce("Acquiring GPS location for campus navigation. Please wait for a GPS fix.")
-            return
-        }
-
-        val route = engine.planRoute(origin.latitude, origin.longitude, poi.id)
-        if (route == null) {
-            announce("Unable to compute walking route to ${poi.name}. You may be outside campus walking coverage.")
-            return
-        }
-
-        val token = coordinator.startMapNavigation(poi.name)
-        mapNavigationCoordinator?.startNavigation(route, token.generation)
-        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-
-        val distToPoi = dev.navisense.navigation.maps.PedestrianProgressCalculator.computeDistanceMeters(
-            origin.latitude, origin.longitude, poi.lat, poi.lon
-        )
-        if (distToPoi <= 25.0) {
-            announce("You are near ${poi.name} entrance. Indoor navigation is unavailable.")
-        } else {
-            announce("Navigating to ${poi.name}. Route distance is ${route.totalDistanceMeters.roundToInt()} meters.")
-        }
+        startCampusNavigation(poi)
     }
 
     private fun <T> runOnUiThreadSafely(block: () -> T): T? {

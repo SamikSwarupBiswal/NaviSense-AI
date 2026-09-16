@@ -37,7 +37,11 @@ object CampusDestinationResolver {
         "poi_admin_block" to listOf("admin", "admin block", "administration", "administration block", "admissions", "finance office"),
         "poi_sports_complex" to listOf("sports", "sports complex", "sports ground", "ground", "basketball court", "football ground", "gym"),
         "poi_main_gate" to listOf("main gate", "entrance gate", "front gate", "security gate", "vit gate", "main entrance"),
-        "poi_kelambakkam_road" to listOf("bus stop", "kelambakkam", "kelambakkam road", "vandalur road", "kelambakkam bus stop")
+        "poi_kelambakkam_road" to listOf("bus stop", "kelambakkam", "kelambakkam road", "vandalur road", "kelambakkam bus stop"),
+        "poi_health_center" to listOf("health center", "medical", "clinic", "dispensary", "health clinic", "hospital"),
+        "poi_auditorium" to listOf("auditorium", "netaji auditorium", "audi", "cultural center", "netaji subhash chandra bose auditorium"),
+        "poi_swimming_pool" to listOf("swimming pool", "pool", "indoor gym", "badminton"),
+        "poi_sbi_atm" to listOf("atm", "sbi atm", "sbi bank", "bank", "sbi")
     )
 
     fun cleanQuery(rawQuery: String?): String {
@@ -129,6 +133,18 @@ object CampusDestinationResolver {
         }
         if (tokens.contains("kelambakkam") || (tokens.contains("bus") && tokens.contains("stop"))) {
             pois.find { it.id == "poi_kelambakkam_road" }?.let { return CampusResolutionResult.ExactMatch(it) }
+        }
+        if (tokens.contains("health") || tokens.contains("medical") || tokens.contains("clinic") || tokens.contains("dispensary")) {
+            pois.find { it.id == "poi_health_center" }?.let { return CampusResolutionResult.ExactMatch(it) }
+        }
+        if (tokens.contains("auditorium") || tokens.contains("audi") || tokens.contains("netaji")) {
+            pois.find { it.id == "poi_auditorium" }?.let { return CampusResolutionResult.ExactMatch(it) }
+        }
+        if (tokens.contains("pool") || tokens.contains("swimming") || (tokens.contains("indoor") && tokens.contains("gym"))) {
+            pois.find { it.id == "poi_swimming_pool" }?.let { return CampusResolutionResult.ExactMatch(it) }
+        }
+        if (tokens.contains("atm") || tokens.contains("sbi") || tokens.contains("bank")) {
+            pois.find { it.id == "poi_sbi_atm" }?.let { return CampusResolutionResult.ExactMatch(it) }
         }
 
         // 6. Ambiguity checks (e.g. "hostel" without delta or gamma, "academic block" without number)

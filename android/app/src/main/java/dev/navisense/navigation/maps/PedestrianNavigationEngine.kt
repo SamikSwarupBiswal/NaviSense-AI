@@ -197,7 +197,9 @@ class PedestrianNavigationEngine(
         val targetManeuver = nextStep?.maneuver ?: currentStep.maneuver
         val nextStreet = nextStep?.streetName?.ifBlank { nextStep.instruction } ?: ""
         val turnAction = getTurnActionWord(targetManeuver)
-        val targetStreetPhrase = if (nextStreet.isNotBlank()) " onto $nextStreet" else ""
+        val targetStreetPhrase = if (nextStreet.isNotBlank()) {
+            if (targetManeuver == ManeuverType.ARRIVE) " at $nextStreet" else " onto $nextStreet"
+        } else ""
 
         // 3. Immediate Actionable Turn Cue (e.g. <= 6m)
         if (distanceToStepEnd <= ACTIONABLE_TURN_DISTANCE_METERS && !actionableAlertGivenForStep) {

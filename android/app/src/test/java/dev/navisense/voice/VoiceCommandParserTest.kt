@@ -174,6 +174,35 @@ class VoiceCommandParserTest {
         assertTrue(libCmd is VoiceCommand.NavigateTo)
         assertTrue((libCmd as VoiceCommand.NavigateTo).destination.contains("Library"))
 
+        // Health Center
+        val healthCmd = VoiceCommandParser.parse("take me to health center")
+        assertTrue(healthCmd is VoiceCommand.NavigateTo)
+        assertTrue((healthCmd as VoiceCommand.NavigateTo).destination.contains("Health Center"))
+
+        // Auditorium
+        val audiCmd = VoiceCommandParser.parse("navigate to auditorium")
+        assertTrue(audiCmd is VoiceCommand.NavigateTo)
+        assertTrue((audiCmd as VoiceCommand.NavigateTo).destination.contains("Auditorium"))
+
+        // Swimming Pool
+        val poolCmd = VoiceCommandParser.parse("go to swimming pool")
+        assertTrue(poolCmd is VoiceCommand.NavigateTo)
+        assertTrue((poolCmd as VoiceCommand.NavigateTo).destination.contains("Swimming Pool"))
+
+        // ATM
+        val atmCmd = VoiceCommandParser.parse("directions to atm")
+        assertTrue(atmCmd is VoiceCommand.NavigateTo)
+        assertTrue((atmCmd as VoiceCommand.NavigateTo).destination.contains("ATM"))
+
+        // Delta & Gamma hostels
+        val deltaCmd = VoiceCommandParser.parse("take me to delta")
+        assertTrue(deltaCmd is VoiceCommand.NavigateTo)
+        assertTrue((deltaCmd as VoiceCommand.NavigateTo).destination.contains("Delta"))
+
+        val gammaCmd = VoiceCommandParser.parse("walk to gamma")
+        assertTrue(gammaCmd is VoiceCommand.NavigateTo)
+        assertTrue((gammaCmd as VoiceCommand.NavigateTo).destination.contains("Gamma"))
+
         // Search Nearby
         assertEquals(VoiceCommand.StartSearch, VoiceCommandParser.parse("start search"))
         assertEquals(VoiceCommand.StartSearch, VoiceCommandParser.parse("search nearby"))

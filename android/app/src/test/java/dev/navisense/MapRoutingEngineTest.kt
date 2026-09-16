@@ -2,6 +2,10 @@ package dev.navisense
 
 import dev.navisense.map.MapRoutingEngine
 import dev.navisense.map.TurnType
+import dev.navisense.map.toWalkingRoute
+import dev.navisense.navigation.maps.models.ManeuverType
+import dev.navisense.navigation.maps.models.WalkingRoute
+import dev.navisense.navigation.maps.models.WalkingStep
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
@@ -70,5 +74,50 @@ class MapRoutingEngineTest {
         // Bearing heading East
         val bearingEast = MapRoutingEngine.computeBearingDegrees(12.8400, 80.1500, 12.8400, 80.1600)
         assertEquals(90.0, bearingEast, 1.0)
+    }
+
+    @Test
+    fun testNewCampusPoisExistAndRoutable() {
+        val newPoiIds = listOf("poi_health_center", "poi_auditorium", "poi_swimming_pool", "poi_sbi_atm")
+        val startLat = 12.8407
+        val startLon = 80.1534
+
+        for (poiId in newPoiIds) {
+            val poi = routingEngine.getPoi(poiId)
+            assertNotNull("POI $poiId must exist in map asset", poi)
+            val route = routingEngine.planRoute(startLat, startLon, poiId)
+            assertNotNull("Route to $poiId should be found", route)
+            assertTrue("Route to $poiId should have distance > 0", route!!.totalDistanceMeters > 0)
+        }
+    }
+
+    @Test
+    fun testToWalkingRouteConversion() {
+        val startLat = 12.8407
+        val startLon = 80.1534
+        val route = routingEngine.planRoute(startLat, startLon, "poi_academic_block_1")
+        assertNotNull(route)
+
+        val walkingRoute = route!!.toWalkingRoute()
+        assertEquals("Academic Block 1 (AB1)", walkingRoute.destinationName)
+        assertTrue("WalkingRoute total distance > 0", walkingRoute.totalDistanceMeters > 0)
+        assertTrue("WalkingRoute total duration > 0", walkingRoute.totalDurationSeconds > 0)
+        assertTrue("Must contain steps", walkingRoute.steps.isNotEmpty())
+        assertTrue("Overview polyline must contain points", walkingRoute.overviewPolyline.isNotEmpty())
+
+        val lastStep = walkingRoute.steps.last()
+        assertEquals(ManeuverType.ARRIVE, lastStep.maneuver)
+        assertTrue(lastStep.instruction.contains("Academic Block 1"))
+    }
+
+    @Test
+    fun testSnappingWithin250Meters() {
+        // Point slightly off-path (~100m from nearest walkway)
+        val offPathLat = 12.8410
+        val offPathLon = 80.1520
+
+        val route = routingEngine.planRoute(offPathLat, offPathLon, "poi_food_court", maxSnapDistanceMeters = 250.0)
+        assertNotNull("Should snap successfully within 250m", route)
+        assertTrue("Distance should be computed", route!!.totalDistanceMeters > 0)
     }
 }

@@ -4,6 +4,10 @@ import org.json.JSONObject
 import java.io.InputStream
 import java.util.PriorityQueue
 import kotlin.math.*
+import dev.navisense.navigation.maps.models.GeoPoint
+import dev.navisense.navigation.maps.models.ManeuverType
+import dev.navisense.navigation.maps.models.WalkingRoute
+import dev.navisense.navigation.maps.models.WalkingStep
 
 /**
  * Offline pedestrian routing engine for VIT Chennai campus using A* pathfinding.
@@ -277,7 +281,7 @@ class MapRoutingEngine private constructor(
     }
 
     companion object {
-        const val DEFAULT_MAX_SNAP_DISTANCE_METERS = 80.0
+        const val DEFAULT_MAX_SNAP_DISTANCE_METERS = 250.0
         private const val EARTH_RADIUS_METERS = 6371000.0
 
         fun loadFromStream(inputStream: InputStream): MapRoutingEngine {
@@ -380,4 +384,95 @@ class MapRoutingEngine private constructor(
             TurnType.ARRIVE -> "Arrived at destination"
         }
     }
+}
+
+/**
+ * Converts a campus [TurnType] into standard [ManeuverType].
+ */
+fun TurnType.toManeuverType(): ManeuverType = when (this) {
+    TurnType.START -> ManeuverType.DEPART
+    TurnType.STRAIGHT -> ManeuverType.STRAIGHT
+    TurnType.SLIGHT_LEFT -> ManeuverType.SLIGHT_LEFT
+    TurnType.LEFT -> ManeuverType.LEFT
+    TurnType.SHARP_LEFT -> ManeuverType.SHARP_LEFT
+    TurnType.SLIGHT_RIGHT -> ManeuverType.SLIGHT_RIGHT
+    TurnType.RIGHT -> ManeuverType.RIGHT
+    TurnType.SHARP_RIGHT -> ManeuverType.SHARP_RIGHT
+    TurnType.ARRIVE -> ManeuverType.ARRIVE
+}
+
+/**
+ * Converts an offline campus [NavigationRoute] into a unified [WalkingRoute]
+ * compatible with [dev.navisense.navigation.maps.PedestrianNavigationEngine].
+ */
+fun NavigationRoute.toWalkingRoute(): WalkingRoute {
+    val totalDist = totalDistanceMeters.roundToInt().coerceAtLeast(1)
+    val totalDur = (totalDist / 1.3).roundToInt().coerceAtLeast(1)
+    val allGeoPoints = polylinePoints.map { GeoPoint(it.lat, it.lon) }
+
+    if (maneuvers.isEmpty() || polylinePoints.isEmpty()) {
+        val start = GeoPoint(destination.lat, destination.lon)
+        return WalkingRoute(
+            destinationName = destination.name,
+            totalDistanceMeters = totalDist,
+            totalDurationSeconds = totalDur,
+            steps = listOf(
+                WalkingStep(
+                    instruction = "Arrive at ${destination.name}",
+                    maneuver = ManeuverType.ARRIVE,
+                    distanceMeters = totalDist,
+                    durationSeconds = totalDur,
+                    startLocation = start,
+                    endLocation = start,
+                    streetName = destination.name,
+                    polylinePoints = listOf(start)
+                )
+            ),
+            overviewPolyline = listOf(start)
+        )
+    }
+
+    val steps = mutableListOf<WalkingStep>()
+    var prevWaypoint = allGeoPoints.first()
+
+    for (i in maneuvers.indices) {
+        val m = maneuvers[i]
+        val stepEnd = GeoPoint(m.waypoint.lat, m.waypoint.lon)
+        val stepManeuver = m.turnType.toManeuverType()
+        val stepDist = if (m.distanceMeters > 0.5) {
+            m.distanceMeters.roundToInt()
+        } else {
+            prevWaypoint.distanceTo(stepEnd).roundToInt().coerceAtLeast(1)
+        }
+        val stepDur = (stepDist / 1.3).roundToInt().coerceAtLeast(1)
+        val street = if (m.instruction.contains("onto ", ignoreCase = true)) {
+            m.instruction.substringAfter("onto ").substringBefore(",").trim()
+        } else if (m.instruction.contains("on ", ignoreCase = true)) {
+            m.instruction.substringAfter("on ").substringBefore(" for").trim()
+        } else {
+            m.roadName.ifBlank { destination.name }
+        }
+
+        steps.add(
+            WalkingStep(
+                instruction = m.instruction,
+                maneuver = stepManeuver,
+                distanceMeters = stepDist,
+                durationSeconds = stepDur,
+                startLocation = prevWaypoint,
+                endLocation = stepEnd,
+                streetName = street,
+                polylinePoints = listOf(prevWaypoint, stepEnd)
+            )
+        )
+        prevWaypoint = stepEnd
+    }
+
+    return WalkingRoute(
+        destinationName = destination.name,
+        totalDistanceMeters = totalDist,
+        totalDurationSeconds = totalDur,
+        steps = steps,
+        overviewPolyline = allGeoPoints
+    )
 }

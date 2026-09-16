@@ -140,14 +140,26 @@ object VoiceCommandParser {
         if (text.contains("admin block") || text.contains("administration")) {
             return VoiceCommand.NavigateTo("Admin Block")
         }
-        if (text.contains("delta hostel") || text.contains("hostel delta")) {
+        if (text.contains("delta hostel") || text.contains("hostel delta") || text.contains("delta block") || text.contains("delta")) {
             return VoiceCommand.NavigateTo("Delta Hostel Block")
         }
-        if (text.contains("gamma hostel") || text.contains("hostel gamma")) {
+        if (text.contains("gamma hostel") || text.contains("hostel gamma") || text.contains("gamma block") || text.contains("gamma")) {
             return VoiceCommand.NavigateTo("Gamma Hostel Block")
         }
-        if (text.contains("sports ground") || text.contains("sports complex")) {
+        if (text.contains("sports ground") || text.contains("sports complex") || text.contains("sports")) {
             return VoiceCommand.NavigateTo("Sports Complex & Ground")
+        }
+        if (text.contains("health center") || text.contains("medical") || text.contains("clinic") || text.contains("dispensary") || text.contains("hospital")) {
+            return VoiceCommand.NavigateTo("Health Center & Medical Clinic")
+        }
+        if (text.contains("auditorium") || text.contains("audi") || text.contains("netaji")) {
+            return VoiceCommand.NavigateTo("Netaji Subhash Chandra Bose Auditorium")
+        }
+        if (text.contains("swimming pool") || text.contains("pool") || text.contains("gym") || text.contains("badminton")) {
+            return VoiceCommand.NavigateTo("Swimming Pool & Indoor Gym")
+        }
+        if (text.contains("atm") || text.contains("sbi") || text.contains("bank")) {
+            return VoiceCommand.NavigateTo("SBI Bank & ATM")
         }
 
         // 7. Navigation with destination phrases: e.g. "take me to <location>", "directions to <location>"
