@@ -1063,7 +1063,6 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
             return
         }
 
-<<<<<<< HEAD
         // 1. Check CampusDestinationResolver first
         val engine = mapRoutingEngine
         val pois = engine?.pois ?: emptyList()
@@ -1088,15 +1087,6 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
             }
         }
 
-        announce("Calculating walking route to $destination.")
-        fusedLocationClient.lastLocation.addOnSuccessListener { loc ->
-            val origin = if (loc != null) GeoPoint(loc.latitude, loc.longitude) else lastKnownLocation
-            if (origin != null) {
-                lastKnownLocation = origin
-                fetchAndStartWalkingRoute(origin, destination)
-            } else {
-                announce("Waiting for GPS location fix. Please ensure location is enabled.")
-=======
         announce("Acquiring GPS location for walking route...")
         val cts = CancellationTokenSource()
         fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, cts.token)
@@ -1115,7 +1105,6 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                 } else {
                     announce("Location unavailable. Please check device location settings.")
                 }
->>>>>>> origin/main
             }
     }
 
@@ -1476,37 +1465,7 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                     showMapDestinationDialog()
                 }
                 is VoiceCommand.NavigateToDestination -> {
-<<<<<<< HEAD
                     onDestinationReceived(command.destinationQuery)
-=======
-                    val engine = mapRoutingEngine
-                    val q = command.destinationQuery.lowercase(java.util.Locale.ROOT)
-                    val matched = engine?.pois?.find { poi ->
-                        val name = poi.name.lowercase(java.util.Locale.ROOT)
-                        val desc = poi.description.lowercase(java.util.Locale.ROOT)
-                        name.contains(q) || desc.contains(q) || poi.id.contains(q)
-                    } ?: engine?.pois?.find { poi ->
-                        if (q.contains("ab1") || q.contains("ab 1")) poi.id == "poi_academic_block_1"
-                        else if (q.contains("ab2") || q.contains("ab 2")) poi.id == "poi_academic_block_2"
-                        else if (q.contains("ab3") || q.contains("ab 3")) poi.id == "poi_academic_block_3"
-                        else if (q.contains("ambrosia") || q.contains("canteen") || q.contains("food")) poi.id == "poi_food_court"
-                        else if (q.contains("library")) poi.id == "poi_library"
-                        else if (q.contains("gate")) poi.id == "poi_main_gate"
-                        else if (q.contains("admin")) poi.id == "poi_admin_block"
-                        else if (q.contains("delta")) poi.id == "poi_hostel_delta"
-                        else if (q.contains("gamma")) poi.id == "poi_hostel_gamma"
-                        else if (q.contains("sports")) poi.id == "poi_sports_complex"
-                        else if (q.contains("bus") || q.contains("kelambakkam")) poi.id == "poi_kelambakkam_road"
-                        else false
-                    }
-
-                    if (matched != null) {
-                        speakVoiceFeedback("Navigating to ${matched.name}")
-                        startMapNavigationToPoi(matched)
-                    } else {
-                        onDestinationReceived(command.destinationQuery)
-                    }
->>>>>>> origin/main
                 }
                 is VoiceCommand.NavigateTo -> {
                     onDestinationReceived(command.destination)

@@ -262,8 +262,8 @@ Remediated reported AB1 navigation bug (~178 m spoken, 728100 m left and 223 m n
    - Full automated test suite: 154/154 tests PASS (`.\gradlew.bat :app:testDebugUnitTest`, 0 failures, 0 skipped).
 7. **Debug APK Build & Physical Deployment**:
    - Assembled debug APK in 9s: BUILD SUCCESSFUL (`.\gradlew.bat :app:assembleDebug`).
-   - APK SHA-256: `3F99842063DE91CABC1D7BA7DB8336C334EEF52FFB800AE235074DC054376132`.
-   - Physical device deployment: Installed via adb on OPPO CPH2753 (device `6545Q8A6X89TW8ZX`), launched cleanly (`PID 20537`) with 0 crashes.
+   - APK SHA-256: `E4A1400137A4D3EEACFCE60938FE2E150EC1F9FAA88D6EF946523185830A11B7`.
+   - Physical device deployment: Installed via adb on OPPO CPH2753 (device `6545Q8A6X89TW8ZX`), launched cleanly with 0 crashes.
 8. **Frozen Hash Verification**:
    - `docs/README.md`: `54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA` (MATCH).
    - `docs/guidance.md`: `A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E` (MATCH).

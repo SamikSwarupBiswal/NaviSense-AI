@@ -145,13 +145,9 @@ class GoogleRoutesService(
 
     /**
      * Computes pedestrian walking route between origin and destination.
-<<<<<<< HEAD
-     * Tries Google Routes API v2 if apiKey is provided, then live OSRM walking router.
-     * Validates resulting route geometry with RouteValidator before returning.
-=======
      * Prioritizes Google Directions API (walking mode) if apiKey is available,
      * then Google Routes API v2, and then live OSRM walking router.
->>>>>>> origin/main
+     * Validates resulting route geometry with RouteValidator before returning.
      */
     suspend fun computeWalkingRoute(
         origin: GeoPoint,
@@ -159,25 +155,25 @@ class GoogleRoutesService(
         destinationName: String
     ): Result<WalkingRoute> = withContext(Dispatchers.IO) {
         if (!apiKey.isNullOrBlank()) {
-<<<<<<< HEAD
-            val googleResult = fetchGoogleRoutes(origin, destination, destinationName)
-            if (googleResult.isSuccess) {
-                val route = googleResult.getOrThrow()
+            val directionsResult = fetchGoogleDirections(origin, destination, destinationName)
+            if (directionsResult.isSuccess) {
+                val route = directionsResult.getOrThrow()
                 when (val validation = RouteValidator.validateRoute(route, origin, destination)) {
                     is RouteValidationResult.Valid -> return@withContext Result.success(validation.route)
                     is RouteValidationResult.Invalid -> {
-                        return@withContext Result.failure(validation.exception)
+                        // fall through to Google Routes
                     }
                 }
-=======
-            val directionsResult = fetchGoogleDirections(origin, destination, destinationName)
-            if (directionsResult.isSuccess) {
-                return@withContext directionsResult
             }
             val routesResult = fetchGoogleRoutes(origin, destination, destinationName)
             if (routesResult.isSuccess) {
-                return@withContext routesResult
->>>>>>> origin/main
+                val route = routesResult.getOrThrow()
+                when (val validation = RouteValidator.validateRoute(route, origin, destination)) {
+                    is RouteValidationResult.Valid -> return@withContext Result.success(validation.route)
+                    is RouteValidationResult.Invalid -> {
+                        // fall through to OSRM
+                    }
+                }
             }
         }
 
