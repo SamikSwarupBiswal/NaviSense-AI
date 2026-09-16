@@ -2701,3 +2701,30 @@ Source revision and evidence reference: commit a292211 on main; docs/implementat
 Recipient(s): Samik, Rohan, Subham, Spandan
 For response: Team ACK; ready for supervised campus walking trials on OPPO phone 6545Q8A6X89TW8ZX.
 ```
+
+
+```text
+Entry ID: SAMIK-2026-09-16-037 / 2026-09-16T08:17:30+05:30 / T+ unverified
+Author and type: Samik | PROGRESS, IMPLEMENTATION, HARDWARE DEPLOYMENT & MODEL AUDIT
+Phase / step / S-instance / H-contract: Mobility Mode Obstacle Naming & YOLO–ESP32 Deterministic Fusion / Workstream B Implementation & Workstream A Audit / H6 Integration
+Message and requested action:
+1. Workstream B Implementation (YOLO–ESP32 Fusion & Speech Arbiter Refinement):
+   - Eliminated race condition and 1.0s camera shortcut in RiskEngine.kt. Implemented symmetric temporal association (|t_sensor - t_camera| <= 200 ms) and single corridor track association.
+   - Restored frozen PRD risk bands: 2..50 cm -> STOP, 51..100 cm -> SLOW, 101..150 cm -> AWARENESS, >150 cm -> NONE.
+   - Enforced frozen release hysteresis: STOP > 65 cm, SLOW > 115 cm, AWARENESS > 165 cm held for 1.0 s.
+   - Introduced structured hazard episodes in IRiskEngine.kt (hazardEpisodeId) and SpeechRequest.kt (hazardEpisodeId, isRefinement, refinementLabel).
+   - Upgraded SpeechArbiter.kt to support episode-based preemption: sensor-triggered hazard speaks immediately ("Slow down. Obstacle ahead."), and upon YOLO association, delivers exactly one semantic refinement ("Slow down. Chair ahead.") without being suppressed by the 5-second voice cooldown.
+2. Model & Dataset Audit (Workstream A):
+   - Downloaded and parsed Kaggle dataset 'aryakrisnaputra/objects-in-the-classroom' into 2-class candidate format (0: table, 1: chair) at datasets/mobility_chair_table/.
+   - Clarified with user: the app already embeds a high-performance locate_obstacle_model.tflite running on GPU detecting chairs, tables, couches, and people; missing voice output was due to sensor preemption/cooldown locks (now resolved), not model absence. Training halted to prioritize hardware trial.
+3. Test Verification & Hardware Deployment:
+   - Full test suite: 154 / 154 unit tests PASS (./gradlew :app:testDebugUnitTest).
+   - Debug APK built and installed on OPPO CPH2753 (device 6545Q8A6X89TW8ZX, APK SHA-256: E4A1400137A4D3EEACFCE60938FE2E150EC1F9FAA88D6EF946523185830A11B7).
+   - Verified live execution on phone: CameraX streaming at 1024x768, microphone and VoiceCommandManager active (PID 27575).
+4. Frozen Contract Integrity (AGENTS.md Section 2):
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Source revision and evidence reference: commit a292211 on main; docs/samik/chair-table-fusion-implementation-plan.md, debug APK SHA-256 E4A1400137A4D3EEACFCE60938FE2E150EC1F9FAA88D6EF946523185830A11B7
+Recipient(s): Rishav, Rohan, Subham, Spandan
+For response: Team ACK; ready for live hardware testing with ESP32 sensor.
+```
