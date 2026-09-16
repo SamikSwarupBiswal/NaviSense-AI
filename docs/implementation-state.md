@@ -196,6 +196,12 @@ Next action / blocker resolver:
 
 ## 12. Mandatory Phase Review Register
 
+### Navigation distance remediation planning — 2026-09-16
+
+Codex prepared [the detailed navigation distance implementation plan](rishav/navigation-distance-implementation-plan.md) at source `e76b87f9e3b20d593b5793b73187e89260124972`, following the user's request for an in-depth plan. Source inspection confirmed fixed fallback destination/origin coordinates, production mock routes, main-gate-only campus route starts, and straight-line distance presented as remaining walking distance. The exact reported 750 m/220 m device output has not been reproduced. Current offline data has 11 POIs, no Phoenix Mall POI, and declared bounds inconsistent with node extrema.
+
+Status: planning/source-audit evidence only; no runtime code changes, build/test execution, installation, physical validation or acceptance claimed. Rishav owns navigation integration; Samik/Rohan reviews and receiver replies are pending. Entry decision for dependent implementation: PENDING; independent diagnosis and planning performed under the user's request. Next action: Rishav reviews the concrete file/function changes, records permitted entry scope, and starts Step 1 negative-path regressions/removal of fabricated successes. Actual T+ remains unverified. Both frozen hashes matched AGENTS.md before planning; final hash recheck is required before push. Existing product gate results remain unchanged. Communication relay must reference the committed plan and request review without implying ACK.
+
 Entry status: PENDING / READY / READY-FIXTURES / BLOCKED.
 Exit status: PENDING / VERIFIED / RETURNED.
 READY-FIXTURES must name allowed independent work and cannot authorize real-device claims.
