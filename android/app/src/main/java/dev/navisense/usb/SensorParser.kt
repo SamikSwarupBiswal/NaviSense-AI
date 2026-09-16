@@ -103,10 +103,10 @@ class SensorParser {
         }
 
         try {
-            val seq = matcher.group(1).toLong()
-            val upMs = matcher.group(2).toLong()
-            val distCm = matcher.group(3).toInt()
-            val validInt = matcher.group(4).toInt()
+            val seq = matcher.group(1)?.toLong() ?: throw NumberFormatException("Missing SEQ")
+            val upMs = matcher.group(2)?.toLong() ?: throw NumberFormatException("Missing UP_MS")
+            val distCm = matcher.group(3)?.toInt() ?: throw NumberFormatException("Missing DIST_CM")
+            val validInt = matcher.group(4)?.toInt() ?: throw NumberFormatException("Missing VALID")
             val isValid = (validInt == 1)
 
             // Bounds check for unsigned 32-bit values
