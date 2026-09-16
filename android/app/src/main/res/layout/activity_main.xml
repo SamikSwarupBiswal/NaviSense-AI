@@ -6,7 +6,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/navisense_black"
-    android:padding="16dp">
+    android:padding="12dp">
 
     <!-- App Header -->
     <TextView
@@ -15,244 +15,258 @@
         android:layout_height="wrap_content"
         android:text="@string/app_name"
         android:textColor="@color/navisense_white"
-        android:textSize="24sp"
+        android:textSize="22sp"
         android:textStyle="bold"
         android:contentDescription="@string/app_name"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- Live Camera Preview Window -->
-    <com.google.android.material.card.MaterialCardView
-        android:id="@+id/cardCameraPreview"
+    <!-- Scrollable Content Area: Camera, Status, and All Action Options -->
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/scrollContent"
         android:layout_width="0dp"
-        android:layout_height="280dp"
-        android:layout_marginTop="8dp"
-        app:cardBackgroundColor="@color/navisense_black"
-        app:cardCornerRadius="14dp"
-        app:cardElevation="4dp"
-        app:strokeColor="@color/navisense_yellow"
-        app:strokeWidth="2dp"
+        android:layout_height="0dp"
+        android:layout_marginTop="6dp"
+        android:layout_marginBottom="8dp"
+        android:fillViewport="true"
+        android:scrollbars="vertical"
+        android:fadeScrollbars="false"
+        android:overScrollMode="always"
+        android:clipToPadding="false"
+        android:paddingBottom="12dp"
         app:layout_constraintTop_toBottomOf="@id/tvAppTitle"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
-
-        <FrameLayout
-            android:layout_width="match_parent"
-            android:layout_height="match_parent">
-
-            <androidx.camera.view.PreviewView
-                android:id="@+id/viewFinder"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:contentDescription="Live Camera Preview"
-                app:scaleType="fillCenter" />
-
-            <!-- YOLO Bounding Box & Label Overlay -->
-            <dev.navisense.camera.DetectionOverlayView
-                android:id="@+id/detectionOverlay"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:visibility="gone" />
-
-            <!-- Live Camera Label Overlay -->
-            <TextView
-                android:id="@+id/tvCameraOverlay"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="top|start"
-                android:layout_margin="8dp"
-                android:background="#99000000"
-                android:paddingHorizontal="8dp"
-                android:paddingVertical="4dp"
-                android:text="LIVE CAMERA"
-                android:textColor="@color/navisense_yellow"
-                android:textSize="12sp"
-                android:textStyle="bold" />
-
-        </FrameLayout>
-    </com.google.android.material.card.MaterialCardView>
-
-    <!-- System Status Indicator Box -->
-    <com.google.android.material.card.MaterialCardView
-        android:id="@+id/cardStatus"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
-        app:cardBackgroundColor="@color/navisense_card_surface"
-        app:cardCornerRadius="12dp"
-        app:cardElevation="4dp"
-        app:strokeColor="@color/navisense_yellow"
-        app:strokeWidth="1.5dp"
-        app:layout_constraintTop_toBottomOf="@id/cardCameraPreview"
+        app:layout_constraintBottom_toTopOf="@id/btnStop"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="12dp">
+            android:orientation="vertical">
 
-            <TextView
-                android:id="@+id/tvSystemMode"
+            <!-- Live Camera Preview Window -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardCameraPreview"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/status_idle"
-                android:textColor="@color/navisense_white"
-                android:textSize="18sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/tvPathStatus"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="220dp"
                 android:layout_marginTop="4dp"
-                android:text="@string/status_path_unknown"
-                android:textColor="@color/status_unknown"
-                android:textSize="15sp" />
+                android:layout_marginBottom="10dp"
+                app:cardBackgroundColor="@color/navisense_black"
+                app:cardCornerRadius="14dp"
+                app:cardElevation="4dp"
+                app:strokeColor="@color/navisense_yellow"
+                app:strokeWidth="2dp">
 
-            <TextView
-                android:id="@+id/tvSensorStatus"
+                <FrameLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent">
+
+                    <androidx.camera.view.PreviewView
+                        android:id="@+id/viewFinder"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:contentDescription="Live Camera Preview"
+                        app:scaleType="fillCenter" />
+
+                    <!-- YOLO Bounding Box & Label Overlay -->
+                    <dev.navisense.camera.DetectionOverlayView
+                        android:id="@+id/detectionOverlay"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:visibility="gone" />
+
+                    <!-- Live Camera Label Overlay -->
+                    <TextView
+                        android:id="@+id/tvCameraOverlay"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="top|start"
+                        android:layout_margin="8dp"
+                        android:background="#99000000"
+                        android:paddingHorizontal="8dp"
+                        android:paddingVertical="4dp"
+                        android:text="LIVE CAMERA"
+                        android:textColor="@color/navisense_yellow"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+
+                </FrameLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- System Status Indicator Box -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardStatus"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:text="@string/status_sensor_unavailable"
-                android:textColor="@color/navisense_white"
-                android:textSize="14sp" />
+                android:layout_marginBottom="12dp"
+                app:cardBackgroundColor="@color/navisense_card_surface"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="4dp"
+                app:strokeColor="@color/navisense_yellow"
+                app:strokeWidth="1.5dp">
 
-            <TextView
-                android:id="@+id/tvVoiceStatus"
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="14dp">
+
+                    <TextView
+                        android:id="@+id/tvSystemMode"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/status_idle"
+                        android:textColor="@color/navisense_white"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvPathStatus"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:text="@string/status_path_unknown"
+                        android:textColor="@color/status_unknown"
+                        android:textSize="15sp" />
+
+                    <TextView
+                        android:id="@+id/tvSensorStatus"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:text="@string/status_sensor_unavailable"
+                        android:textColor="@color/navisense_white"
+                        android:textSize="14sp" />
+
+                    <TextView
+                        android:id="@+id/tvVoiceStatus"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:text="@string/voice_cmd_listening"
+                        android:textColor="@color/navisense_yellow"
+                        android:textSize="13sp" />
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Action Buttons Container -->
+            <LinearLayout
+                android:id="@+id/actionsContainer"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:text="@string/voice_cmd_listening"
-                android:textColor="@color/navisense_yellow"
-                android:textSize="13sp" />
+                android:orientation="vertical">
+
+                <!-- Start Walking Action (Primary Navigation Button) -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnStartWalking"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:layout_marginTop="4dp"
+                    android:backgroundTint="@color/btn_start_bg"
+                    android:text="@string/btn_start_walking"
+                    android:textColor="@color/btn_start_text"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:contentDescription="@string/btn_start_walking_desc"
+                    app:cornerRadius="14dp" />
+
+                <!-- Search Nearby Action -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnSearchNearby"
+                    android:layout_width="match_parent"
+                    android:layout_height="54dp"
+                    android:layout_marginTop="10dp"
+                    android:backgroundTint="@color/navisense_yellow"
+                    android:text="@string/btn_search_nearby"
+                    android:textColor="@color/navisense_black"
+                    android:textSize="17sp"
+                    android:textStyle="bold"
+                    android:contentDescription="@string/btn_search_nearby_desc"
+                    app:cornerRadius="14dp" />
+
+                <!-- Voice Walking Navigation (Google Maps) Action -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnVoiceWalkingNav"
+                    android:layout_width="match_parent"
+                    android:layout_height="54dp"
+                    android:layout_marginTop="10dp"
+                    android:backgroundTint="@color/navisense_white"
+                    android:text="@string/btn_voice_nav"
+                    android:textColor="@color/navisense_black"
+                    android:textSize="17sp"
+                    android:textStyle="bold"
+                    app:icon="@android:drawable/ic_dialog_map"
+                    app:iconGravity="textStart"
+                    app:iconTint="@color/navisense_black"
+                    android:contentDescription="@string/btn_voice_nav_desc"
+                    app:cornerRadius="14dp" />
+
+                <!-- Voice Control / Mic Action -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnVoiceCommand"
+                    android:layout_width="match_parent"
+                    android:layout_height="54dp"
+                    android:layout_marginTop="10dp"
+                    android:backgroundTint="@color/navisense_card_surface"
+                    android:text="@string/btn_voice_command"
+                    android:textColor="@color/navisense_white"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    app:icon="@android:drawable/ic_btn_speak_now"
+                    app:iconGravity="textStart"
+                    app:iconTint="@color/navisense_white"
+                    android:contentDescription="@string/voice_cmd_mic_desc"
+                    app:strokeColor="@color/navisense_white"
+                    app:strokeWidth="1.5dp"
+                    app:cornerRadius="14dp" />
+
+                <!-- Map Directions Action (VIT Chennai & Surroundings) -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnMapDirections"
+                    android:layout_width="match_parent"
+                    android:layout_height="54dp"
+                    android:layout_marginTop="10dp"
+                    android:backgroundTint="@color/navisense_card_surface"
+                    android:text="@string/btn_map_directions"
+                    android:textColor="@color/navisense_yellow"
+                    android:textSize="17sp"
+                    android:textStyle="bold"
+                    android:contentDescription="@string/btn_map_directions_desc"
+                    app:strokeColor="@color/navisense_yellow"
+                    app:strokeWidth="1.5dp"
+                    app:cornerRadius="14dp" />
+
+                <!-- Confirm Arrival Action (Visible during Target Navigation) -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnConfirmArrival"
+                    android:layout_width="match_parent"
+                    android:layout_height="54dp"
+                    android:layout_marginTop="10dp"
+                    android:backgroundTint="@color/navisense_white"
+                    android:text="@string/btn_arrival"
+                    android:textColor="@color/navisense_black"
+                    android:textSize="17sp"
+                    android:textStyle="bold"
+                    android:visibility="gone"
+                    android:contentDescription="@string/btn_arrival_desc"
+                    app:cornerRadius="14dp" />
+
+            </LinearLayout>
 
         </LinearLayout>
-    </com.google.android.material.card.MaterialCardView>
-
-    <!-- Action Buttons Container -->
-    <LinearLayout
-        android:id="@+id/actionsContainer"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:layout_marginBottom="8dp"
-        android:orientation="vertical"
-        android:gravity="center_vertical"
-        app:layout_constraintTop_toBottomOf="@id/cardStatus"
-        app:layout_constraintBottom_toTopOf="@id/btnStop"
-        app:layout_constraintVertical_bias="0.5"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
-
-        <!-- Start Walking Action (Primary Navigation Button) -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnStartWalking"
-            android:layout_width="match_parent"
-            android:layout_height="60dp"
-            android:backgroundTint="@color/btn_start_bg"
-            android:text="@string/btn_start_walking"
-            android:textColor="@color/btn_start_text"
-            android:textSize="19sp"
-            android:textStyle="bold"
-            android:contentDescription="@string/btn_start_walking_desc"
-            app:cornerRadius="14dp" />
-
-        <!-- Search Nearby Action -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnSearchNearby"
-            android:layout_width="match_parent"
-            android:layout_height="52dp"
-            android:layout_marginTop="8dp"
-            android:backgroundTint="@color/navisense_yellow"
-            android:text="@string/btn_search_nearby"
-            android:textColor="@color/navisense_black"
-            android:textSize="17sp"
-            android:textStyle="bold"
-            android:contentDescription="@string/btn_search_nearby_desc"
-            app:cornerRadius="14dp" />
-
-        <!-- Voice Walking Navigation (Google Maps) Action -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnVoiceWalkingNav"
-            android:layout_width="match_parent"
-            android:layout_height="56dp"
-            android:layout_marginTop="8dp"
-            android:backgroundTint="@color/navisense_white"
-            android:text="@string/btn_voice_nav"
-            android:textColor="@color/navisense_black"
-            android:textSize="17sp"
-            android:textStyle="bold"
-            app:icon="@android:drawable/ic_dialog_map"
-            app:iconGravity="textStart"
-            app:iconTint="@color/navisense_black"
-            android:contentDescription="@string/btn_voice_nav_desc"
-            app:cornerRadius="14dp" />
-
-        <!-- Voice Control / Mic Action -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnVoiceCommand"
-            android:layout_width="match_parent"
-            android:layout_height="52dp"
-            android:layout_marginTop="8dp"
-            android:backgroundTint="@color/navisense_card_surface"
-            android:text="@string/btn_voice_command"
-            android:textColor="@color/navisense_white"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            app:icon="@android:drawable/ic_btn_speak_now"
-            app:iconGravity="textStart"
-            app:iconTint="@color/navisense_white"
-            android:contentDescription="@string/voice_cmd_mic_desc"
-            app:strokeColor="@color/navisense_white"
-            app:strokeWidth="1dp"
-            app:cornerRadius="14dp" />
-
-        <!-- Map Directions Action (VIT Chennai & Surroundings) -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnMapDirections"
-            android:layout_width="match_parent"
-            android:layout_height="56dp"
-            android:layout_marginTop="8dp"
-            android:backgroundTint="@color/navisense_card_surface"
-            android:text="@string/btn_map_directions"
-            android:textColor="@color/navisense_yellow"
-            android:textSize="18sp"
-            android:textStyle="bold"
-            android:contentDescription="@string/btn_map_directions_desc"
-            app:strokeColor="@color/navisense_yellow"
-            app:strokeWidth="1.5dp"
-            app:cornerRadius="14dp" />
-
-        <!-- Confirm Arrival Action (Visible during Target Navigation) -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnConfirmArrival"
-            android:layout_width="match_parent"
-            android:layout_height="52dp"
-            android:layout_marginTop="8dp"
-            android:backgroundTint="@color/navisense_white"
-            android:text="@string/btn_arrival"
-            android:textColor="@color/navisense_black"
-            android:textSize="17sp"
-            android:textStyle="bold"
-            android:visibility="gone"
-            android:contentDescription="@string/btn_arrival_desc"
-            app:cornerRadius="14dp" />
-
-    </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
 
     <!-- STOP Button (Critical Accessible Safety Control - Fixed at bottom) -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnStop"
         android:layout_width="0dp"
-        android:layout_height="72dp"
+        android:layout_height="68dp"
         android:backgroundTint="@color/btn_stop_bg"
         android:text="@string/btn_stop"
         android:textColor="@color/btn_stop_text"
-        android:textSize="24sp"
+        android:textSize="22sp"
         android:textStyle="bold"
         android:contentDescription="@string/btn_stop_desc"
         app:cornerRadius="18dp"

@@ -38,7 +38,8 @@ object VoiceCommandParser {
     )
 
     private val HELP_KEYWORDS = setOf(
-        "help", "what can i say", "commands", "options", "help me"
+        "help", "what can i say", "commands", "options", "help me",
+        "open the app", "open app", "launch app", "hello", "hi navisense"
     )
 
     private val STATUS_KEYWORDS = setOf(

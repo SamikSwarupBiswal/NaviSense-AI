@@ -1,12 +1,14 @@
 package dev.navisense.app
 
 import android.Manifest
+import android.app.Activity
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.speech.RecognizerIntent
 import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbManager
 import android.os.Build
@@ -69,6 +71,8 @@ import dev.navisense.voice.AlertPriority
 import dev.navisense.voice.SpeechRequest
 import dev.navisense.voice.VoiceCommand
 import dev.navisense.voice.VoiceCommandManager
+import dev.navisense.voice.VoiceCommandParser
+import java.util.Locale
 import dev.navisense.cloud.GeminiFlashClient
 import dev.navisense.cloud.GeminiWalkingAnalyzer
 import dev.navisense.map.LocationTracker
@@ -185,6 +189,27 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
             speakVoiceFeedback(getString(R.string.voice_cmd_opened))
         } else {
             tvVoiceStatus.text = "Voice Control: Mic Permission Denied"
+        }
+    }
+
+    private val googleVoiceLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK && result.data != null) {
+            val matches = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+            if (!matches.isNullOrEmpty()) {
+                Log.i(TAG, "Google Voice Intent result: $matches")
+                var matchedCmd: VoiceCommand? = null
+                for (match in matches) {
+                    val cmd = VoiceCommandParser.parse(match)
+                    if (cmd !is VoiceCommand.Unknown) {
+                        matchedCmd = cmd
+                        break
+                    }
+                }
+                val finalCmd = matchedCmd ?: VoiceCommandParser.parse(matches[0])
+                handleVoiceCommand(finalCmd)
+            }
         }
     }
 
@@ -1241,9 +1266,27 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
     }
 
     private fun toggleVoiceRecognition() {
-        val mgr = voiceCommandManager ?: return
-        mgr.startListening()
-        speakVoiceFeedback(getString(R.string.voice_cmd_listening))
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+            launchGoogleVoicePrompt()
+        } else {
+            requestAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
+
+    private fun launchGoogleVoicePrompt() {
+        try {
+            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+                putExtra(RecognizerIntent.EXTRA_PROMPT, "Say a command: 'Start walking', 'Search for keys', or 'Take me to Ambrosia'")
+                putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5)
+            }
+            googleVoiceLauncher.launch(intent)
+        } catch (e: Exception) {
+            Log.w(TAG, "Google Voice intent not available, falling back to in-app recognizer: ${e.message}")
+            voiceCommandManager?.startListening()
+            speakVoiceFeedback(getString(R.string.voice_cmd_listening))
+        }
     }
 
     private fun handleVoiceCommand(command: VoiceCommand) {

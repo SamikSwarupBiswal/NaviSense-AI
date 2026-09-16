@@ -58,7 +58,16 @@ class VoiceDestinationRecognizer(
 
     init {
         if (SpeechRecognizer.isRecognitionAvailable(context)) {
-            speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context).apply {
+            val googleComponent = android.content.ComponentName(
+                "com.google.android.googlequicksearchbox",
+                "com.google.android.voicesearch.serviceapi.GoogleRecognitionService"
+            )
+            val recognizer = try {
+                SpeechRecognizer.createSpeechRecognizer(context, googleComponent)
+            } catch (e: Exception) {
+                SpeechRecognizer.createSpeechRecognizer(context)
+            }
+            speechRecognizer = recognizer.apply {
                 setRecognitionListener(createListener())
             }
         }

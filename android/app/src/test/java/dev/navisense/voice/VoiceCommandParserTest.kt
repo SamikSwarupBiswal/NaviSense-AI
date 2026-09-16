@@ -102,6 +102,8 @@ class VoiceCommandParserTest {
         assertEquals(VoiceCommand.Help, VoiceCommandParser.parse("help"))
         assertEquals(VoiceCommand.Help, VoiceCommandParser.parse("what can i say"))
         assertEquals(VoiceCommand.Help, VoiceCommandParser.parse("commands"))
+        assertEquals(VoiceCommand.Help, VoiceCommandParser.parse("open the app"))
+        assertEquals(VoiceCommand.Help, VoiceCommandParser.parse("open app"))
         assertEquals(VoiceCommand.AppStatus, VoiceCommandParser.parse("status"))
         assertEquals(VoiceCommand.AppStatus, VoiceCommandParser.parse("sensor status"))
     }

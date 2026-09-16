@@ -76,7 +76,7 @@ class VoiceCommandManager(
 
         try {
             if (speechRecognizer == null) {
-                speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context).apply {
+                speechRecognizer = createSpeechRecognizerInstance().apply {
                     setRecognitionListener(this@VoiceCommandManager)
                 }
             }
@@ -85,8 +85,8 @@ class VoiceCommandManager(
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
                 putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-                putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
-                putExtra("android.speech.extra.PREFER_OFFLINE", true)
+                putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5)
+                putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, context.packageName)
             }
 
             speechRecognizer?.startListening(intent)
@@ -96,6 +96,20 @@ class VoiceCommandManager(
         } catch (e: Exception) {
             Log.e(TAG, "Error starting SpeechRecognizer: ${e.message}", e)
             scheduleRestart(1000L)
+        }
+    }
+
+    private fun createSpeechRecognizerInstance(): SpeechRecognizer {
+        // Explicitly prefer Google Speech Recognition Service for high-accuracy cloud recognition
+        val googleComponent = android.content.ComponentName(
+            "com.google.android.googlequicksearchbox",
+            "com.google.android.voicesearch.serviceapi.GoogleRecognitionService"
+        )
+        return try {
+            SpeechRecognizer.createSpeechRecognizer(context, googleComponent)
+        } catch (e: Exception) {
+            Log.w(TAG, "Google recognition service unavailable, using default SpeechRecognizer: ${e.message}")
+            SpeechRecognizer.createSpeechRecognizer(context)
         }
     }
 
@@ -113,7 +127,7 @@ class VoiceCommandManager(
         if (!isContinuousListening) return
         mainHandler.removeCallbacksAndMessages(null)
         mainHandler.postDelayed({
-            // If TTS is currently speaking, wait a bit longer to prevent acoustic self-triggering
+            // If TTS is currently speaking, back off slightly
             if (isTtsSpeakingProvider()) {
                 scheduleRestart(500L)
             } else {
@@ -148,21 +162,28 @@ class VoiceCommandManager(
         Log.d(TAG, "SpeechRecognizer error: $error")
         isListening = false
         onStateChanged?.invoke(false)
+
+        if (error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY || error == SpeechRecognizer.ERROR_CLIENT) {
+            try {
+                speechRecognizer?.destroy()
+            } catch (_: Exception) {}
+            speechRecognizer = null
+        }
+
         if (isContinuousListening) {
-            scheduleRestart(RESTART_DELAY_MS)
+            val delay = when (error) {
+                SpeechRecognizer.ERROR_NO_MATCH,
+                SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> 300L
+                13, 12 -> 1500L // Language unavailable / not supported
+                else -> 1000L
+            }
+            scheduleRestart(delay)
         }
     }
 
     override fun onResults(results: Bundle?) {
         isListening = false
         onStateChanged?.invoke(false)
-
-        // Drop speech if TTS was actively speaking during detection
-        if (isTtsSpeakingProvider()) {
-            Log.d(TAG, "Ignoring recognition results: TTS is currently speaking")
-            scheduleRestart(RESTART_DELAY_MS)
-            return
-        }
 
         val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
         if (!matches.isNullOrEmpty()) {

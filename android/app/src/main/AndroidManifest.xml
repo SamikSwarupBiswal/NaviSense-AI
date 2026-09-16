@@ -22,8 +22,12 @@
 
     <!-- Google Speech Recognition Service package visibility -->
     <queries>
+        <package android:name="com.google.android.googlequicksearchbox" />
         <intent>
             <action android:name="android.speech.RecognitionService" />
+        </intent>
+        <intent>
+            <action android:name="android.speech.action.RECOGNIZE_SPEECH" />
         </intent>
     </queries>
 
