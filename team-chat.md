@@ -2728,3 +2728,29 @@ Source revision and evidence reference: commit a292211 on main; docs/samik/chair
 Recipient(s): Rishav, Rohan, Subham, Spandan
 For response: Team ACK; ready for live hardware testing with ESP32 sensor.
 ```
+
+
+```text
+Entry ID: RISHAV-2026-09-16-037 / 2026-09-16T08:30:00+05:30 / T+ unverified
+Author and type: Rishav | PROGRESS, IMPLEMENTATION & DEVICE DEPLOYMENT
+Phase / step / S-instance / H-contract: Voice Control for Stop Button & Docs Gitignore / H6 Integration & Voice UX Phase 7
+Message and requested action:
+1. Voice Control for Stop Button ("Stop" Command):
+   - Added keyword and word-level matching in VoiceCommandParser.kt for "stop", "stop button", "press stop", "click stop button", "stop the button", "press the stop button", "tap stop", "hit stop", "stop please", "halt", "freeze", "cancel", and "quit".
+   - Destination Safeguard: Added guard (!text.contains("bus stop")) to protect campus transit queries (e.g. "take me to bus stop", "vandalur bus stop") from false-positive emergency stop triggering.
+   - Speech Barge-in & Partial Preemption: Kept VoiceCommandManager recognizer loop active during TTS playback; onPartialResults immediately preempts and dispatches VoiceCommand.Stop without waiting for utterance end; ignores non-stop speech while TTS speaks to avoid acoustic feedback.
+   - VoiceDestinationRecognizer Integration: Connected onStopRequested callback to abort destination recognition and trigger emergency stop immediately.
+   - Unified Stop Action in MainActivity.kt (triggerStopButton): Visually actuates btnStop (isPressed = true for 350ms), cancels SpeechArbiter speech queue, cancels active haptics, stops outdoor navigation sensors, stops Gemini walking analyzer & map navigation coordinator, stops CameraX perception session & clears overlays, transitions SessionCoordinator to IDLE, clears FLAG_KEEP_SCREEN_ON, and emits audible "Stopped. Idle." confirmation.
+2. Root .gitignore:
+   - Added docs/ folder to .gitignore.
+3. Test Verification & Device Deployment:
+   - 154 / 154 unit tests PASS (./gradlew :app:testDebugUnitTest).
+   - Debug APK compiled clean: SHA-256 407BEC3DC6E67C01F0EABD39668D05F154082B0D1489FBC4A3CC0C3DE9636379.
+   - Deployed and launched on physical OPPO CPH2753 (serial 6545Q8A6X89TW8ZX, PID 4584); logcat confirmed active OnDeviceSpeechRecognizer and CameraX preview streaming.
+4. Frozen Contract Integrity (AGENTS.md Section 2):
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Source revision and evidence reference: commit 35a9648 on main; debug APK SHA-256 407BEC3DC6E67C01F0EABD39668D05F154082B0D1489FBC4A3CC0C3DE9636379
+Recipient(s): Samik, Rohan, Subham, Spandan
+For response: Team ACK.
+```
