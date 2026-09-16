@@ -2502,3 +2502,33 @@ Source revision and evidence reference: commit b247ca3 on main; SensorParser.kt,
 Recipient(s): Rohan, Rishav, Subham, Spandan
 For response: Team ACK; Rohan verify SensorParser hardening.
 ```
+
+```text
+Entry ID: RISHAV-2026-09-16-031 / 2026-09-16T06:03:00+05:30 / T+ unverified
+Author and type: Rishav | PROGRESS, DEFECT FIX, PHYSICAL VERIFICATION & RELAY
+Phase / step / S-instance / H-contract: Phase 7 / Voice UX / SpeechRecognizer Binding Error 10 & UI Standby/Listening Flicker Resolution
+Message and requested action:
+1. Root Cause Analysis:
+   - Voice control UI was rapidly alternating between "Listening..." and "Standby" multiple times per second.
+   - Root cause 1: Hardcoded ComponentName ("com.google.android.googlequicksearchbox/com.google.android.voicesearch.serviceapi.GoogleRecognitionService") failed to bind on Android 16 / ColorOS device with system error: "Bind to system recognition service failed with error 10".
+   - Root cause 2: VoiceCommandManager.initAndStartRecognizer() prematurely invoked onStateChanged(true) before the recognition service was bound or ready, followed immediately by onError(10) invoking onStateChanged(false), producing a continuous restart-flicker loop.
+2. Defect Resolution:
+   - VoiceCommandManager.kt:
+     * Refactored createSpeechRecognizerInstance() to prioritize OnDeviceSpeechRecognizer on Android 13+ (API 33+) via SpeechRecognizer.createOnDeviceSpeechRecognizer(context), with automatic fallback to system default SpeechRecognizer.createSpeechRecognizer(context).
+     * Strictly gated listening state transitions: onStateChanged(true) is invoked exclusively when onReadyForSpeech() fires (confirming the microphone is open and ready).
+     * Wrapped error teardown to recreate the recognizer cleanly on fatal/binding errors (error 10, client error, busy, network) and apply exponential backoff.
+   - AndroidManifest.xml: Added package visibility query for "com.google.android.tts" (the active speech engine on modern Android devices).
+3. Physical Device Verification:
+   - Built debug APK and deployed to connected device OPPO CPH2753 (Android 16).
+   - Logcat confirmed:
+     * VoiceCommandManager: Creating OnDeviceSpeechRecognizer.
+     * VoiceCommandManager: onReadyForSpeech: microphone is open and ready.
+     * Spoken command: "find keys" recognized cleanly without UI flicker:
+       Dispatched VoiceCommand: FindTarget(target=keys).
+4. Frozen Contract Check (AGENTS.md §2):
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Source revision and evidence reference: commit cfc7b9e on main; VoiceCommandManager.kt, AndroidManifest.xml, device logcat trace
+Recipient(s): Samik, Subham, Rohan, Spandan
+For response: Team ACK; verify smooth hands-free voice command performance.
+```
