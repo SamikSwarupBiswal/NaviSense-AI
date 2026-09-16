@@ -27,21 +27,17 @@ object CampusDestinationResolver {
 
     // Canonical alias mappings for VIT Chennai POIs
     val DEFAULT_CAMPUS_ALIASES: Map<String, List<String>> = mapOf(
-        "poi_academic_block_1" to listOf("ab1", "ab 1", "academic block 1", "academic block one", "block 1", "block one", "ab-1"),
+        "poi_academic_block_1" to listOf("ab1", "ab 1", "academic block 1", "academic block one", "block 1", "block one", "ab-1", "auditorium", "audi", "netaji auditorium", "cultural center"),
         "poi_academic_block_2" to listOf("ab2", "ab 2", "academic block 2", "academic block two", "block 2", "block two", "ab-2", "computing labs"),
         "poi_academic_block_3" to listOf("ab3", "ab 3", "academic block 3", "academic block three", "block 3", "block three", "ab-3"),
         "poi_library" to listOf("library", "central library", "vit library", "reading room"),
         "poi_food_court" to listOf("food court", "ambrosia", "canteen", "ambrosia canteen", "cafeteria", "gazebo", "gazebo food court", "mess"),
         "poi_hostel_delta" to listOf("delta", "delta hostel", "delta block", "hostel delta", "boys hostel delta"),
         "poi_hostel_gamma" to listOf("gamma", "gamma hostel", "gamma block", "hostel gamma", "girls hostel gamma"),
-        "poi_admin_block" to listOf("admin", "admin block", "administration", "administration block", "admissions", "finance office"),
-        "poi_sports_complex" to listOf("sports", "sports complex", "sports ground", "ground", "basketball court", "football ground", "gym"),
+        "poi_admin_block" to listOf("admin", "admin block", "administration", "administration block", "admissions", "finance office", "health center", "medical", "clinic", "dispensary", "atm", "sbi atm", "sbi bank", "bank"),
+        "poi_sports_complex" to listOf("sports", "sports complex", "sports ground", "ground", "basketball court", "football ground", "gym", "swimming pool", "pool", "indoor gym", "badminton"),
         "poi_main_gate" to listOf("main gate", "entrance gate", "front gate", "security gate", "vit gate", "main entrance"),
-        "poi_kelambakkam_road" to listOf("bus stop", "kelambakkam", "kelambakkam road", "vandalur road", "kelambakkam bus stop"),
-        "poi_health_center" to listOf("health center", "medical", "clinic", "dispensary", "health clinic", "hospital"),
-        "poi_auditorium" to listOf("auditorium", "netaji auditorium", "audi", "cultural center", "netaji subhash chandra bose auditorium"),
-        "poi_swimming_pool" to listOf("swimming pool", "pool", "indoor gym", "badminton"),
-        "poi_sbi_atm" to listOf("atm", "sbi atm", "sbi bank", "bank", "sbi")
+        "poi_kelambakkam_road" to listOf("bus stop", "kelambakkam", "kelambakkam road", "vandalur road", "kelambakkam bus stop")
     )
 
     fun cleanQuery(rawQuery: String?): String {
@@ -135,16 +131,16 @@ object CampusDestinationResolver {
             pois.find { it.id == "poi_kelambakkam_road" }?.let { return CampusResolutionResult.ExactMatch(it) }
         }
         if (tokens.contains("health") || tokens.contains("medical") || tokens.contains("clinic") || tokens.contains("dispensary")) {
-            pois.find { it.id == "poi_health_center" }?.let { return CampusResolutionResult.ExactMatch(it) }
+            pois.find { it.id == "poi_admin_block" }?.let { return CampusResolutionResult.ExactMatch(it) }
         }
         if (tokens.contains("auditorium") || tokens.contains("audi") || tokens.contains("netaji")) {
-            pois.find { it.id == "poi_auditorium" }?.let { return CampusResolutionResult.ExactMatch(it) }
+            pois.find { it.id == "poi_academic_block_1" }?.let { return CampusResolutionResult.ExactMatch(it) }
         }
-        if (tokens.contains("pool") || tokens.contains("swimming") || (tokens.contains("indoor") && tokens.contains("gym"))) {
-            pois.find { it.id == "poi_swimming_pool" }?.let { return CampusResolutionResult.ExactMatch(it) }
+        if (tokens.contains("pool") || tokens.contains("swimming") || (tokens.contains("indoor") && tokens.contains("gym")) || tokens.contains("badminton")) {
+            pois.find { it.id == "poi_sports_complex" }?.let { return CampusResolutionResult.ExactMatch(it) }
         }
         if (tokens.contains("atm") || tokens.contains("sbi") || tokens.contains("bank")) {
-            pois.find { it.id == "poi_sbi_atm" }?.let { return CampusResolutionResult.ExactMatch(it) }
+            pois.find { it.id == "poi_admin_block" }?.let { return CampusResolutionResult.ExactMatch(it) }
         }
 
         // 6. Ambiguity checks (e.g. "hostel" without delta or gamma, "academic block" without number)

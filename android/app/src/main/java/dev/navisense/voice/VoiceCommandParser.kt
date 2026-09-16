@@ -150,16 +150,16 @@ object VoiceCommandParser {
             return VoiceCommand.NavigateTo("Sports Complex & Ground")
         }
         if (text.contains("health center") || text.contains("medical") || text.contains("clinic") || text.contains("dispensary") || text.contains("hospital")) {
-            return VoiceCommand.NavigateTo("Health Center & Medical Clinic")
+            return VoiceCommand.NavigateTo("Admin Block")
         }
         if (text.contains("auditorium") || text.contains("audi") || text.contains("netaji")) {
-            return VoiceCommand.NavigateTo("Netaji Subhash Chandra Bose Auditorium")
+            return VoiceCommand.NavigateTo("Academic Block 1 (AB1)")
         }
         if (text.contains("swimming pool") || text.contains("pool") || text.contains("gym") || text.contains("badminton")) {
-            return VoiceCommand.NavigateTo("Swimming Pool & Indoor Gym")
+            return VoiceCommand.NavigateTo("Sports Complex & Ground")
         }
         if (text.contains("atm") || text.contains("sbi") || text.contains("bank")) {
-            return VoiceCommand.NavigateTo("SBI Bank & ATM")
+            return VoiceCommand.NavigateTo("Admin Block")
         }
 
         // 7. Navigation with destination phrases: e.g. "take me to <location>", "directions to <location>"

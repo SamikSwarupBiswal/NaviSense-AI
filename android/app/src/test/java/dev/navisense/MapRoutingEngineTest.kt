@@ -77,12 +77,12 @@ class MapRoutingEngineTest {
     }
 
     @Test
-    fun testNewCampusPoisExistAndRoutable() {
-        val newPoiIds = listOf("poi_health_center", "poi_auditorium", "poi_swimming_pool", "poi_sbi_atm")
+    fun testCampusPoisRoutable() {
+        val testPoiIds = listOf("poi_academic_block_1", "poi_admin_block", "poi_food_court", "poi_sports_complex")
         val startLat = 12.8407
         val startLon = 80.1534
 
-        for (poiId in newPoiIds) {
+        for (poiId in testPoiIds) {
             val poi = routingEngine.getPoi(poiId)
             assertNotNull("POI $poiId must exist in map asset", poi)
             val route = routingEngine.planRoute(startLat, startLon, poiId)

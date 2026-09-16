@@ -177,22 +177,22 @@ class VoiceCommandParserTest {
         // Health Center
         val healthCmd = VoiceCommandParser.parse("take me to health center")
         assertTrue(healthCmd is VoiceCommand.NavigateTo)
-        assertTrue((healthCmd as VoiceCommand.NavigateTo).destination.contains("Health Center"))
+        assertTrue((healthCmd as VoiceCommand.NavigateTo).destination.contains("Admin"))
 
         // Auditorium
         val audiCmd = VoiceCommandParser.parse("navigate to auditorium")
         assertTrue(audiCmd is VoiceCommand.NavigateTo)
-        assertTrue((audiCmd as VoiceCommand.NavigateTo).destination.contains("Auditorium"))
+        assertTrue((audiCmd as VoiceCommand.NavigateTo).destination.contains("AB1"))
 
         // Swimming Pool
         val poolCmd = VoiceCommandParser.parse("go to swimming pool")
         assertTrue(poolCmd is VoiceCommand.NavigateTo)
-        assertTrue((poolCmd as VoiceCommand.NavigateTo).destination.contains("Swimming Pool"))
+        assertTrue((poolCmd as VoiceCommand.NavigateTo).destination.contains("Sports"))
 
         // ATM
         val atmCmd = VoiceCommandParser.parse("directions to atm")
         assertTrue(atmCmd is VoiceCommand.NavigateTo)
-        assertTrue((atmCmd as VoiceCommand.NavigateTo).destination.contains("ATM"))
+        assertTrue((atmCmd as VoiceCommand.NavigateTo).destination.contains("Admin"))
 
         // Delta & Gamma hostels
         val deltaCmd = VoiceCommandParser.parse("take me to delta")

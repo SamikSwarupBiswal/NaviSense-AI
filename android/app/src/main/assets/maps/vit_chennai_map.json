@@ -118,46 +118,6 @@
       "description": "Bus stop outside campus on Kelambakkam road",
       "nearestNodeId": 12406042223,
       "distanceToNodeMeters": 20.6
-    },
-    {
-      "id": "poi_health_center",
-      "name": "Health Center & Medical Clinic",
-      "category": "facility",
-      "lat": 12.8404,
-      "lon": 80.154,
-      "description": "Campus health center, dispensary, and medical emergency clinic",
-      "nearestNodeId": 7781104577,
-      "distanceToNodeMeters": 9.3
-    },
-    {
-      "id": "poi_auditorium",
-      "name": "Netaji Subhash Chandra Bose Auditorium",
-      "category": "academic",
-      "lat": 12.84,
-      "lon": 80.1546,
-      "description": "Main campus auditorium and cultural center",
-      "nearestNodeId": 13521476186,
-      "distanceToNodeMeters": 8.3
-    },
-    {
-      "id": "poi_swimming_pool",
-      "name": "Swimming Pool & Indoor Gym",
-      "category": "sports",
-      "lat": 12.8388,
-      "lon": 80.1562,
-      "description": "Campus swimming pool, badminton courts, and indoor gym",
-      "nearestNodeId": 7730760796,
-      "distanceToNodeMeters": 4.3
-    },
-    {
-      "id": "poi_sbi_atm",
-      "name": "SBI Bank & ATM",
-      "category": "facility",
-      "lat": 12.8406,
-      "lon": 80.1536,
-      "description": "State Bank of India branch, ATM kiosk, and post desk",
-      "nearestNodeId": 11064265224,
-      "distanceToNodeMeters": 20.2
     }
   ],
   "nodes": [
