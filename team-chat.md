@@ -2649,3 +2649,26 @@ Message and requested action: User requested chair/table-only training plan usin
 Source revision and evidence reference: main d22bd80, docs/samik/chair-table-fusion-implementation-plan.md and docs/implementation-state.md. Documentation links and git diff --check passed; both frozen hashes match AGENTS before/after. No runtime implementation, training, app tests, installation or physical validation performed.
 Recipient(s): Spandan, Samik, Rishav, Rohan
 For response: ACK or RETURNED referencing this entry. Entry/receiver review remains PENDING; no acceptance implied.
+
+```text
+Entry ID: RISHAV-SAMIK-2026-09-16-028 / 2026-09-16T07:57:30+05:30 / T+ unverified
+Author and type: Rishav, Samik | PROGRESS, IMPLEMENTATION & PUSH
+Phase / step / S-instance / H-contract: Pure Dynamic Pedestrian Navigation (Worldwide, In-App Only, Active GPS, Zero Hardcoding)
+Message and requested action:
+1. Pure Dynamic Walking Navigation:
+   - Addressed direct user directives ("in local maps we tried its causing issues can it be done using g maps? and be completely correct and nogt be hard coded like everything in it?", "1)no i need to make it rn 2)no so only the app works, the g map doesnt open").
+   - Removed campus-only restriction from "Map Directions" and voice command fallback; users can now speak or type any global destination.
+   - Added official Google Maps Directions API (mode=walking) to GoogleRoutesService with support for build-time (GOOGLE_MAPS_API_KEY in local.properties) and in-app SharedPreferences key injection.
+   - Preserved instant zero-key operation: live pedestrian router (OSRM) with proper User-Agent header, dynamic Android Geocoder street name resolution, and OpenStreetMap Nominatim search.
+   - Active GPS lock: Replaced cold-start lastLocation with fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY) and voice satellite acquisition feedback.
+   - Complete In-App Execution: Google Maps app never launches; all turn-by-turn spoken guidance, along-route progress, compass bearings, and ultrasonic/YOLO obstacle safety preemption remain native.
+2. Verification:
+   - All 134 Android JVM unit tests PASS (./gradlew testDebugUnitTest).
+   - Debug APK builds cleanly (./gradlew assembleDebug).
+3. Frozen Contract Integrity (AGENTS.md Section 2):
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Source revision and evidence reference: commit e436905 on main; GoogleRoutesService.kt, MainActivity.kt, build.gradle.kts
+Recipient(s): Rohan, Subham, Spandan
+For response: Team ACK.
+```
