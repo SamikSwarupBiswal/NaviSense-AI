@@ -2641,3 +2641,11 @@ Message and requested action:
 Source revision and evidence reference: commit b49e6c3 on main; adb install logs, app-debug.apk SHA-256 5E3F393B00C4557BC0BAAB6551EA27D6D14C9D7B7B4F0A022AB7381B6D3D2615
 Recipient(s): Samik, Rohan, Subham, Spandan
 For response: Reference this entry; field testers proceed with supervised outdoor navigation validation on device 6545Q8A6X89TW8ZX.
+
+Entry ID: CODEX-CHAIR-TABLE-20260916-074545-01 / 2026-09-16T07:45:45.9929916+05:30 / T+ unverified
+Author and type: Codex | HANDOFF / planning only
+Phase / step / H-contract: Mobility model accuracy and existing YOLO-ESP32 fusion repair / H1,H2,H3,H6 review preparation
+Message and requested action: User requested chair/table-only training plan using Kaggle aryakrisnaputra/objects-in-the-classroom and a combined YOLO/sensor solution. Actual remote data.yaml confirms table=0 and chair=1; full annotation counts/provenance/leakage audit pending. Plan repairs existing fusion association and adds structured hazard identity/refinement in shared voice integration; retains immediate generic proximity warnings when names lack evidence. Source audit also records risk-policy drift for explicit reconciliation against frozen contract. Spandan: audit/pin dataset and evaluate separate Mobility candidate. Samik: trace sensor-first association/speech and own fusion repair. Rishav: review exact app/voice contract changes. Rohan: prepare sensor/mount bench evidence.
+Source revision and evidence reference: main d22bd80, docs/samik/chair-table-fusion-implementation-plan.md and docs/implementation-state.md. Documentation links and git diff --check passed; both frozen hashes match AGENTS before/after. No runtime implementation, training, app tests, installation or physical validation performed.
+Recipient(s): Spandan, Samik, Rishav, Rohan
+For response: ACK or RETURNED referencing this entry. Entry/receiver review remains PENDING; no acceptance implied.
