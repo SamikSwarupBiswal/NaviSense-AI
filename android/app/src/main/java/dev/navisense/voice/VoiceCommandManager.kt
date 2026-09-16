@@ -2,6 +2,7 @@ package dev.navisense.voice
 
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -13,13 +14,14 @@ import java.util.Locale
 
 /**
  * Manages continuous hands-free voice command recognition via Android SpeechRecognizer.
- * Runs on-device (offline speech recognition where supported) with zero external API keys.
+ * Uses on-device speech recognition where supported or system default speech service with zero external API keys.
  *
  * Key safety features:
  * 1. Automatically mutes recognition or drops results when TTS is actively speaking to prevent echo loops.
  * 2. Self-healing continuous loop: silently restarts on silence timeout or no-match error.
- * 3. Partial results inspection: triggers emergency STOP immediately without waiting for speech pause.
- * 4. Dispatches parsed [VoiceCommand] to the listener.
+ * 3. State change strictly tied to [onReadyForSpeech] to prevent rapid UI flickering between Standby and Listening.
+ * 4. Partial results inspection: triggers emergency STOP immediately without waiting for speech pause.
+ * 5. Dispatches parsed [VoiceCommand] to the listener.
  */
 class VoiceCommandManager(
     private val context: Context,
@@ -30,7 +32,7 @@ class VoiceCommandManager(
 
     companion object {
         private const val TAG = "VoiceCommandManager"
-        private const val RESTART_DELAY_MS = 400L
+        private const val RESTART_DELAY_MS = 600L
     }
 
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -48,6 +50,7 @@ class VoiceCommandManager(
     fun stopListening() {
         mainHandler.post {
             isContinuousListening = false
+            mainHandler.removeCallbacksAndMessages(null)
             safeStopRecognizer()
         }
     }
@@ -56,14 +59,15 @@ class VoiceCommandManager(
         mainHandler.post {
             isContinuousListening = false
             mainHandler.removeCallbacksAndMessages(null)
-            try {
-                speechRecognizer?.destroy()
-            } catch (e: Exception) {
-                Log.w(TAG, "Error destroying speech recognizer: ${e.message}")
-            }
-            speechRecognizer = null
-            isListening = false
-            onStateChanged?.invoke(false)
+            safeDestroyRecognizer()
+            setListeningState(false)
+        }
+    }
+
+    private fun setListeningState(listening: Boolean) {
+        if (isListening != listening) {
+            isListening = listening
+            onStateChanged?.invoke(listening)
         }
     }
 
@@ -71,6 +75,7 @@ class VoiceCommandManager(
         if (!isContinuousListening) return
         if (!SpeechRecognizer.isRecognitionAvailable(context)) {
             Log.w(TAG, "SpeechRecognizer is not available on this device")
+            setListeningState(false)
             return
         }
 
@@ -90,27 +95,31 @@ class VoiceCommandManager(
             }
 
             speechRecognizer?.startListening(intent)
-            isListening = true
-            onStateChanged?.invoke(true)
-            Log.d(TAG, "SpeechRecognizer listening started")
+            Log.d(TAG, "SpeechRecognizer startListening called")
         } catch (e: Exception) {
             Log.e(TAG, "Error starting SpeechRecognizer: ${e.message}", e)
-            scheduleRestart(1000L)
+            setListeningState(false)
+            safeDestroyRecognizer()
+            scheduleRestart(1500L)
         }
     }
 
     private fun createSpeechRecognizerInstance(): SpeechRecognizer {
-        // Explicitly prefer Google Speech Recognition Service for high-accuracy cloud recognition
-        val googleComponent = android.content.ComponentName(
-            "com.google.android.googlequicksearchbox",
-            "com.google.android.voicesearch.serviceapi.GoogleRecognitionService"
-        )
-        return try {
-            SpeechRecognizer.createSpeechRecognizer(context, googleComponent)
-        } catch (e: Exception) {
-            Log.w(TAG, "Google recognition service unavailable, using default SpeechRecognizer: ${e.message}")
-            SpeechRecognizer.createSpeechRecognizer(context)
+        // Try on-device recognizer first on Android 13+ (API 33+) if available for lowest latency & offline operation
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            try {
+                if (SpeechRecognizer.isOnDeviceRecognitionAvailable(context)) {
+                    Log.i(TAG, "Creating OnDeviceSpeechRecognizer")
+                    return SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
+                }
+            } catch (e: Throwable) {
+                Log.w(TAG, "On-device speech recognizer unavailable: ${e.message}")
+            }
         }
+
+        // Standard system recognizer (uses default RecognitionService e.g. Google Speech / TTS)
+        Log.i(TAG, "Creating standard system SpeechRecognizer")
+        return SpeechRecognizer.createSpeechRecognizer(context)
     }
 
     private fun safeStopRecognizer() {
@@ -119,15 +128,24 @@ class VoiceCommandManager(
         } catch (e: Exception) {
             Log.w(TAG, "Error stopping SpeechRecognizer: ${e.message}")
         }
-        isListening = false
-        onStateChanged?.invoke(false)
+        setListeningState(false)
+    }
+
+    private fun safeDestroyRecognizer() {
+        try {
+            speechRecognizer?.destroy()
+        } catch (e: Exception) {
+            Log.w(TAG, "Error destroying speech recognizer: ${e.message}")
+        }
+        speechRecognizer = null
     }
 
     private fun scheduleRestart(delayMs: Long = RESTART_DELAY_MS) {
         if (!isContinuousListening) return
         mainHandler.removeCallbacksAndMessages(null)
         mainHandler.postDelayed({
-            // If TTS is currently speaking, back off slightly
+            if (!isContinuousListening) return@postDelayed
+            // If TTS is currently speaking, back off to prevent acoustic feedback
             if (isTtsSpeakingProvider()) {
                 scheduleRestart(500L)
             } else {
@@ -139,9 +157,8 @@ class VoiceCommandManager(
     // --- RecognitionListener Callbacks ---
 
     override fun onReadyForSpeech(params: Bundle?) {
-        Log.d(TAG, "onReadyForSpeech")
-        isListening = true
-        onStateChanged?.invoke(true)
+        Log.d(TAG, "onReadyForSpeech: microphone is open and ready")
+        setListeningState(true)
     }
 
     override fun onBeginningOfSpeech() {
@@ -154,36 +171,38 @@ class VoiceCommandManager(
 
     override fun onEndOfSpeech() {
         Log.d(TAG, "onEndOfSpeech")
-        isListening = false
-        onStateChanged?.invoke(false)
     }
 
     override fun onError(error: Int) {
         Log.d(TAG, "SpeechRecognizer error: $error")
-        isListening = false
-        onStateChanged?.invoke(false)
+        setListeningState(false)
 
-        if (error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY || error == SpeechRecognizer.ERROR_CLIENT) {
-            try {
-                speechRecognizer?.destroy()
-            } catch (_: Exception) {}
-            speechRecognizer = null
+        // Always recreate recognizer on structural errors (client, busy, bind failure, server)
+        when (error) {
+            SpeechRecognizer.ERROR_RECOGNIZER_BUSY,
+            SpeechRecognizer.ERROR_CLIENT,
+            SpeechRecognizer.ERROR_SERVER,
+            SpeechRecognizer.ERROR_NETWORK,
+            SpeechRecognizer.ERROR_NETWORK_TIMEOUT,
+            10, 11, 12, 13 -> {
+                safeDestroyRecognizer()
+            }
         }
 
         if (isContinuousListening) {
             val delay = when (error) {
                 SpeechRecognizer.ERROR_NO_MATCH,
-                SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> 300L
-                13, 12 -> 1500L // Language unavailable / not supported
-                else -> 1000L
+                SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> 600L
+                SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> 1200L
+                10 -> 2500L // Bind failed, back off gracefully
+                else -> 1200L
             }
             scheduleRestart(delay)
         }
     }
 
     override fun onResults(results: Bundle?) {
-        isListening = false
-        onStateChanged?.invoke(false)
+        setListeningState(false)
 
         val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
         if (!matches.isNullOrEmpty()) {
