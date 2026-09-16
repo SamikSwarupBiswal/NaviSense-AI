@@ -56,5 +56,8 @@ data class SearchEvent(
     val direction: TargetDirection?,
     val candidateCount: Int,
     val timestampMonotonicMs: Long,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val obstacleInPath: String? = null,
+    val isCloseEnough: Boolean = false,
+    val targetBoxHeight: Float = 0f
 )

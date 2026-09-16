@@ -30,6 +30,7 @@ class RiskEngine(
     private var previousCombinedRisk = RiskLevel.NONE
     private var tentativeCorridorCandidate = false
     private var associatedObjectLabel: String? = null
+    private var visualObstacleLabel: String? = null
     private var approachingHazard = false
     private var expansionRate: Float? = null
 
@@ -100,7 +101,9 @@ class RiskEngine(
                 isApproaching || nearBottom -> RiskLevel.SLOW
                 else -> RiskLevel.AWARENESS
             }
-            if (risk.severity > rawVisionRisk.severity) {
+            if (risk.severity > rawVisionRisk.severity ||
+                (risk.severity == rawVisionRisk.severity && (strongestTrack == null || box.area > strongestTrack!!.current.box.area))
+            ) {
                 rawVisionRisk = risk
                 strongestTrack = track
                 strongestGrowth = growth
@@ -109,6 +112,10 @@ class RiskEngine(
         approachingHazard = strongestGrowth != null && strongestGrowth >= MIN_AREA_GROWTH
         expansionRate = strongestTrack?.expansionRatePerSecond(event.captureMonotonicMs)
         associatedObjectLabel = associateLabel(persistentCorridorTracks, event.captureMonotonicMs)
+        visualObstacleLabel = if (rawVisionRisk != RiskLevel.NONE) {
+            val trackToName = strongestTrack ?: persistentCorridorTracks.maxByOrNull { it.current.box.area }
+            trackToName?.label?.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+        } else null
         updateVisionRisk(rawVisionRisk, now)
         return buildResult(now) to true
     }
@@ -122,6 +129,7 @@ class RiskEngine(
             visionReleaseStartMs = null
             tentativeCorridorCandidate = false
             associatedObjectLabel = null
+            visualObstacleLabel = null
             approachingHazard = false
             expansionRate = null
             clearanceStartMs = null
@@ -138,7 +146,7 @@ class RiskEngine(
         lastVisionGeometryVersion = null; heldSensorRisk = RiskLevel.NONE
         sensorReleaseStartMs = null; sensorLossStartMs = null; heldVisionRisk = RiskLevel.NONE
         visionReleaseStartMs = null; clearanceStartMs = null; previousCombinedRisk = RiskLevel.NONE
-        tentativeCorridorCandidate = false; associatedObjectLabel = null
+        tentativeCorridorCandidate = false; associatedObjectLabel = null; visualObstacleLabel = null
         approachingHazard = false; expansionRate = null; visionTracks.reset()
     }
 
@@ -238,8 +246,9 @@ class RiskEngine(
         val path = evaluatePathStatus(combined, now)
         val escalated = combined.severity > previousCombinedRisk.severity
         previousCombinedRisk = combined
+        val visualLabel = if (heldVisionRisk != RiskLevel.NONE) visualObstacleLabel else null
         return RiskEvaluationResult(combined, heldSensorRisk, heldVisionRisk, path, source,
-            associatedObjectLabel, escalated, now, approachingHazard, expansionRate)
+            associatedObjectLabel, escalated, now, approachingHazard, expansionRate, visualLabel)
     }
 
     private fun snapshot(now: Long, result: RiskEvaluationResult): FusionState {

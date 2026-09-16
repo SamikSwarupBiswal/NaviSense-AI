@@ -64,6 +64,8 @@ class SessionCoordinator(
         private set
 
     private val stateListeners = mutableListOf<StateChangeListener>()
+    private var lastSearchGuidanceMs: Long = 0L
+    private var lastSearchGuidanceObstacle: String? = null
 
     interface StateChangeListener {
         fun onModeChanged(newMode: AppMode, token: SessionToken)
@@ -556,14 +558,26 @@ class SessionCoordinator(
                 notifySearchStateChanged(SearchUiState.FOUND, event)
                 onTargetFound()
                 val targetName = SearchTarget.fromValue(event.targetClass)?.displayName ?: "Target"
-                val phrase = when (event.direction) {
-                    dev.navisense.contracts.TargetDirection.LEFT ->
-                        "$targetName detected on the left. Point the phone left."
-                    dev.navisense.contracts.TargetDirection.CENTER ->
-                        "$targetName detected straight ahead in the camera view."
-                    dev.navisense.contracts.TargetDirection.RIGHT ->
-                        "$targetName detected on the right. Point the phone right."
-                    null -> "$targetName detected. Direction unavailable."
+                val phrase = if (event.isCloseEnough) {
+                    when (event.direction) {
+                        dev.navisense.contracts.TargetDirection.LEFT ->
+                            "$targetName reached on the left."
+                        dev.navisense.contracts.TargetDirection.CENTER ->
+                            "$targetName reached straight ahead."
+                        dev.navisense.contracts.TargetDirection.RIGHT ->
+                            "$targetName reached on the right."
+                        null -> "$targetName reached."
+                    }
+                } else {
+                    when (event.direction) {
+                        dev.navisense.contracts.TargetDirection.LEFT ->
+                            "$targetName detected on the left. Point the phone left."
+                        dev.navisense.contracts.TargetDirection.CENTER ->
+                            "$targetName detected straight ahead in the camera view."
+                        dev.navisense.contracts.TargetDirection.RIGHT ->
+                            "$targetName detected on the right. Point the phone right."
+                        null -> "$targetName detected. Direction unavailable."
+                    }
                 }
                 speechArbiter?.speak(
                     SpeechRequest(
@@ -591,8 +605,35 @@ class SessionCoordinator(
                 notifySearchStateChanged(SearchUiState.MULTIPLE_CANDIDATES, event)
             }
             SearchStatus.SEARCHING -> {
-                if (currentSearchState != SearchUiState.SEARCHING) {
-                    notifySearchStateChanged(SearchUiState.SEARCHING, event)
+                notifySearchStateChanged(SearchUiState.SEARCHING, event)
+                if (event.candidateCount > 0) {
+                    val now = clock.nowMonotonicMs()
+                    val targetName = SearchTarget.fromValue(event.targetClass)?.displayName ?: "Target"
+                    val phrase = if (event.obstacleInPath != null) {
+                        "$targetName detected ahead, but a ${event.obstacleInPath} is in between."
+                    } else {
+                        when (event.direction) {
+                            dev.navisense.contracts.TargetDirection.LEFT ->
+                                "$targetName visible in distance on the left. Move closer."
+                            dev.navisense.contracts.TargetDirection.RIGHT ->
+                                "$targetName visible in distance on the right. Move closer."
+                            else ->
+                                "$targetName visible in distance straight ahead. Move closer."
+                        }
+                    }
+                    if (now - lastSearchGuidanceMs >= 3500L || lastSearchGuidanceObstacle != event.obstacleInPath) {
+                        lastSearchGuidanceMs = now
+                        lastSearchGuidanceObstacle = event.obstacleInPath
+                        speechArbiter?.speak(
+                            SpeechRequest(
+                                utteranceId = "search_guidance_$now",
+                                phrase = phrase,
+                                priority = AlertPriority.DIRECTIONAL,
+                                sessionGeneration = sessionGeneration.get(),
+                                requestMonotonicMs = now
+                            )
+                        )
+                    }
                 }
             }
             SearchStatus.ERROR -> {
@@ -613,12 +654,19 @@ class SessionCoordinator(
         updatePathStatus(result.pathStatus)
         val now = clock.nowMonotonicMs()
         if (currentMode == AppMode.MOBILITY || currentMode == AppMode.OUTDOOR_WALKING) {
+            val obstacleLabel = result.associatedObjectLabel?.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+                ?: result.visualObstacleLabel
             when (result.combinedRisk) {
                 RiskLevel.STOP -> {
+                    val phrase = if (obstacleLabel != null) {
+                        "STOP. $obstacleLabel ahead."
+                    } else {
+                        "STOP."
+                    }
                     speechArbiter?.speak(
                         SpeechRequest(
                             utteranceId = "stop_$now",
-                            phrase = "STOP.",
+                            phrase = phrase,
                             priority = AlertPriority.STOP,
                             sessionGeneration = sessionGeneration.get(),
                             requestMonotonicMs = now,
@@ -627,8 +675,8 @@ class SessionCoordinator(
                     )
                 }
                 RiskLevel.SLOW -> {
-                    val phrase = if (result.associatedObjectLabel != null) {
-                        "Slow down. ${result.associatedObjectLabel} ahead."
+                    val phrase = if (obstacleLabel != null) {
+                        "Slow down. $obstacleLabel ahead."
                     } else {
                         "Slow down. Obstacle ahead."
                     }
@@ -644,7 +692,7 @@ class SessionCoordinator(
                     )
                 }
                 RiskLevel.AWARENESS -> {
-                    val phrase = result.associatedObjectLabel?.let { "$it ahead." } ?: "Obstacle ahead."
+                    val phrase = obstacleLabel?.let { "$it ahead." } ?: "Obstacle ahead."
                     speechArbiter?.speak(
                         SpeechRequest(
                             utteranceId = "aware_$now",

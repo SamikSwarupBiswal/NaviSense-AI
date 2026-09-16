@@ -17,7 +17,8 @@ data class RiskEvaluationResult(
     val isEscalation: Boolean,
     val timestampMonotonicMs: Long,
     val isApproachingHazard: Boolean = false,
-    val expansionRate: Float? = null
+    val expansionRate: Float? = null,
+    val visualObstacleLabel: String? = null
 )
 
 /**

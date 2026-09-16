@@ -201,4 +201,126 @@ class SearchRegressionTest {
         assertEquals("Keys detected on the right. Point the phone right.", phraseFor("keys", TargetDirection.RIGHT))
         assertEquals("Keys detected. Direction unavailable.", phraseFor("keys", null))
     }
+
+    @Test
+    fun testSearchNearbyVisibleInDistanceDoesNotConfirm() {
+        val engine = TargetSearchEngine(reachBoxHeightThreshold = 0.12f)
+        engine.startSearch("keys", 1L, 1000L)
+
+        // Small bounding box far away: height = 0.05 < 0.12
+        val farBox = NormalizedRect(0.45f, 0.45f, 0.55f, 0.50f)
+        val farKeys = DetectedObject(0, "keys", 0.90f, farBox)
+        fun farFrame(id: Long) = MobilePerceptionEvent(
+            1L, AppVisionMode.LOCATE_SEARCH, id, 1000L + id * 100L, 1000L + id * 100L, 1, "locate",
+            FrameQualityStatus.USABLE, listOf(farKeys)
+        )
+
+        engine.processFrame(farFrame(1))
+        engine.processFrame(farFrame(2))
+        val event = engine.processFrame(farFrame(3))
+
+        assertNotNull(event)
+        assertEquals("Should remain SEARCHING while far away", SearchStatus.SEARCHING, event?.status)
+        assertEquals("Should identify 1 candidate", 1, event?.candidateCount)
+        assertFalse("isCloseEnough must be false", event?.isCloseEnough == true)
+        assertTrue("Search engine must remain active for user to walk closer", engine.isSearchActive)
+    }
+
+    @Test
+    fun testSearchNearbyObstacleInPathAnnounced() {
+        val engine = TargetSearchEngine(reachBoxHeightThreshold = 0.12f)
+        engine.startSearch("keys", 1L, 1000L)
+
+        // Target keys in distance: center x = 0.50, y from 0.30 to 0.36 (height = 0.06)
+        val targetBox = NormalizedRect(0.47f, 0.30f, 0.53f, 0.36f)
+        val keysDet = DetectedObject(0, "keys", 0.90f, targetBox)
+
+        // Chair in between: horizontally spans 0.40 to 0.60 (corridor center 0.50), bottom = 0.70 (closer than keys bottom 0.36)
+        val chairBox = NormalizedRect(0.40f, 0.45f, 0.60f, 0.70f)
+        val chairDet = DetectedObject(2, "chair", 0.85f, chairBox)
+
+        fun frameWithObstacle(id: Long) = MobilePerceptionEvent(
+            1L, AppVisionMode.LOCATE_SEARCH, id, 1000L + id * 100L, 1000L + id * 100L, 1, "locate",
+            FrameQualityStatus.USABLE, listOf(keysDet, chairDet)
+        )
+
+        engine.processFrame(frameWithObstacle(1))
+        engine.processFrame(frameWithObstacle(2))
+        val event = engine.processFrame(frameWithObstacle(3))
+
+        assertNotNull(event)
+        assertEquals(SearchStatus.SEARCHING, event?.status)
+        assertEquals(1, event?.candidateCount)
+        assertEquals("Chair", event?.obstacleInPath)
+        assertFalse(event?.isCloseEnough == true)
+
+        // Test SessionCoordinator speech for this event
+        val fakeClock = FakeClock(2000L)
+        val spoken = mutableListOf<String>()
+        val speech = object : dev.navisense.voice.ISpeechArbiter {
+            override fun speak(request: dev.navisense.voice.SpeechRequest): Boolean {
+                spoken.add(request.phrase)
+                return true
+            }
+            override fun cancelAll() = Unit
+            override fun invalidateSession(newGeneration: Long) = Unit
+        }
+        val coordinator = dev.navisense.app.SessionCoordinator(
+            sessionGeneration = SessionGeneration(1L),
+            clock = fakeClock,
+            speechArbiter = speech
+        )
+        val token = coordinator.startNearbySearch("keys")
+        coordinator.markNearbySearchReady(token.generation)
+        coordinator.onSearchEvent(event!!.copy(sessionGeneration = token.generation))
+
+        assertTrue("Should warn about obstacle in between", spoken.contains("Keys detected ahead, but a Chair is in between."))
+    }
+
+    @Test
+    fun testSearchNearbyTargetReachedWhenClose() {
+        val engine = TargetSearchEngine(reachBoxHeightThreshold = 0.12f)
+        engine.startSearch("keys", 1L, 1000L)
+
+        // Large bounding box when close: height = 0.18 >= 0.12
+        val closeBox = NormalizedRect(0.40f, 0.40f, 0.60f, 0.58f)
+        val closeKeys = DetectedObject(0, "keys", 0.90f, closeBox)
+        fun closeFrame(id: Long) = MobilePerceptionEvent(
+            1L, AppVisionMode.LOCATE_SEARCH, id, 1000L + id * 100L, 1000L + id * 100L, 1, "locate",
+            FrameQualityStatus.USABLE, listOf(closeKeys)
+        )
+
+        engine.processFrame(closeFrame(1))
+        engine.processFrame(closeFrame(2))
+        val event = engine.processFrame(closeFrame(3))
+
+        assertNotNull(event)
+        assertEquals(SearchStatus.CONFIRMED, event?.status)
+        assertTrue("isCloseEnough must be true", event?.isCloseEnough == true)
+        assertFalse("Search session finishes upon confirmation", engine.isSearchActive)
+
+        // Test SessionCoordinator speech confirms reached
+        val fakeClock = FakeClock(2000L)
+        val spoken = mutableListOf<String>()
+        val speech = object : dev.navisense.voice.ISpeechArbiter {
+            override fun speak(request: dev.navisense.voice.SpeechRequest): Boolean {
+                spoken.add(request.phrase)
+                return true
+            }
+            override fun cancelAll() = Unit
+            override fun invalidateSession(newGeneration: Long) = Unit
+        }
+        val coordinator = dev.navisense.app.SessionCoordinator(
+            sessionGeneration = SessionGeneration(1L),
+            clock = fakeClock,
+            speechArbiter = speech
+        )
+        val token = coordinator.startNearbySearch("keys")
+        coordinator.markNearbySearchReady(token.generation)
+        coordinator.onSearchEvent(event!!.copy(sessionGeneration = token.generation))
+
+        assertEquals(AppMode.FOUND, coordinator.currentMode)
+        assertTrue("Should announce reached target", spoken.contains("Keys reached straight ahead."))
+    }
 }
+

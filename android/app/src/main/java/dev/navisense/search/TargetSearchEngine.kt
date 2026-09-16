@@ -7,7 +7,8 @@ import dev.navisense.contracts.*
  */
 data class SearchFrameRecord(
     val timestampMonotonicMs: Long,
-    val targetDetections: List<DetectedObject>
+    val targetDetections: List<DetectedObject>,
+    val obstacleDetections: List<DetectedObject> = emptyList()
 )
 
 /**
@@ -18,7 +19,8 @@ class TargetSearchEngine(
     val searchTimeoutMs: Long = 15000L,
     val minConfirmationFrames: Int = 3,
     val minConfidence: Float = 0.60f,
-    val matchIouThreshold: Float = 0.30f
+    val matchIouThreshold: Float = 0.30f,
+    val reachBoxHeightThreshold: Float = 0.12f
 ) {
     private var currentSessionGen: Long = -1L
     private var currentTargetClass: String = ""
@@ -128,6 +130,16 @@ class TargetSearchEngine(
                 listOf(it.boundingBox.left, it.boundingBox.top, it.boundingBox.right, it.boundingBox.bottom).all { coordinate -> coordinate.isFinite() && coordinate in 0f..1f } && it.boundingBox.area > 0f
         }
 
+        // Filter for indoor obstacle classes (chair, table, couch, door) with confidence >= 0.30
+        val obstacleClasses = setOf("chair", "table", "couch", "door", "desk", "sofa")
+        val obstacleDetections = event.detections.filter {
+            !it.label.equals(currentTargetClass, ignoreCase = true) &&
+                it.label.lowercase() in obstacleClasses &&
+                it.confidence.isFinite() && it.confidence >= 0.30f &&
+                listOf(it.boundingBox.left, it.boundingBox.top, it.boundingBox.right, it.boundingBox.bottom).all { coordinate -> coordinate.isFinite() && coordinate in 0f..1f } &&
+                it.boundingBox.area > 0f
+        }
+
         // Maintain sliding window of latest 5 processed frames
         if (recentFrames.size >= 5) {
             recentFrames.removeFirst()
@@ -135,7 +147,8 @@ class TargetSearchEngine(
         recentFrames.addLast(
             SearchFrameRecord(
                 timestampMonotonicMs = event.captureMonotonicMs,
-                targetDetections = matchingDetections
+                targetDetections = matchingDetections,
+                obstacleDetections = obstacleDetections
             )
         )
 
@@ -182,18 +195,57 @@ class TargetSearchEngine(
             qualifyingClusters.size == 1 -> {
                 val confirmedCluster = qualifyingClusters.first()
                 val latestDetection = confirmedCluster.last()
-                val direction = calculateDirection(latestDetection.boundingBox.centerX)
-                isConfirmed = true
-                android.util.Log.i("NaviSenseSearch", "TargetSearchEngine: CONFIRMED target=$currentTargetClass direction=$direction at centerX=${latestDetection.boundingBox.centerX}")
+                val targetBox = latestDetection.boundingBox
+                val direction = calculateDirection(targetBox.centerX)
+                val isCloseEnough = targetBox.height >= reachBoxHeightThreshold || targetBox.area >= 0.025f
 
-                SearchEvent(
-                    sessionGeneration = currentSessionGen,
-                    targetClass = currentTargetClass,
-                    status = SearchStatus.CONFIRMED,
-                    direction = direction,
-                    candidateCount = 1,
-                    timestampMonotonicMs = currentTimeMs
-                )
+                // In-path obstacle detection:
+                // An obstacle lies between user and target if:
+                // 1. Horizontally it intersects the heading corridor to the target
+                // 2. Vertically it is closer to the user (bottom is lower in frame, or area is significantly larger)
+                val targetCorridorLeft = (targetBox.centerX - 0.20f).coerceAtLeast(0f)
+                val targetCorridorRight = (targetBox.centerX + 0.20f).coerceAtMost(1f)
+
+                val candidateObstacles = framesInWindow.flatMap { it.obstacleDetections }
+                val obstaclesInPath = candidateObstacles.filter { obs ->
+                    val obsBox = obs.boundingBox
+                    val horizontalOverlap = obsBox.left < targetCorridorRight && obsBox.right > targetCorridorLeft
+                    val isCloser = obsBox.bottom >= targetBox.bottom - 0.05f || obsBox.area > targetBox.area * 2.0f
+                    horizontalOverlap && isCloser
+                }
+                val inPathObstacle = obstaclesInPath.maxByOrNull { it.boundingBox.area }
+                val obstacleLabel = inPathObstacle?.label?.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+
+                if (isCloseEnough) {
+                    isConfirmed = true
+                    android.util.Log.i("NaviSenseSearch", "TargetSearchEngine: CONFIRMED REACHED target=$currentTargetClass direction=$direction height=${targetBox.height}")
+
+                    SearchEvent(
+                        sessionGeneration = currentSessionGen,
+                        targetClass = currentTargetClass,
+                        status = SearchStatus.CONFIRMED,
+                        direction = direction,
+                        candidateCount = 1,
+                        timestampMonotonicMs = currentTimeMs,
+                        obstacleInPath = obstacleLabel,
+                        isCloseEnough = true,
+                        targetBoxHeight = targetBox.height
+                    )
+                } else {
+                    android.util.Log.d("NaviSenseSearch", "TargetSearchEngine: VISIBLE IN DISTANCE target=$currentTargetClass direction=$direction height=${targetBox.height} < $reachBoxHeightThreshold, obstacle=$obstacleLabel")
+
+                    SearchEvent(
+                        sessionGeneration = currentSessionGen,
+                        targetClass = currentTargetClass,
+                        status = SearchStatus.SEARCHING,
+                        direction = direction,
+                        candidateCount = 1,
+                        timestampMonotonicMs = currentTimeMs,
+                        obstacleInPath = obstacleLabel,
+                        isCloseEnough = false,
+                        targetBoxHeight = targetBox.height
+                    )
+                }
             }
             qualifyingClusters.size > 1 -> {
                 SearchEvent(
