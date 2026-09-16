@@ -2754,3 +2754,38 @@ Source revision and evidence reference: commit 35a9648 on main; debug APK SHA-25
 Recipient(s): Samik, Rohan, Subham, Spandan
 For response: Team ACK.
 ```
+
+
+```text
+Entry ID: SAMIK-2026-09-16-038 / 2026-09-16T09:05:00+05:30 / T+ unverified
+Author and type: Samik | PROGRESS, IMPLEMENTATION & PHYSICAL VERIFICATION
+Phase / step / S-instance / H-contract: VIT Chennai Campus Routing & PedestrianNavigationEngine Unification / Phase 6 & Phase 7
+Message and requested action:
+1. VIT Chennai Campus Turn-by-Turn Guidance Unification:
+   - Added `NavigationRoute.toWalkingRoute()` extension method in `MapRoutingEngine.kt` to directly convert offline A* campus routes into standardized `WalkingRoute` models.
+   - Connected campus routing directly to `coordinator.startOutdoorWalking(walkingRoute)` in `MainActivity.kt`, unlocking Google Maps-style pedestrian turn-by-turn guidance: 50m advance alerts, 20m alerts, 6m corner cues, hardware compass azimuth heading, and multimodal obstacle preemption.
+   - Removed hardcoded failure boundaries: increased `DEFAULT_MAX_SNAP_DISTANCE_METERS` from 80.0m to 250.0m, allowing indoor and edge-of-campus GPS positions to snap reliably to campus walkways without reporting "outside coverage".
+   - Added seamless fallback: if a user is >250m off-campus or graph snap fails, `routeToCampusPoi()` automatically routes dynamically to exact building coordinates via `fetchAndStartWalkingRoute()`.
+2. POI & Destination Resolution Expansion:
+   - Expanded alias and shortcut coverage in `CampusDestinationResolver.kt`, `VoiceCommandParser.kt`, and `MainActivity.kt` (`findCampusPoi`) for:
+     * Academic Block 1 (AB1, Auditorium, Netaji Auditorium, cultural center)
+     * Academic Block 2 (AB2, computing labs)
+     * Academic Block 3 (AB3)
+     * Central Library (library, reading room)
+     * Food Court (Ambrosia, canteen, cafeteria, gazebo)
+     * Delta Hostel Block & Gamma Hostel Block
+     * Administrative Block (Admin, admissions, Health Center / clinic, SBI Bank / ATM)
+     * Sports Complex & Ground (gym, swimming pool, badminton)
+     * Main Entrance Gate & Kelambakkam Bus Stop
+   - Preserved the canonical 11 POI map asset contract in `vit_chennai_map.json`.
+3. Test Verification & Physical Device Deployment:
+   - All 158 / 158 unit tests PASS (./gradlew testDebugUnitTest), including `CampusMapIntegrityTest` (110 directed pairs), `MapRoutingEngineTest`, and `VoiceCommandParserTest`.
+   - Built debug APK and successfully installed on physical OPPO CPH2753IN (`6545Q8A6X89TW8ZX`).
+   - Launched `dev.navisense.debug/dev.navisense.app.MainActivity` and verified live operational state.
+4. Frozen Contract Integrity (AGENTS.md Section 2):
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Source revision and evidence reference: commit abc282e on main; debug APK installed on physical device 6545Q8A6X89TW8ZX
+Recipient(s): Rishav, Rohan, Subham, Spandan
+For response: Team ACK; verified live on physical OPPO device.
+```
