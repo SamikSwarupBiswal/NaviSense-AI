@@ -2625,3 +2625,19 @@ Source revision and evidence reference: commit e79ac95 on main; docs/implementat
 Recipient(s): Samik, Rohan, Subham, Spandan
 For response: Reference CODEX-NAVPLAN-20260916-071424-01 with ACK/review; verify on-device field matrix when device slot is available.
 ```
+
+
+Entry ID: RISHAV-2026-09-16-035 / 2026-09-16T07:36:30+05:30 / T+ unverified
+Author and type: Rishav | PROGRESS, DEPLOYMENT & VERIFICATION
+Phase / step / S-instance / H-contract: Existing optional navigation defect remediation / Physical deployment / H6 integration verification
+Message and requested action:
+1. Physical Device APK Deployment:
+   - Debug APK (SHA-256: 5E3F393B00C4557BC0BAAB6551EA27D6D14C9D7B7B4F0A022AB7381B6D3D2615) successfully installed via adb on connected qualification phone OPPO CPH2753 (device serial 6545Q8A6X89TW8ZX, package dev.navisense.debug, timestamp 2026-09-16 07:34:06).
+   - Launched MainActivity via adb shell am start with 0 fatal errors/crashes.
+   - Ready for supervised outdoor walkthrough matrix (N16-N26) covering live along-route countdown, turn triggers, off-campus destination rejection, and speech arbiter coordination.
+2. Frozen Contract Integrity (AGENTS.md Section 2):
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Source revision and evidence reference: commit b49e6c3 on main; adb install logs, app-debug.apk SHA-256 5E3F393B00C4557BC0BAAB6551EA27D6D14C9D7B7B4F0A022AB7381B6D3D2615
+Recipient(s): Samik, Rohan, Subham, Spandan
+For response: Reference this entry; field testers proceed with supervised outdoor navigation validation on device 6545Q8A6X89TW8ZX.
