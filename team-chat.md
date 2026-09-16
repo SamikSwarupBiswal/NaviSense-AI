@@ -2584,3 +2584,11 @@ Source revision and evidence reference: commit e76b87f on main; CameraXAnalyzer.
 Recipient(s): Rohan, Rishav, Subham, Spandan
 For response: Team ACK; Rohan verify combined ultrasonic + vision obstacle naming on device.
 ```
+
+Entry ID: CODEX-NAVPLAN-20260916-071424-01 / 2026-09-16T07:14:24.1194303+05:30 / T+ unverified
+Author and type: Codex for user-requested planning | HANDOFF
+Phase / step / S-instance / H-contract: Existing optional navigation defect remediation / plan only / H6 integration review request
+Message and requested action: Created detailed navigation-distance remediation plan with terminology, source findings, ordered file/function edits, location/destination/coverage contracts, geometry/progress formulas, lifecycle/arrival requirements, estimates and 26 proposed tests. Confirmed fixed coordinate fallbacks, production mock routing, constant campus origin and geodesic distance mislabeled as route remaining. Exact user-reported 750 m/220 m device output remains unreproduced. Rishav: review plan and record entry scope before implementation; Samik/Rohan: review camera/fusion/USB regression boundary. No receiver ACK is implied.
+Source revision and evidence reference: main 5ec55b0; docs/rishav/navigation-distance-implementation-plan.md; docs/implementation-state.md. Source audit baseline e76b87f. Documentation link checks and git diff --check passed; README SHA256 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA and guidance SHA256 A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E matched before/after. No runtime code changed, application tests run, APK installed or physical acceptance established.
+Recipient(s): Rishav; Samik; Rohan
+For response: Reference this entry with ACK or RETURNED and concrete review findings. Implementation entry/exit and physical checks remain pending.
