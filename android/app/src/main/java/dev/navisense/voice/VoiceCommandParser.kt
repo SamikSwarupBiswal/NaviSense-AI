@@ -17,7 +17,10 @@ object VoiceCommandParser {
     )
 
     private val STOP_KEYWORDS = setOf(
-        "stop", "cancel", "halt", "freeze", "pause", "emergency stop", "quit", "stop walking", "stop navigation"
+        "stop", "stop button", "cancel", "halt", "freeze", "pause", "emergency stop",
+        "quit", "stop walking", "stop navigation", "stop search", "stop now", "stop it",
+        "press stop", "click stop", "tap stop", "hit stop", "stop please", "press stop button",
+        "click stop button", "stop the button", "press the stop button", "click the stop button"
     )
 
     private val WALK_KEYWORDS = setOf(
@@ -82,9 +85,16 @@ object VoiceCommandParser {
             return VoiceCommand.Unknown(rawText)
         }
 
-        // 3. Emergency Stop has highest priority
-        for (stopKey in STOP_KEYWORDS) {
-            if (text == stopKey || text.startsWith("$stopKey ") || text.endsWith(" $stopKey")) {
+        // 3. Emergency Stop / Stop Button voice control has highest priority (except when specifically referring to "bus stop")
+        if (!text.contains("bus stop")) {
+            val words = text.split(" ")
+            if (words.contains("stop") ||
+                words.contains("halt") ||
+                words.contains("freeze") ||
+                words.contains("cancel") ||
+                words.contains("quit") ||
+                STOP_KEYWORDS.any { key -> text == key || text.contains(key) || text.startsWith("$key ") || text.endsWith(" $key") }
+            ) {
                 return VoiceCommand.Stop
             }
         }

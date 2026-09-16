@@ -70,17 +70,44 @@ class VoiceCommandParserTest {
     fun testStopVariations() {
         val phrases = listOf(
             "stop",
+            "stop button",
             "cancel",
             "halt",
             "freeze",
             "emergency stop",
             "please stop",
-            "hey navisense stop"
+            "can you stop",
+            "hey navisense stop",
+            "press stop",
+            "press stop button",
+            "press the stop button",
+            "click stop",
+            "click the stop button",
+            "tap stop",
+            "hit stop",
+            "stop the button",
+            "stop now",
+            "stop walking",
+            "stop navigation",
+            "stop search",
+            "stop please"
         )
         for (phrase in phrases) {
             val cmd = VoiceCommandParser.parse(phrase)
             assertEquals("Expected Stop for '$phrase'", VoiceCommand.Stop, cmd)
         }
+    }
+
+    @Test
+    fun testBusStopIsNotEmergencyStop() {
+        val cmd1 = VoiceCommandParser.parse("take me to bus stop")
+        assertTrue("Expected NavigateTo for 'take me to bus stop', got $cmd1", cmd1 is VoiceCommand.NavigateTo)
+
+        val cmd2 = VoiceCommandParser.parse("directions to bus stop")
+        assertTrue("Expected NavigateTo for 'directions to bus stop', got $cmd2", cmd2 is VoiceCommand.NavigateTo)
+
+        val cmd3 = VoiceCommandParser.parse("bus stop")
+        assertTrue("Expected non-Stop for 'bus stop', got $cmd3", cmd3 !is VoiceCommand.Stop)
     }
 
     @Test

@@ -19,7 +19,8 @@ import java.util.Locale
 class VoiceDestinationRecognizer(
     private val context: Context,
     private val onDestinationParsed: (String) -> Unit,
-    private val onError: (String) -> Unit
+    private val onError: (String) -> Unit,
+    private val onStopRequested: (() -> Unit)? = null
 ) {
 
     companion object {
@@ -155,6 +156,13 @@ class VoiceDestinationRecognizer(
             val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
             if (!matches.isNullOrEmpty()) {
                 val rawUtterance = matches[0]
+                val cleaned = rawUtterance.lowercase(Locale.ROOT).trim()
+                val words = cleaned.split(" ")
+                if (!cleaned.contains("bus stop") && (words.contains("stop") || words.contains("cancel") || words.contains("halt") || words.contains("quit"))) {
+                    Log.i(TAG, "Stop command recognized during destination query: $rawUtterance")
+                    onStopRequested?.invoke()
+                    return
+                }
                 val destination = parseDestinationPhrase(rawUtterance)
                 if (destination.isNotBlank()) {
                     onDestinationParsed(destination)
@@ -166,7 +174,21 @@ class VoiceDestinationRecognizer(
             }
         }
 
-        override fun onPartialResults(partialResults: Bundle?) {}
+        override fun onPartialResults(partialResults: Bundle?) {
+            val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+            if (!matches.isNullOrEmpty()) {
+                for (match in matches) {
+                    val cleaned = match.lowercase(Locale.ROOT).trim()
+                    val words = cleaned.split(" ")
+                    if (!cleaned.contains("bus stop") && (words.contains("stop") || words.contains("cancel") || words.contains("halt"))) {
+                        Log.w(TAG, "Immediate Stop detected during partial destination listening: $match")
+                        stopListening()
+                        onStopRequested?.invoke()
+                        break
+                    }
+                }
+            }
+        }
 
         override fun onEvent(eventType: Int, params: Bundle?) {}
     }

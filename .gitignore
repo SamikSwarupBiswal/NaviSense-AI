@@ -31,5 +31,6 @@ runs/
 yolov8n.pt
 datasets/mobility_chair_table/
 models/mobility_chair_table/
+docs/
 
 

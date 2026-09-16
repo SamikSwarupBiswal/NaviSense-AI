@@ -318,6 +318,9 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
             },
             onError = { errorMsg ->
                 announce(errorMsg)
+            },
+            onStopRequested = {
+                triggerStopButton(fromVoice = true)
             }
         )
 
@@ -389,14 +392,7 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
 
         // Critical safety button: immediate Stop without confirmation dialog
         btnStop.setOnClickListener {
-            hapticFeedback.cancel()
-            stopOutdoorNavigationSensors()
-            geminiWalkingAnalyzer.stop()
-            mapNavigationCoordinator?.stopNavigation()
-            locationTracker?.stopTracking()
-            coordinator.userStop()
-            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-            announce(getString(R.string.status_idle))
+            triggerStopButton(fromVoice = false)
         }
 
         coordinator.addListener(this)
@@ -433,6 +429,9 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
         super.onResume()
         watchdogHandler.post(watchdogRunnable)
         checkConnectedUsbDevices()
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+            startVoiceRecognition()
+        }
     }
 
     override fun onPause() {
@@ -1471,13 +1470,7 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                     onDestinationReceived(command.destination)
                 }
                 is VoiceCommand.Stop -> {
-                    speakVoiceFeedback(getString(R.string.voice_cmd_stopped))
-                    hapticFeedback.cancel()
-                    geminiWalkingAnalyzer.stop()
-                    mapNavigationCoordinator?.stopNavigation()
-                    locationTracker?.stopTracking()
-                    coordinator.userStop()
-                    window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                    triggerStopButton(fromVoice = true)
                 }
                 is VoiceCommand.ConfirmArrival -> {
                     val token = coordinator.confirmArrivalAtZone()
@@ -1497,6 +1490,53 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                     speakVoiceFeedback("Command not recognized. Say help for commands.")
                 }
             }
+        }
+    }
+
+    /**
+     * Executes the Stop button action. Unified handler for both physical button click
+     * and hands-free voice command ("stop", "stop button", etc.).
+     */
+    fun triggerStopButton(fromVoice: Boolean = false) {
+        runOnUiThread {
+            Log.i(TAG, "Executing Stop button action (triggeredByVoice=$fromVoice)")
+
+            // 1. Visual feedback on Stop button
+            btnStop.isPressed = true
+            btnStop.postDelayed({ btnStop.isPressed = false }, 350L)
+
+            // 2. Stop voice destination listener if active
+            voiceRecognizer?.stopListening()
+
+            // 3. Cancel all pending speech / alert audio
+            val app = application as? NaviSenseApp
+            app?.speechArbiter?.cancelAll()
+
+            // 4. Cancel active haptic feedback
+            hapticFeedback.cancel()
+
+            // 5. Stop outdoor navigation sensors (compass & GPS updates)
+            stopOutdoorNavigationSensors()
+
+            // 6. Stop walking analyzer & campus navigation
+            geminiWalkingAnalyzer.stop()
+            mapNavigationCoordinator?.stopNavigation()
+            locationTracker?.stopTracking()
+
+            // 7. Stop camera perception analyzer session & clear overlay bounding boxes
+            cameraAnalyzer?.stopSession()
+            detectionOverlay.clearDetections()
+
+            // 8. Transition core coordinator session to IDLE
+            coordinator.userStop()
+
+            // 9. Clear screen awake flag
+            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
+            // 10. Audible confirmation and accessibility announcement
+            val stoppedFeedback = getString(R.string.voice_cmd_stopped) // "Stopped"
+            speakVoiceFeedback(stoppedFeedback)
+            announce(getString(R.string.status_idle))
         }
     }
 

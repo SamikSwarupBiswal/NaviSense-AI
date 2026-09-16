@@ -145,12 +145,7 @@ class VoiceCommandManager(
         mainHandler.removeCallbacksAndMessages(null)
         mainHandler.postDelayed({
             if (!isContinuousListening) return@postDelayed
-            // If TTS is currently speaking, back off to prevent acoustic feedback
-            if (isTtsSpeakingProvider()) {
-                scheduleRestart(500L)
-            } else {
-                initAndStartRecognizer()
-            }
+            initAndStartRecognizer()
         }, delayMs)
     }
 
@@ -217,8 +212,14 @@ class VoiceCommandManager(
             }
 
             val finalCmd = matchedCommand ?: VoiceCommandParser.parse(matches[0])
-            Log.i(TAG, "Dispatched VoiceCommand: $finalCmd")
-            onCommandRecognized(finalCmd)
+            // If TTS is actively speaking, only allow STOP commands (barge-in emergency stop)
+            // to prevent TTS audio self-triggering commands while guaranteeing STOP always works
+            if (isTtsSpeakingProvider() && finalCmd !is VoiceCommand.Stop) {
+                Log.d(TAG, "Ignoring non-stop voice command during active TTS: $finalCmd")
+            } else {
+                Log.i(TAG, "Dispatched VoiceCommand: $finalCmd")
+                onCommandRecognized(finalCmd)
+            }
         }
 
         if (isContinuousListening) {
