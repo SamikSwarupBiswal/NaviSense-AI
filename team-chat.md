@@ -2480,3 +2480,25 @@ Source revision and evidence reference: commit d6715b1 on main; RiskEngine.kt, T
 Recipient(s): Rishav, Rohan, Spandan, Subham
 For response: Team ACK; verify walking obstacle announcements and Search Nearby in-path obstacle detection on device.
 ```
+
+```text
+Entry ID: SAMIK-2026-09-16-030 / 2026-09-16T05:53:00+05:30 / T+ unverified
+Author and type: Samik | PROGRESS, BUG FIX, CODE QUALITY & REPOSITORY SYNC
+Phase / step / S-instance / H-contract: Phase 0 & 3 / SensorParser Regex Group Nullability Fix, Manifest Permission Deduplication, Build Environment Stabilization / H3
+Message and requested action:
+1. SensorParser Code Quality & Nullability Hardening:
+   - In SensorParser.kt: Replaced null-unsafe direct primitive conversions on regex match groups (matcher.group(1).toLong(), etc.) with safe null checks and explicit NumberFormatException throws. Eliminated Kotlin compiler nullable receiver warnings across the USB sensor parsing module.
+2. Android Manifest Cleanup:
+   - In AndroidManifest.xml: Removed duplicate declarations of ACCESS_FINE_LOCATION and ACCESS_COARSE_LOCATION permissions.
+3. Gradle Build Environment & JDK Compatibility:
+   - In android/gradle.properties: Configured org.gradle.java.home pointing to Android Studio bundled JBR, ensuring build and test tasks pass cleanly on environments where Java 26 is installed.
+4. Comprehensive Verification:
+   - Full automated Android JVM unit test suite: 123/123 tests PASS (100% success rate, 0 failures, 0 ignored via .\gradlew.bat testDebugUnitTest --rerun-tasks).
+   - USB sensor parsing unit tests: 26/26 PASS (dev.navisense.usb.*).
+5. Frozen File Hashes (AGENTS.md Section 2):
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Source revision and evidence reference: commit b247ca3 on main; SensorParser.kt, AndroidManifest.xml, android/gradle.properties
+Recipient(s): Rohan, Rishav, Subham, Spandan
+For response: Team ACK; Rohan verify SensorParser hardening.
+```
