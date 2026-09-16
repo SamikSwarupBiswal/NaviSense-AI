@@ -2532,3 +2532,30 @@ Source revision and evidence reference: commit cfc7b9e on main; VoiceCommandMana
 Recipient(s): Samik, Subham, Rohan, Spandan
 For response: Team ACK; verify smooth hands-free voice command performance.
 ```
+
+```text
+Entry ID: SAMIK-2026-09-16-032 / 2026-09-16T06:54:00+05:30 / T+ unverified
+Author and type: Samik | PROGRESS, GPU OPTIMIZATION, FILTERING & CALIBRATION
+Phase / step / S-instance / H-contract: Phase 1 & 4 / Walking Mode GPU Delegate Acceleration, Non-Obstacle Filtering & Real-Time Speech Calibration
+Message and requested action:
+1. Root Cause Resolution for Walking Mode Obstacle Speech:
+   - Root Cause: Walking Mode was left running on PyTorch CPU (mobility_smoke.ptl), taking 450-700ms per frame. CameraX discarded frames past 500ms freshness limit, preventing persistent tracks and silencing obstacle speech ("Chair ahead").
+   - Resolution:
+     * In MainActivity.kt: Switched AppVisionMode.MOBILITY to use TfliteGpuLocateBackend with locate_obstacle_model.tflite, running in 18-25ms on mobile GPU with zero dropped frames.
+     * In CameraXAnalyzer.kt & RiskEngine.kt: Strictly filtered out non-obstacle target items (keys, wallet) in Walking Mode, ensuring mobility only tracks physical hazards (chair, table, couch, door).
+     * In FusionVisionTrackStore.kt: Calibrated MIN_CONFIDENCE to 0.30f, REQUIRED_FRAMES to 2, and PERSISTENCE_WINDOW_MS to 1500L for immediate obstacle track establishment.
+     * In RiskEngine.kt: Set MIN_VISION_CONFIDENCE to 0.30f, enabling prompt obstacle hazard speech.
+     * In TargetSearchEngine.kt: Lowered default minConfidence from 0.60f to 0.45f for robust handheld detection.
+2. Build Environment & Automated Verification:
+   - Updated android/gradle.properties with valid Eclipse Adoptium JDK 17 home.
+   - 123/123 JVM unit tests PASS (./gradlew.bat :app:testDebugUnitTest).
+   - Clean debug APK build (assembleDebug successful).
+3. Physical Device Deployment:
+   - Deployed fresh debug APK to connected device OPPO CPH2753 (device 6545Q8A6X89TW8ZX).
+4. Frozen Contract Integrity (AGENTS.md Section 2):
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Source revision and evidence reference: commit b6972d9 on main; MainActivity.kt, CameraXAnalyzer.kt, FusionVisionTrackStore.kt, RiskEngine.kt, TargetSearchEngine.kt
+Recipient(s): Rishav, Rohan, Spandan, Subham
+For response: Team ACK; verify on-device obstacle audio announcements in Walking Mode and Search Nearby.
+```
