@@ -30,12 +30,14 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import android.widget.EditText
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
+import com.google.android.gms.tasks.CancellationTokenSource
 import dev.navisense.R
 import dev.navisense.camera.CameraXAnalyzer
 import dev.navisense.camera.DetectionOverlayView
@@ -303,7 +305,10 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
         btnStop = findViewById(R.id.btnStop)
 
         compassProvider = DeviceCompassProvider(this)
-        routesService = GoogleRoutesService(context = this)
+        val prefs = getSharedPreferences("navisense_config", Context.MODE_PRIVATE)
+        val savedMapsApiKey = prefs.getString("google_maps_api_key", null)
+            ?: dev.navisense.BuildConfig.GOOGLE_MAPS_API_KEY.ifBlank { null }
+        routesService = GoogleRoutesService(apiKey = savedMapsApiKey, context = this)
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
 
         voiceRecognizer = VoiceDestinationRecognizer(
@@ -325,7 +330,6 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
         }
 
         // Initialize Gemini 1.5 Flash Client & 4-second walking analyzer
-        val prefs = getSharedPreferences("navisense_config", Context.MODE_PRIVATE)
         val savedApiKey = prefs.getString("gemini_api_key", null)
             ?: System.getProperty("GEMINI_API_KEY")
             ?: ""
@@ -1059,6 +1063,7 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
             return
         }
 
+<<<<<<< HEAD
         // 1. Check CampusDestinationResolver first
         val engine = mapRoutingEngine
         val pois = engine?.pois ?: emptyList()
@@ -1091,22 +1096,35 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                 fetchAndStartWalkingRoute(origin, destination)
             } else {
                 announce("Waiting for GPS location fix. Please ensure location is enabled.")
+=======
+        announce("Acquiring GPS location for walking route...")
+        val cts = CancellationTokenSource()
+        fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, cts.token)
+            .addOnSuccessListener { loc ->
+                val origin = if (loc != null) GeoPoint(loc.latitude, loc.longitude) else lastKnownLocation
+                if (origin != null) {
+                    lastKnownLocation = origin
+                    fetchAndStartWalkingRoute(origin, destination)
+                } else {
+                    announce("Waiting for GPS location fix. Please ensure location is enabled.")
+                }
+            }.addOnFailureListener {
+                val origin = lastKnownLocation
+                if (origin != null) {
+                    fetchAndStartWalkingRoute(origin, destination)
+                } else {
+                    announce("Location unavailable. Please check device location settings.")
+                }
+>>>>>>> origin/main
             }
-        }.addOnFailureListener {
-            val origin = lastKnownLocation
-            if (origin != null) {
-                fetchAndStartWalkingRoute(origin, destination)
-            } else {
-                announce("Location unavailable. Please check device location settings.")
-            }
-        }
     }
 
     private fun fetchAndStartWalkingRoute(origin: GeoPoint, destination: String) {
+        announce("Calculating walking route to $destination.")
         lifecycleScope.launch {
-            val geocodeResult = routesService.geocodeDestination(destination)
+            val geocodeResult = routesService.geocodeDestination(destination, nearPoint = origin)
             geocodeResult.onFailure {
-                announce("Unable to find destination: $destination")
+                announce("Unable to find destination: $destination. Please try saying the full address or landmark.")
                 return@launch
             }
             val targetPoint = geocodeResult.getOrThrow()
@@ -1245,14 +1263,50 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
     }
 
     private fun showMapDestinationDialog() {
+        val options = mutableListOf<String>()
+        options.add("Speak Destination (Voice)")
+        options.add("Type Destination")
+        val engine = mapRoutingEngine
+        if (engine != null && engine.pois.isNotEmpty()) {
+            options.add("Campus POIs (VIT Chennai)")
+        }
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.map_destination_dialog_title)
+            .setItems(options.toTypedArray()) { _, which ->
+                when (which) {
+                    0 -> checkNavPermissionsAndStart()
+                    1 -> showTypeDestinationDialog()
+                    2 -> showCampusPoiDialog()
+                }
+            }
+            .setNegativeButton(R.string.action_cancel, null)
+            .show()
+    }
+
+    private fun showTypeDestinationDialog() {
+        val input = EditText(this)
+        input.hint = "Enter place, street, or landmark"
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Walking Destination")
+            .setView(input)
+            .setPositiveButton("Navigate") { _, _ ->
+                val dest = input.text.toString().trim()
+                if (dest.isNotEmpty()) {
+                    onDestinationReceived(dest)
+                }
+            }
+            .setNegativeButton(R.string.action_cancel, null)
+            .show()
+    }
+
+    private fun showCampusPoiDialog() {
         val engine = mapRoutingEngine ?: run {
             announce("Map data is loading. Please try again in a moment.")
             return
         }
-
         val pois = engine.pois
         val names = pois.map { "${it.name} (${it.category.replaceFirstChar { c -> c.uppercase() }})" }.toTypedArray()
-
         MaterialAlertDialogBuilder(this)
             .setTitle(R.string.map_destination_dialog_title)
             .setItems(names) { _, which ->
@@ -1422,7 +1476,37 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                     showMapDestinationDialog()
                 }
                 is VoiceCommand.NavigateToDestination -> {
+<<<<<<< HEAD
                     onDestinationReceived(command.destinationQuery)
+=======
+                    val engine = mapRoutingEngine
+                    val q = command.destinationQuery.lowercase(java.util.Locale.ROOT)
+                    val matched = engine?.pois?.find { poi ->
+                        val name = poi.name.lowercase(java.util.Locale.ROOT)
+                        val desc = poi.description.lowercase(java.util.Locale.ROOT)
+                        name.contains(q) || desc.contains(q) || poi.id.contains(q)
+                    } ?: engine?.pois?.find { poi ->
+                        if (q.contains("ab1") || q.contains("ab 1")) poi.id == "poi_academic_block_1"
+                        else if (q.contains("ab2") || q.contains("ab 2")) poi.id == "poi_academic_block_2"
+                        else if (q.contains("ab3") || q.contains("ab 3")) poi.id == "poi_academic_block_3"
+                        else if (q.contains("ambrosia") || q.contains("canteen") || q.contains("food")) poi.id == "poi_food_court"
+                        else if (q.contains("library")) poi.id == "poi_library"
+                        else if (q.contains("gate")) poi.id == "poi_main_gate"
+                        else if (q.contains("admin")) poi.id == "poi_admin_block"
+                        else if (q.contains("delta")) poi.id == "poi_hostel_delta"
+                        else if (q.contains("gamma")) poi.id == "poi_hostel_gamma"
+                        else if (q.contains("sports")) poi.id == "poi_sports_complex"
+                        else if (q.contains("bus") || q.contains("kelambakkam")) poi.id == "poi_kelambakkam_road"
+                        else false
+                    }
+
+                    if (matched != null) {
+                        speakVoiceFeedback("Navigating to ${matched.name}")
+                        startMapNavigationToPoi(matched)
+                    } else {
+                        onDestinationReceived(command.destinationQuery)
+                    }
+>>>>>>> origin/main
                 }
                 is VoiceCommand.NavigateTo -> {
                     onDestinationReceived(command.destination)
