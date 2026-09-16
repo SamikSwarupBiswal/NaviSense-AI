@@ -223,7 +223,7 @@ Executed navigation distance and offline routing defect remediation (NAV-01 thro
    - Added comprehensive suite `NavigationDistanceRemediationTest.kt` verifying N01, N02, N03, N07, N08, N09, N10, N11, N13, N14.
    - Full automated test suite: 134/134 tests PASS (`./gradlew.bat :app:testDebugUnitTest`, 0 failures, 0 skipped).
    - Debug APK build: BUILD SUCCESSFUL (`./gradlew.bat :app:assembleDebug`), APK SHA-256 `5E3F393B00C4557BC0BAAB6551EA27D6D14C9D7B7B4F0A022AB7381B6D3D2615`.
-   - Physical device tests (N16-N26) remain pending physical phone connection.
+   - Physical device deployment: Debug APK physically installed via adb on connected qualification phone OPPO CPH2753 (serial `6545Q8A6X89TW8ZX`, package `dev.navisense.debug`, update timestamp `2026-09-16 07:34:06`, APK SHA-256 `5E3F393B00C4557BC0BAAB6551EA27D6D14C9D7B7B4F0A022AB7381B6D3D2615`) and launched via `am start` with 0 crashes. Physical walking/field matrix (N16-N26) ready for supervised outdoor walkthrough.
    - Frozen file integrity check: `docs/README.md` (54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA) and `docs/guidance.md` (A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E) MATCH.
 
 
