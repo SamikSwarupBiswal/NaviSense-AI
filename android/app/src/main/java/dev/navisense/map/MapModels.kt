@@ -13,7 +13,8 @@ data class MapPOI(
     val lon: Double,
     val description: String,
     val nearestNodeId: Long,
-    val distanceToNodeMeters: Double
+    val distanceToNodeMeters: Double,
+    val aliases: List<String> = emptyList()
 )
 
 enum class TurnType {

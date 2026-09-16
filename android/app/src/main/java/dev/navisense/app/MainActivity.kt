@@ -42,10 +42,13 @@ import dev.navisense.camera.DetectionOverlayView
 import dev.navisense.contracts.AppMode
 import dev.navisense.contracts.AppVisionMode
 import dev.navisense.contracts.PathStatus
+import dev.navisense.map.CampusDestinationResolver
+import dev.navisense.map.CampusResolutionResult
 import dev.navisense.navigation.maps.DeviceCompassProvider
 import dev.navisense.navigation.maps.GoogleRoutesService
 import dev.navisense.navigation.maps.models.GeoPoint
 import dev.navisense.navigation.maps.models.NavigationEngineStatus
+import dev.navisense.navigation.maps.models.NavigationSnapshot
 import dev.navisense.navigation.maps.models.WalkingRoute
 import dev.navisense.voice.VoiceDestinationRecognizer
 import kotlinx.coroutines.launch
@@ -63,6 +66,7 @@ import dev.navisense.inference.TfliteGpuLocateBackend
 import dev.navisense.inference.YoloModelRunner
 import dev.navisense.navigation.RiskEvaluationResult
 import dev.navisense.navigation.RiskLevel
+import dev.navisense.navigation.RiskSource
 import dev.navisense.usb.AndroidUsbCdcTransport
 import dev.navisense.usb.SensorRecord
 import dev.navisense.usb.UsbSensorAdapter
@@ -843,8 +847,15 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
     override fun onRiskEvaluated(result: RiskEvaluationResult) {
         runOnUiThread {
             if (coordinator.currentMode == AppMode.MOBILITY || coordinator.currentMode == AppMode.OUTDOOR_WALKING) {
-                val obstacleLabel = result.associatedObjectLabel?.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
-                    ?: result.visualObstacleLabel
+                val obstacleLabel = when (result.primaryHazardSource) {
+                    RiskSource.SENSOR -> {
+                        result.associatedObjectLabel?.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+                    }
+                    RiskSource.VISION -> {
+                        result.visualObstacleLabel?.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+                    }
+                    null -> null
+                }
                 when (result.combinedRisk) {
                     RiskLevel.STOP -> {
                         if (result.isEscalation) {
@@ -997,14 +1008,28 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
 
     override fun onNavigationStatusUpdated(status: NavigationEngineStatus) {
         runOnUiThread {
-            tvSystemMode.text = "Walking to ${status.destinationName} (${status.totalRemainingDistanceMeters.toInt()}m left)"
+            val formatted = NavigationSnapshot.formatDistance(status.totalRemainingDistanceMeters.toDouble())
+            tvSystemMode.text = "Walking to ${status.destinationName} ($formatted)"
             val nextInfo = if (status.nextManeuverStreet.isNotBlank()) {
                 "In ${status.distanceToNextStepMeters.toInt()}m onto ${status.nextManeuverStreet}"
             } else {
                 status.currentInstruction
             }
             tvPathStatus.text = nextInfo
-            tvSensorStatus.text = "We are walking on ${status.currentStreetName}"
+            tvSensorStatus.text = if (status.currentStreetName.isNotBlank()) {
+                "We are walking on ${status.currentStreetName}"
+            } else {
+                "On route to ${status.destinationName}"
+            }
+        }
+    }
+
+    override fun onNavigationSnapshotUpdated(snapshot: NavigationSnapshot) {
+        runOnUiThread {
+            tvSystemMode.text = "Walking to ${snapshot.destinationName} (${snapshot.formattedDistanceLeft})"
+            if (snapshot.nextManeuverInstruction.isNotBlank()) {
+                tvPathStatus.text = snapshot.nextManeuverInstruction
+            }
         }
     }
 
@@ -1032,6 +1057,30 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                 arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.RECORD_AUDIO)
             )
             return
+        }
+
+        // 1. Check CampusDestinationResolver first
+        val engine = mapRoutingEngine
+        val pois = engine?.pois ?: emptyList()
+        val resolution = CampusDestinationResolver.resolve(destination, pois)
+
+        when (resolution) {
+            is CampusResolutionResult.ExactMatch -> {
+                speakVoiceFeedback("Navigating to ${resolution.poi.name}")
+                startMapNavigationToPoi(resolution.poi)
+                return
+            }
+            is CampusResolutionResult.DisambiguationRequired -> {
+                val names = resolution.candidates.joinToString(" or ") { it.name }
+                speakVoiceFeedback("Multiple campus locations found. Please specify $names.")
+                return
+            }
+            is CampusResolutionResult.OffCampusQuery -> {
+                speakVoiceFeedback("Destination ${resolution.cleanQuery} is off campus. Checking outdoor route.")
+            }
+            is CampusResolutionResult.UnknownDestination -> {
+                // Not a recognized campus destination; proceed with standard lookup
+            }
         }
 
         announce("Calculating walking route to $destination.")
@@ -1250,7 +1299,15 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
         val token = coordinator.startMapNavigation(poi.name)
         mapNavigationCoordinator?.startNavigation(route, token.generation)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        announce("Navigating to ${poi.name}. Route distance is ${route.totalDistanceMeters.roundToInt()} meters.")
+
+        val distToPoi = dev.navisense.navigation.maps.PedestrianProgressCalculator.computeDistanceMeters(
+            origin.latitude, origin.longitude, poi.lat, poi.lon
+        )
+        if (distToPoi <= 25.0) {
+            announce("You are near ${poi.name} entrance. Indoor navigation is unavailable.")
+        } else {
+            announce("Navigating to ${poi.name}. Route distance is ${route.totalDistanceMeters.roundToInt()} meters.")
+        }
     }
 
     private fun <T> runOnUiThreadSafely(block: () -> T): T? {
@@ -1365,38 +1422,7 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                     showMapDestinationDialog()
                 }
                 is VoiceCommand.NavigateToDestination -> {
-                    val engine = mapRoutingEngine
-                    if (engine == null) {
-                        speakVoiceFeedback("Map data is still loading. Please try again in a moment.")
-                        return@runOnUiThread
-                    }
-
-                    val q = command.destinationQuery.lowercase(java.util.Locale.ROOT)
-                    val matched = engine.pois.find { poi ->
-                        val name = poi.name.lowercase(java.util.Locale.ROOT)
-                        val desc = poi.description.lowercase(java.util.Locale.ROOT)
-                        name.contains(q) || desc.contains(q) || poi.id.contains(q)
-                    } ?: engine.pois.find { poi ->
-                        if (q.contains("ab1") || q.contains("ab 1")) poi.id == "poi_academic_block_1"
-                        else if (q.contains("ab2") || q.contains("ab 2")) poi.id == "poi_academic_block_2"
-                        else if (q.contains("ab3") || q.contains("ab 3")) poi.id == "poi_academic_block_3"
-                        else if (q.contains("ambrosia") || q.contains("canteen") || q.contains("food")) poi.id == "poi_food_court"
-                        else if (q.contains("library")) poi.id == "poi_library"
-                        else if (q.contains("gate")) poi.id == "poi_main_gate"
-                        else if (q.contains("admin")) poi.id == "poi_admin_block"
-                        else if (q.contains("delta")) poi.id == "poi_hostel_delta"
-                        else if (q.contains("gamma")) poi.id == "poi_hostel_gamma"
-                        else if (q.contains("sports")) poi.id == "poi_sports_complex"
-                        else if (q.contains("bus") || q.contains("kelambakkam")) poi.id == "poi_kelambakkam_road"
-                        else false
-                    }
-
-                    if (matched != null) {
-                        speakVoiceFeedback("Navigating to ${matched.name}")
-                        startMapNavigationToPoi(matched)
-                    } else {
-                        speakVoiceFeedback("Destination ${command.destinationQuery} not recognized on campus map. You can ask for AB1, AB2, AB3, Ambrosia Canteen, Central Library, or Hostels.")
-                    }
+                    onDestinationReceived(command.destinationQuery)
                 }
                 is VoiceCommand.NavigateTo -> {
                     onDestinationReceived(command.destination)

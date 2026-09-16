@@ -1,298 +1,420 @@
-# Navigation distance and offline routing implementation plan
+# VIT Chennai campus navigation: exact implementation plan
 
-Prepared by Codex on 2026-09-16 for the user's reported Phoenix Mall / repeated-distance defect. Status: **planned; source inspected, implementation and device validation not performed**. Source baseline: `e76b87f9e3b20d593b5793b73187e89260124972` on main. Actual hackathon T+ remains unverified.
+Prepared by Codex on 2026-09-16. **Status: analysis and implementation plan; no runtime fix or device verification performed.** Expanded on the user's request to cover all VIT Chennai locations. The AB1 report (approximately 178 m spoken, 728100 m left and a 223 m next turn on screen) is the first regression case, not the scope boundary. The filename is retained to preserve existing references.
 
-Authority: [AGENTS](../../AGENTS.md), [frozen PRD](../README.md), [frozen guidance](../guidance.md), [implementation state](../implementation-state.md), [master schedule](../implementation-plan.md), and [Rishav's owner plan](implementation-plan.md). This is a defect-remediation plan for the existing optional navigation feature; it does not amend the frozen product contract or replace mandatory indoor walking/search acceptance.
+## 1. Outcome required
 
-## 1. Objective and intended behavior
+Apply the repair to every supported VIT Chennai destination and every accepted campus origin, including voice and destination-menu flows. Build and verify a complete location inventory before claiming campus-wide coverage. The existing 11-POI list is an initial inventory, not an exhaustive campus directory. Routes terminate at verified walking entrances; room/floor destinations are resolved to a building entrance with an explicit indoor-navigation limitation unless separately mapped and localized.
 
-Every displayed navigation distance must be traceable to an accepted device location, a resolved destination, and a valid pedestrian route. Missing evidence must produce an explicit unavailable state, never a fabricated coordinate, route, street name, or distance.
+The app must resolve the intended AB1 destination, acquire an acceptable actual location, validate a real walking route, and calculate remaining distance along that route. UI and speech must use the same validated route/session. If the location or route is unreliable, display a clear unavailable state instead of a plausible-looking number.
 
-For “navigate to Phoenix Mall,” resolve the actual place and confirm its locality/entrance when ambiguous. If the app cannot resolve it offline, report that limitation. If a real destination is known but its route is unavailable, report route unavailability. Do not label a nearby default coordinate “Phoenix Mall.” This plan does not guess which Phoenix Mall the user means or assert its actual distance.
+Do not hardcode 178 m, divide 728100 by an arbitrary factor, clamp the distance to a campus-sized maximum, or use the first-step distance as the total. The correct value must be established from recorded inputs. Standing inside a building does not imply the GPS fix is precise or that the map contains a route from the room to its entrance.
 
-Offline navigation means positioning plus a locally available destination index and connected pedestrian graph. GPS coordinates alone do not supply place names, roads, entrances, or routes. The current offline asset contains campus POIs; arbitrary city destinations require additional verified data or a configured online provider.
+## 2. Verified baseline and analysis
 
-## 2. Confirmed source findings
+Implementation source inspected at main commit `b49e6c33e4065ab8061809e1a1f9840783bd0bef`. The current worktree is detached at `9a03c13`, from communication history, and lacks Android source. Read-only inspection used `git show main:<path>`. Prepare a separate implementation branch/worktree from the implementation revision before execution. Preserve untracked datasets, models, runs and local database files.
 
-Paths below are relative to `android/app/src/main/java/dev/navisense/` unless stated otherwise. Function names are stable references; inspect line numbers again before implementation.
+Production Kotlin paths in this document are relative to `android/app/src/main/java/dev/navisense/`. Test paths are relative to `android/app/src/test/java/dev/navisense/`.
 
-| ID | File / function | Observed behavior | Consequence |
-|---|---|---|---|
-| NAV-01 | `navigation/maps/GoogleRoutesService.kt`, `geocodeDestination` | Failed lookup returns success at `12.8442, 80.1549` | Unrelated queries become the same destination coordinate |
-| NAV-02 | Same file, `computeWalkingRoute` | Failed providers call `createMockWalkingRoute` | Fictional turns and fixed 35/45/40 m steps; fixed 120 m total enter live navigation |
-| NAV-03 | Same file, `resolveStreetName` | Missing street becomes “Vandalur Road” | Invented street identity is presented as known |
-| NAV-04 | `app/MainActivity.kt`, `lastKnownLocation` and `onDestinationReceived` | Initial origin is `12.8406, 80.1534`; null/error location uses it | Navigation can start without an actual current fix |
-| NAV-05 | Same file, `fetchAndStartWalkingRoute` | Geocoding failure additionally substitutes origin plus `0.0005` degrees on each axis | Another invented destination remains even after service failure is corrected |
-| NAV-06 | Same file, `startMapNavigationToPoi` | Every route starts at `12.8407, 80.1534`, even after starting GPS; permission request does not return before planning | Campus distance is calculated from the main gate rather than the phone |
-| NAV-07 | `navigation/maps/PedestrianNavigationEngine.kt`, `onLocationUpdated` / `updateStatus` | Haversine distance to final endpoint becomes `totalRemainingDistanceMeters` | UI “meters left” means straight-line distance, not remaining walking distance |
-| NAV-08 | `map/MapRoutingEngine.kt`, `findNearestNode` | No maximum snap distance | A location far outside mapped paths can attach to an unrelated graph node |
-| NAV-09 | Same file, `reconstructRoute` | Total sums graph edges; inserted origin connector is not included; final POI connector is not included | Geometry, total and true destination approach can disagree |
-| NAV-10 | Same file, turn construction | `points` begins with origin, but edge indexing begins at first graph node | Turn geometry appears shifted by one point; reproduce with a non-collinear fixture before fixing |
-| NAV-11 | `map/MapNavigationCoordinator.kt` | Uses direct distance to current waypoint plus later maneuver lengths | Curved segments can be undercounted; this differs from full route progress |
-| NAV-12 | `app/MainActivity.kt`, initialization | Constructs `GoogleRoutesService(context = this)` without an API key | Google API branches are skipped in this construction; native geocoder/OSRM/fallbacks remain |
-| NAV-13 | `map/LocationTracker.kt` | Contains default coordinates and a mock switch; callback shape has no fix timestamp | Audit real call sites and freshness propagation; defaults alone are not proof of emitted fake GPS |
-| NAV-14 | `map/MapNavigationCoordinator.kt`, speech | Uses wall clock and fixed `sessionGeneration = 1L` | Integrate current session/monotonic clock before reliable cancellation claims |
-
-The current asset `android/app/src/main/assets/maps/vit_chennai_map.json` contains 11 POIs and 2,571 nodes. No Phoenix Mall entry exists in its POI list. Its declared bounding box is latitude 12.830–12.855 and longitude 80.142–80.165, but actual node extrema are latitude 12.7788907–12.8793314 and longitude 80.0799749–80.2002835. Resolve this metadata discrepancy before treating the bounds as authoritative coverage.
-
-No literal 750 m or 220 m navigation fallback was established in the inspected Kotlin source. Fixed coordinates, derived distances and the two different routing paths are confirmed defects; the exact device branch producing the reported numbers is still unverified. Asset edge lengths containing 220.6 m are not by themselves evidence of hardcoding a user's destination distance.
-
-## 3. Terminology
-
-| Term | Meaning and implementation relevance |
-|---|---|
-| GNSS / GPS fix | A measured geographic position. GPS is one satellite positioning system; Android can combine multiple position sources |
-| Fused location | Android/Google location result that can combine available positioning sources; do not call every fix satellite-only GPS |
-| WGS84 coordinate | Latitude/longitude in degrees; use named fields to avoid swapping them |
-| Horizontal accuracy | Estimated uncertainty radius in meters; it is not a guarantee that the phone is on a particular walkway |
-| Monotonic fix age | Elapsed time since the fix using the device's elapsed-realtime clock, unaffected by wall-clock changes |
-| Geocoding | Resolving text such as “Phoenix Mall” to place coordinates; success must identify the actual resolved place |
-| Reverse geocoding | Resolving coordinates to a name/address; missing names do not justify invented road labels |
-| POI / place identity | A point of interest with stable ID, display name, locality, coordinate and provenance |
-| Pedestrian graph | Nodes and traversable edges representing mapped walking connections, including access restrictions |
-| Edge weight | Routing cost; for this local plan, non-negative walkable distance in meters unless another metric is explicitly introduced |
-| A* | Graph search using known cost plus a lower-bound heuristic; optimality requires appropriate edge costs and heuristic |
-| Dijkstra | Graph search without a heuristic; use as a small-fixture reference for A* correctness |
-| Snapping | Associating a fix or destination with a nearby traversable edge/node, subject to distance and connectivity limits |
-| Connector | Verified path between a real origin/entrance and the routing graph; proximity alone does not prove walkability |
-| Polyline | Ordered points describing route geometry; not just a direct origin-to-destination line |
-| Along-route distance | Length following remaining route geometry, including bends and legitimate connectors |
-| Geodesic distance | Shortest surface distance between coordinates, approximated here by Haversine; not walking distance |
-| Map matching | Selecting a plausible point on the route for the current fix using distance, continuity and uncertainty |
-| Cross-track error | Distance from the fix to its matched route segment, useful for off-route detection |
-| Chainage | Accumulated distance from route start to a point along the route |
-| Hysteresis | Different entry/recovery conditions or sustained evidence to prevent jitter-driven state oscillation |
-| Session generation | Existing global identifier invalidating asynchronous results after Stop, pause or mode change |
-| Provenance | Where a place/route/fix came from and which version/hash supplied it |
-| Fail closed | Withhold unsupported navigation instructions and numeric claims when evidence fails |
-
-Android documents fix timestamps/accuracy and the distinction between cached last location and current-location requests. These are API facts, not prescribed thresholds for NaviSense. See [Location reference](https://developer.android.com/reference/android/location/Location) and [current versus last location](https://developer.android.com/develop/sensors-and-location/location/retrieve-current).
-
-## 4. Scope and ownership
-
-Rishav owns navigation, MainActivity integration, lifecycle, shared contracts, permission flow, UI and voice integration. Record the `map/` package as part of this existing navigation repair in the entry review; do not silently transfer it to another member. Samik reviews preservation of camera/fusion behavior; Rohan supplies physical USB/STOP regression evidence. Their acknowledgement remains pending. Subham's memory service is unrelated to geographic routing and must not be repurposed as a geocoder. Spandan's model work is unchanged.
-
-Any implementation outside an owner's package must be handed to Rishav as an exact shared-file change request. This document supplies the requested integration changes; it is not a receiver ACK.
-
-Work order: eliminate fabricated successes first, then validate location/destination, correct geometry/progress, and prove offline behavior. Defer nationwide downloads, background navigation, SLAM, new cloud services, model changes and automatic side-clearance guidance. Optional map coverage expansion is a separate follow-up after the existing coverage is truthful.
-
-## 5. Proposed contracts and state flow
-
-Reuse existing coordinator and route models. Add only the fields/types required by the repair; names below are proposed, not existing APIs.
-
-| Contract | Required information |
-|---|---|
-| `LocationFix` | Coordinate, horizontal accuracy, elapsed-realtime fix timestamp, provider, mock/test marker |
-| `ResolvedDestination` | Place ID, confirmed name/locality, coordinate, source, optional verified entrance and map version |
-| `RouteRequest` | Request ID, session generation, accepted origin fix, confirmed destination, walking mode |
-| `RouteResult` | Success with validated route, or typed failure; never a success containing a synthetic route |
-| `RouteProvenance` | Online provider or offline graph identity/version/hash, calculation time, routing profile |
-| `RouteProgress` | Route ID, matched segment/fraction, along-route distance remaining, distance to maneuver, fix quality, off-route state |
-
-Typed failures should distinguish `LOCATION_PERMISSION_REQUIRED`, `LOCATION_DISABLED`, `LOCATION_UNAVAILABLE`, `LOCATION_STALE`, `LOCATION_INACCURATE`, `DESTINATION_NOT_FOUND`, `DESTINATION_AMBIGUOUS`, `OUTSIDE_OFFLINE_COVERAGE`, `NO_WALKABLE_CONNECTION`, `NETWORK_UNAVAILABLE`, `PROVIDER_CONFIGURATION_ERROR`, `INVALID_ROUTE`, and `CANCELLED`. Map them to concise user language without exposing keys or raw provider responses.
-
-State sequence: Idle → Acquiring location → Resolving destination → Awaiting selection if needed → Calculating route → Ready → Navigating → Near destination → Explicit arrival confirmation. Failure returns a recoverable unavailable state. Stop is valid at every stage. Tie preparation substates to the existing session authority; do not create a second session counter.
-
-Route acceptance invariant: matching request/session + accepted origin + confirmed destination + approved walking source + finite valid geometry + connected route. Recheck at callback delivery; starting a newer request invalidates older results even when both are in the same mode.
-
-## 6. Detailed execution steps
-
-### Step 0 — Establish reproducible entry evidence
-
-Owner: Rishav; peer review: Samik, with Rohan for sensor interactions. Independent source inspection/test design may proceed while acknowledgement is pending; do not assert READY or a named review occurred without a receipt.
-
-1. Inspect worktree and synchronize main and communication using AGENTS instructions. Preserve concurrent changes and read new team messages.
-2. Record source revision, both frozen hashes, phone/app build identity, available device slot, actual T+ if known, and latest receiver messages.
-3. Trace both voice intents and both navigation buttons to determine which route path receives “Phoenix Mall.” Capture the recognized text and resolved result, not just the displayed number.
-4. Reproduce connected, offline, location-disabled and permission-denied cases while stationary. Record exact original failures before changing code.
-5. Record entry decision and allowed scope in the central review register. Missing phone evidence permits code/fixture preparation only; it does not establish physical readiness.
-
-Deliverable: diagnostic record linking query → origin source/age → destination source → router → reported distances. Exit: exact reported-number branch reproduced, or explicitly retained as unverified while confirmed source defects proceed.
-
-### Step 1 — Remove fabricated runtime results
-
-Files: `GoogleRoutesService.kt`, `MainActivity.kt`; tests: existing `GoogleRoutesParsingTest.kt` and `NavigationSafetyPreemptionTest.kt`.
-
-1. Return destination failure when both geocoding options fail; delete the fixed Chennai destination fallback.
-2. Remove MainActivity's origin-offset destination fallback and stop processing on lookup failure.
-3. Remove `createMockWalkingRoute` from production source. Move a named fixture builder to test sources and update existing tests to use it explicitly.
-4. Return route failure when no validated provider succeeds. Never derive turns from a fabricated three-segment route.
-5. Replace invented fallback street names with unknown-name state. Use neutral wording only when a real route segment exists.
-6. Replace numeric coordinate defaults with absent-location state. Map-center coordinates may remain strictly for map viewport presentation, never route origin.
-7. Add regression cases for unknown query, provider timeout, invalid response and missing location. Assert no navigation session starts and no distance/turn is announced.
-
-Exit: no production call can produce a successful route using a fixture or default coordinate. A route-unavailable message is the correct result until later prerequisites are satisfied.
-
-### Step 2 — Acquire and qualify actual location
-
-Files: MainActivity and `map/LocationTracker.kt`, with a small shared navigation location adapter if needed.
-
-1. Use one accepted-fix policy for both navigation paths. Avoid maintaining inconsistent independent defaults.
-2. On permission denial or disabled location, stop preparation and show a recoverable message. Return immediately after requesting permission; resume only from a granted/current request callback.
-3. Validate cached fixes before use; request a current high-accuracy fix when cache is absent or unsuitable. Apply a bounded wait and cancellation.
-4. Preserve accuracy and monotonic timestamp through callbacks. Reject non-finite/out-of-range coordinates, invalid accuracy, future/out-of-order timestamps and stale fixes.
-5. Proposed starting configuration: fix age <=10 s, horizontal accuracy <=20 m for route preparation, and acquisition timeout 20 s. These are engineering proposals requiring device review, not PRD safety thresholds. Coarse fixes must not authorize tight turn cues.
-6. While navigating, evaluate age even if callbacks stop. Suppress precise navigation when stale/inaccurate; display unavailable rather than a frozen number presented as current.
-7. Mock fixes belong only to explicit test execution. Do not silently mix simulated position with a real walking demonstration.
-8. Unregister requests and invalidate results on Stop/pause/destroy. Reacquire on explicit restart.
-
-Exit: neither route path starts from the campus gate unless an accepted real fix actually locates the user there.
-
-### Step 3 — Resolve destination identity and coverage
-
-Files: GoogleRoutesService, campus POI matching in MainActivity, existing map models/loader.
-
-1. Normalize query casing/spacing and explicit aliases while preserving meaningful names. Return candidates rather than selecting the first vague substring match.
-2. Search local POIs first when applicable. Return not-found if the offline index has no entry; never silently substitute the nearest known POI.
-3. For online lookup, retain provider place identity, locality and coordinate. Use regional bias to improve relevance without forcing every result into the campus region.
-4. If multiple plausible malls resolve, present accessible choices and require selection. Do not guess the user's Phoenix Mall branch.
-5. Use verified entrances where available; label an approximate building point accordingly and do not invent a walkable last segment through a wall.
-6. Validate coverage for origin, target and their connected walkable graph. A bounding-box inclusion alone is insufficient.
-7. Reconcile declared asset bounds with actual nodes and export provenance. Do not simply enlarge a rectangle and call the enclosed area routable.
-
-Exit: Phoenix Mall either resolves to a confirmed real place or is honestly unavailable. The current 11-POI campus package does not acquire a new mall by changing its display label.
-
-### Step 4 — Make router selection explicit
-
-1. Use existing offline A* only for qualified local graph coverage and connectivity.
-2. For destinations requiring online routing, use a configured, verified pedestrian provider. The existing Google implementation already requests `travelMode: WALK`; validate credential/configuration availability without printing secrets.
-3. Do not assume `/walking` in an OSRM URL establishes pedestrian routing. OSRM documents that the routing profile is determined during data preparation. Verify the actual deployment/profile or disable that fallback pending verification; do not claim the current public endpoint is definitely a walking service.
-4. Separate transport failure, denied configuration, unsupported coverage and empty routes. Close HTTP responses, bound timeouts, propagate coroutine cancellation, and cancel underlying requests where supported.
-5. Validate geometry, coordinates, step order, finite non-negative distances, endpoint association and route mode. Missing fields must not turn into plausible zeros or invented endpoint geometry.
-6. Preserve route source in diagnostics and display an understandable offline/online state. No route provider may bypass session cancellation checks.
-
-Exit: each route has identifiable provenance and supported pedestrian semantics. See [Google route requests](https://developers.google.com/maps/documentation/routes/compute_route_directions) and [OSRM profile semantics](https://project-osrm.org/docs/v5.24.0/api/).
-
-### Step 5 — Repair the offline graph and route geometry
-
-Files: `MapRoutingEngine.kt`, `MapModels.kt`, map asset; inspect the existing asset-generation process before editing generated data.
-
-1. Validate graph nodes, edge references, non-negative finite weights, POI node IDs and duplicate IDs at load time. Reject invalid packages explicitly.
-2. Record data source, extraction date, walking access/filter rules, map version and checksum. Preserve applicable map attribution.
-3. Add bounded snapping. Proposed initial maximum is 30 m, subject to entrance/accuracy review. A larger radius must not conceal missing walkways; existing POIs report snap offsets up to 79.5 m and need explicit review.
-4. Prefer projection onto a traversable edge where geometry supports it. If retaining node snapping initially, document its limitation and reject unsupported origin/entrance connectors.
-5. Include only verified connectors in geometry and length. Do not add straight lines across buildings merely to reconcile a total.
-6. Reconstruct graph points and edges with a consistent index convention; keep the origin connector separate from graph-edge indexing. Test a bent three-edge path to catch shifted turns.
-7. Sum actual route edges/connectors once. Compare A* against Dijkstra on small fixtures. Ensure Haversine remains a lower-bound heuristic for accepted weights, including rounding tolerance; use zero heuristic when that invariant cannot be established.
-8. Return no-route for disconnected components. Same snapped node means graph proximity, not automatically confirmed physical arrival.
-
-Exit: geometry, maneuver positions and total length describe the same connected walking path.
-
-### Step 6 — Compute honest remaining distance
-
-Files: both navigation engines/coordinators and their status models. Reuse a pure distance/progress helper rather than rewriting the entire navigation subsystem.
-
-1. Keep initial route length, remaining route length, distance to next maneuver and direct destination distance as separate fields.
-2. Precompute segment lengths and cumulative lengths from validated route geometry. Maintain correspondence between maneuver locations and route segment indices.
-3. Project accepted fixes onto plausible segments near previous progress. Score perpendicular distance and continuity; do not jump across a hairpin to a later nearby segment.
-4. For matched segment index `i` and fractional progress `t` in [0,1], compute `remaining = (1-t) * segmentLength[i] + sum(segmentLength[j], j>i)`.
-5. Calculate distance to maneuver as its chainage minus current chainage, with explicit handling of already-passed maneuvers. Curves must retain their full along-route length.
-6. Keep provider totals and geometry-derived totals distinguishable. Record substantial discrepancies and reject implausible geometry instead of silently switching displayed definitions.
-7. Handle stationary jitter with uncertainty-aware hysteresis. Genuine backward movement may increase distance; do not force a monotonically decreasing counter that conceals movement away from the goal.
-8. On sustained off-route evidence, show off-route status and attempt a real reroute only when supported. If rerouting fails offline, withhold turn guidance; never draw a shortcut.
-9. Display units consistently: for example rounded meters below 1 km and one decimal kilometer above it. Unavailable remains text, never zero. Precise rounding does not imply GPS precision.
-
-Exit: “meters left” follows the walking route. If direct distance is ever exposed, label it “straight-line distance,” not route remaining.
-
-### Step 7 — Preserve lifecycle, speech priority and explicit arrival
-
-1. Attach route jobs, location callbacks and all guidance to current coordinator generation/request ID.
-2. Test Stop during location acquisition, geocoding, routing, destination selection and active navigation. Late completions cannot restart or announce.
-3. Replace fixed generation and wall-clock speech fields in MapNavigationCoordinator with injected current session and monotonic clock.
-4. Pause navigation guidance when location is unusable. Keep existing app readiness/fatal-error rules and independent obstacle policy intact; location is not obstacle-clearance evidence.
-5. Route guidance uses the single speech arbiter. Sensor/vision STOP must retain priority. Do not change risk thresholds as part of distance repair.
-6. Proximity yields “Near destination,” not unconditional “You have arrived.” Preserve an accessible explicit arrival action and prevent navigation completion from silently activating a different mode.
-7. Make error/retry/selection/arrival controls work with speech recognition disabled and TalkBack enabled.
-
-Exit: accurate routes cannot bypass Stop, hazard priority, foreground policy or explicit arrival.
-
-### Step 8 — Validate, package and hand off
-
-1. Run focused deterministic regressions, then the existing Android unit suite and debug assembly once the focused checks pass.
-2. Inspect every failure and XML report; record executed test count rather than repeating the historical 123-test claim.
-3. Record APK SHA-256, source commit, map hash/version and runtime configuration. Install only in an agreed device slot; do not uninstall a conflicting package or erase app data without the applicable authorization.
-4. Execute the matrix below with actual operators/equipment. Device installation is not route correctness evidence.
-5. Recheck frozen hashes, update central state, commit intended source/tests/docs on main, push, then append the structured communication relay and return to main. Preserve concurrent history and never force-push.
-6. Obtain named receiver verdict. Keep navigation-specific qualification separate from AC-01 through AC-16; this plan does not mark baseline gates passed.
-
-## 7. Test matrix and pass conditions
-
-All rows are planned / NOT RUN for this remediation.
-
-| ID | Level / setup | Expected result |
+| Evidence | Finding | Interpretation |
 |---|---|---|
-| N01 | Unit: lookup returns no results | Destination unavailable; no success coordinate or route |
-| N02 | Unit: providers timeout/deny/malformed JSON | Typed failure; no mock route or numeric zero success |
-| N03 | Unit: two distinct confirmed destinations | Destination IDs/endpoints remain distinct; no shared fallback |
-| N04 | Unit: no fix, stale/future fix, invalid accuracy | Preparation cannot enter navigating |
-| N05 | Unit: denied permission then grant | No route before grant; only current request resumes |
-| N06 | Unit: same destination, two different valid origins | Appropriate start attachment and route length change on a known fixture |
-| N07 | Unit: out-of-coverage and disconnected graph | Explicit failure; no unlimited nearest-node snap |
-| N08 | Unit: valid start/entrance connectors | Geometry and total count each connector exactly once |
-| N09 | Unit: L-shaped 100 m + 100 m fixture | Start remaining is about 200 m, not the approximately 141 m diagonal; midpoint expectations hand-checked |
-| N10 | Unit: hairpin, parallel paths and crossing geometry | Matching preserves plausible progress; no large shortcut jump |
-| N11 | Unit: stationary jitter then backward movement | Jitter does not falsely finish; real reverse movement can increase remaining distance |
-| N12 | Unit: invalid weights/references/empty geometry | Invalid route/package rejected rather than producing directions |
-| N13 | Unit: Stop/new request before asynchronous completion | Zero stale starts, route updates or speech |
-| N14 | Unit: sensor STOP while turn cue is ready | STOP wins through existing arbiter; navigation does not suppress it |
-| N15 | Unit: near endpoint with uncertain position | Near-destination state; no automatic arrival claim |
-| N16 | Device: Phoenix Mall, internet on | Confirm real resolved identity; route from accepted phone fix or truthful failure; retain provider evidence |
-| N17 | Device: Phoenix Mall, internet off, existing asset | Unsupported offline destination, no fabricated 750 m/220 m value |
-| N18 | Device: known campus POI, internet off, usable fix | Real local graph route with zero required network requests |
-| N19 | Device: repeat campus request at two measured start locations | Origin evidence changes; independent route calculation agrees within recorded GPS/geometry uncertainty |
-| N20 | Device: location disabled, approximate permission, indoor poor fix | Clear recoverable state, no assumed main-gate origin |
-| N21 | Device: stale cached fix after app restart | New fix acquired or unavailable; previous coordinate not treated as current |
-| N22 | Device: provider failure after valid geocoding | Route unavailable; destination identity retained without fabricated turns |
-| N23 | Device: supervised curved route and deliberate deviation | Along-route distance follows geometry; off-route and reroute failure honest |
-| N24 | Device: Stop/background/restart during each preparation stage | No late speech/session restart; explicit restart required |
-| N25 | Device: TalkBack and voice recognition disabled | Destination choice, retry, Stop and arrival usable |
-| N26 | Device: camera + ESP32 while navigating | Existing warning priorities retained; no map computation blocks sensor processing |
+| User screenshot | AB1 destination, 728100 m total remaining, 223 m next-turn distance | Confirmed display defect for the reported local use; 728100 m = 728.1 km |
+| User report | About 178 m spoken, physically inside AB1 | Reproduce with exact route/request and spoken phrase; not independently measured |
+| `PedestrianNavigationEngine.startRoute` | Speaks first step's `distanceMeters` | The 178 m could be a step length, not total distance; not proven without a trace |
+| `PedestrianNavigationEngine.onLocationUpdated` | Computes remaining from overview geometry or concatenated step geometry | Displayed total comes from a different computation than the opening speech |
+| `MainActivity.onNavigationStatusUpdated` | Converts remaining float to int and appends `m left` | No visible multiplication by 1000 in this UI path; formatting alone is not an established root cause |
+| `GoogleRoutesService` | Does not validate overview length against provider distance or resolved endpoints | An inconsistent route can reach the progress calculator |
+| `GoogleRoutesParsingTest.testPolylineDecoding` | Checks decoded count and only the first coordinate | Corruption in later points is not covered by this test |
+| `MainActivity.onDestinationReceived` | Uses cached `lastLocation` or `lastKnownLocation`; latter stores only coordinate | Age/accuracy are not retained at route preparation |
+| `PedestrianNavigationEngine.onLocationUpdated` | Accepts accuracy parameter but does not gate progress/arrival with it | An inaccurate indoor fix can drive guidance |
+| Both navigation progress callers | Pass maneuver/step index as preferred polyline segment index | These indices refer to different structures; continuity hint can be incorrect |
+| `SessionCoordinator.onOffRouteDetected` | Callback contains only a comment | “Recalculating path” is spoken without an actual reroute here |
 
-For pure geometry fixtures, specify expected values independently; target <=1 m tolerance for hand-defined short paths after coordinate conversion. For field comparison, record fix accuracy, entrance choice and reference-route geometry; do not require equality with a different provider's alternative route. Review numerical tolerances before execution. All cancellation/fabrication assertions require zero violations.
+Earlier fixed-coordinate/mock-route fallbacks have already been removed from the inspected service. Preserve that work; do not repeat the old diagnosis as the current root cause.
 
-Proposed commands from `android/` after tests exist:
+### Root-cause decision tree
 
-```powershell
-.\gradlew.bat :app:testDebugUnitTest :app:assembleDebug
-# With qualification phone connected and reserved:
-.\gradlew.bat :app:connectedDebugAndroidTest
-Get-FileHash -LiteralPath app/build/outputs/apk/debug/app-debug.apk -Algorithm SHA256
+1. If the raw provider geometry already describes an unrelated/huge route, inspect origin, destination resolution and provider response.
+2. If raw geometry is valid but the decoded points differ from an independent decoder, fix decoding/precision/coordinate order.
+3. If points are correct but a known position yields an inflated remaining length, fix progress matching and segment summation.
+4. If the computed status is correct but the screen differs, inspect stale session updates and UI formatting.
+5. If only live fixes are implausible, fix acquisition/freshness/accuracy handling; do not alter correct route geometry.
+
+These possibilities are hypotheses until the same input reproduces the error. No specific decoder, unit or geocoder defect has yet been proven to cause 728100.
+
+## 3. Terminology and units
+
+| Term | Exact meaning |
+|---|---|
+| Coordinate | Named latitude/longitude fields in degrees; validate ranges and finiteness |
+| Fix age | Current elapsed-realtime minus location elapsed-realtime, in milliseconds |
+| Accuracy radius | Android's horizontal uncertainty estimate in meters; not proof of a specific room/walkway |
+| Provider total | Distance returned by the routing provider for its route, converted once to meters |
+| Polyline precision | Encoding scale, typically 1e5 or 1e6; select from the provider contract, never by trial until output looks plausible |
+| Geometry length | Sum of distances between successive decoded route points |
+| Chainage | Cumulative distance from route start to a position on its geometry |
+| Segment index | Index of an adjacent pair of polyline points |
+| Maneuver index | Index of a navigation instruction; one maneuver may span many geometry segments |
+| Cross-track distance | Distance from the observed fix to a candidate route segment |
+| Remaining distance | Route length minus matched chainage, not distance as the crow flies |
+| Route identity | Provider/map version, request ID and route ID tying calculations to one accepted route |
+| Session generation | Existing coordinator identity that invalidates late work after Stop/pause/mode changes |
+
+Keep calculations in Double meters. Round only at the display/speech boundary. Unavailable distance is an explicit state, not zero, NaN rendered as an integer, or a cached number without a stale label.
+
+## 4. Exact implementation sequence
+
+### Step 01 — Prepare the correct working source
+
+Owner: Rishav for navigation integration; Samik reviews obstacle-assistance regressions.
+
+1. Inspect `git status --short`, `git worktree list`, and the implementation branch revision.
+2. Create an unused `codex/gps-ab1-distance-repair` branch/worktree from the verified implementation revision. If that name already exists, inspect it and continue the existing work instead of resetting it.
+3. Read current navigation code/tests and preserve any later teammate fixes. Do not switch this communication-based worktree over untracked model/data directories.
+4. Record current APK identity and source/model/map hashes. Reserve the connected phone before installing/debugging.
+
+Deliverable: implementation worktree and baseline inventory. No source changes to camera models or ultrasonic policy are required for this defect.
+
+### Step 02 — Capture one complete failing request
+
+Files: `app/MainActivity.kt`, `navigation/maps/GoogleRoutesService.kt`, `navigation/maps/PedestrianNavigationEngine.kt`; use existing logging with a bounded debug-only trace.
+
+1. Allocate a request ID before location lookup. Carry it through geocoding, routing, progress and rendering.
+2. Capture destination text, matched POI/place identity and locality, resolved coordinates, route mode and provider.
+3. Capture origin latitude/longitude, provider, fix age, accuracy, elapsed-realtime timestamp and mock/test status.
+4. Capture response status, provider total, first-step distance, all step lengths, encoded overview geometry and encoding precision. Store exact personal-location/raw response artifacts locally, not in routine Git commits; redact credentials.
+5. After decoding, record point count, first/last point, bounding extent, geometry length, largest segment and its index.
+6. At the first incorrect display, record current fix, matched segment/fraction, cross-track distance, computed remaining distance, current maneuver index, request/session/route IDs and displayed value.
+7. Reproduce the same AB1 query while stationary. Record exact spoken text; “head forward 178 m” and “178 m total” are different assertions.
+
+Exit: one trace connects input to the 728100 output, or reproduction remains explicitly pending. A synthetic case must not be labelled the captured user failure.
+
+### Step 03 — Turn the captured defect into a failing test
+
+Existing tests: `GoogleRoutesParsingTest.kt`, `PedestrianNavigationEngineTest.kt`, `navigation/maps/NavigationDistanceRemediationTest.kt`.
+
+1. Preserve a redacted route response/coordinate fixture under test resources where appropriate. Keep actual user location private unless explicitly authorized for sharing; a geometry-preserving synthetic translation may be used if labelled as derived.
+2. Decode using an independent reference implementation. Compare all points and segment lengths, not just the first point.
+3. Run the same origin/current fix through `PedestrianProgressCalculator` and `PedestrianNavigationEngine` with a fake clock.
+4. Assert the invariant that the route/status should satisfy, such as rejection of inconsistent geometry, rather than asserting a guessed 178 m output.
+5. Ensure the new test fails on baseline and record failure text before fixing.
+
+Exit: a regression fails for the actual cause. If the exact trace is unavailable, add independently specified bad-geometry tests while keeping exact reproduction open.
+
+### Step 04 — Make decoding strict and independently tested
+
+File: `navigation/maps/GoogleRoutesService.kt`, function `decodePolyline`; extract `PolylineDecoder.kt` only if it helps test parsing without Android dependencies.
+
+1. Make encoding precision explicit per response/provider. For the current OSRM request, explicitly request the supported geometry encoding and decode that same encoding.
+2. Check incomplete coordinate pairs, unterminated groups, illegal characters, excessive shifts and accumulator overflow. Return a typed parsing failure.
+3. Preserve signed-delta decoding and named latitude/longitude order. Do not infer a factor of ten from the final distance.
+4. Validate finite/ranged decoded coordinates. Remove consecutive identical points only as a documented geometry normalization, preserving instruction mapping.
+5. Expand tests to all coordinates of the standard fixture, negative deltas, both hemispheres, repeated points, truncated strings and long malformed groups.
+6. Add a fixture with deliberately wrong precision. Assert rejection by route validation rather than selecting whichever interpretation looks shorter.
+
+Exit: deterministic decoder with explicit format and no unchecked malformed input entering navigation. A passing decoder does not establish that the provider selected the right destination.
+
+### Step 05 — Validate complete routes before starting navigation
+
+Add proposed `navigation/maps/RouteValidator.kt`; use existing route models with minimal metadata additions in `navigation/maps/models/NavigationModels.kt`.
+
+1. Validate HTTP success/provider status and mandatory route fields before model construction. Do not default missing distances to zero or missing step locations to arbitrary origin/destination coordinates.
+2. Require usable connected geometry, valid endpoints, non-negative finite distances and coherent ordered steps.
+3. Compare requested/resolved endpoints to routed endpoints using documented provider snapping/entrance tolerances. A large unexplained offset is failure, not a new destination.
+4. Calculate geometric length and compare it with provider total. For the local initial implementation, use a configurable review threshold such as `abs(geometryLength - providerTotal) > max(25 m, 0.15 * providerTotal)` to reject inconsistent input. This is a proposed diagnostic policy to validate against actual encoding/simplification, not a universal routing law.
+5. Cross-check summed step distances and overview geometry. Missing optional step geometry may be handled only through a validated overview/maneuver mapping; do not synthesize false route legs.
+6. Return typed failures: malformed geometry, inconsistent length, invalid endpoint, unknown destination, no route or unavailable provider.
+7. Call the validator before `coordinator.startOutdoorWalking`. Invalid data must never enter an active numeric countdown.
+
+Important: a long route is not automatically invalid. Reject inconsistency with this request and its geometry, not any distance over a hardcoded campus maximum. A legitimate distant destination can have a long route.
+
+### Step 06 — Preserve and qualify location evidence
+
+Files: `app/MainActivity.kt`, `map/LocationTracker.kt`, coordinator location entry point. Add a small `NavigationLocationFix` model/policy only where needed.
+
+1. Replace coordinate-only cached origin with coordinate, accuracy, elapsed-realtime timestamp and provider. Retain source session/request identity on callbacks.
+2. Validate cached last location. If absent/stale/inaccurate, request a fresh fix with a bounded timeout instead of reusing it indefinitely.
+3. Proposed preparation defaults: age <=10 seconds, accuracy <=20 m, acquisition wait <=20 seconds. Keep these configurable and measure on the qualification phone; they do not justify a 4–6 m actionable cue at 20 m uncertainty.
+4. Introduce a stricter maneuver/arrival quality policy. If uncertainty cannot distinguish the relevant waypoint/paths, suppress precise turns/arrival and explain degraded location.
+5. Permission requests return immediately. After grant, resume only the still-current request; denial and location-disabled states have accessible recovery actions.
+6. Evaluate stale location on a timer even when no new fixes arrive. Do not count receipt of an old fix as new measurement freshness.
+7. If GPS is inadequate inside AB1, report location unavailable/imprecise. Do not claim room-level guidance; preserve independent obstacle assistance according to its own lifecycle policy.
+
+Exit: valid route progress uses accepted current evidence. No assumed entrance/origin or automatic “already there” decision from a noisy indoor fix.
+
+### Step 07 — Resolve AB1 through the right destination path
+
+Files: MainActivity voice routing, local POI lookup, GoogleRoutesService destination result.
+
+1. Trace both `VoiceCommand.NavigateToPoi` and `VoiceCommand.NavigateTo` handlers against the actual parsed input. Button and voice routes must resolve the same canonical campus destination identity.
+2. Match explicit AB1 aliases to the verified campus POI; do not send a known campus alias through unrestricted first-result geocoding.
+3. Review the POI coordinate and walkable entrance against campus map evidence. Inside-building position and entrance position are distinct concepts.
+4. For other place names, retain locality/identity and present a choice when ambiguous. Never merely label the first remote result with the user's requested name.
+5. Route offline only where a connected pedestrian graph covers origin and destination. Unknown/out-of-coverage queries fail clearly without a default campus target.
+6. Verify online provider pedestrian profile. OSRM profile behavior depends on prepared server data; the string `/walking` alone is not evidence of a pedestrian deployment.
+
+Exit: the destination can be identified and independently checked before investigating distance arithmetic.
+
+### Step 08 — Repair route progress and index semantics
+
+Files: `navigation/maps/PedestrianProgressCalculator.kt`, `PedestrianNavigationEngine.kt`, `map/MapNavigationCoordinator.kt`.
+
+1. Precompute validated segment lengths `L[i]` and cumulative chainage `C[i]`. Do not rebuild all route geometry on every GPS update unnecessarily.
+2. Return a structured match: segment index, fraction t, chainage, cross-track distance and validity. The calculator must be able to say no valid match instead of always returning a number.
+3. Track previous matched segment explicitly. Replace `preferredStartIndex = currentStepIndex/currentManeuverIndex` with actual segment continuity state.
+4. Initially search near previous progress. Wider reacquisition is allowed only when supported by good location evidence; avoid jumping across parallel paths/hairpins.
+5. Compute `chainage = C[i] + t * L[i]` and `remaining = totalGeometryLength - chainage`. Enforce numeric bounds for valid on-route progress, not by hiding invalid input.
+6. Determine distance to the next maneuver from its mapped chainage. Repeated coordinates/loops need ordered mapping, not global nearest-point lookup.
+7. Do not automatically add direct distance from an off-route fix to the route as if that connector were walkable. Mark off-route and request a legitimate reroute or explicit retry.
+8. Use uncertainty-aware jitter control; real reverse movement may increase distance. Do not force countdown to decrease regardless of movement.
+9. On advancing a step, calculate status for the new step before publishing it; avoid a new instruction paired with the previous step's distance.
+
+Exit: curved routes, backtracking, loops and waypoint changes produce coherent remaining and next-turn values.
+
+### Step 09 — Make UI and speech consume one navigation snapshot
+
+Files: `NavigationModels.kt`, `app/MainActivity.kt`, `app/SessionCoordinator.kt`.
+
+1. Publish an immutable snapshot containing route/request/session IDs, destination identity, location quality, total remaining, next-maneuver distance/instruction and navigation state.
+2. Use that same snapshot for screen and spoken guidance; explicitly distinguish first-step distance from route total.
+3. Render validated meters below 1 km and kilometers above it. Formatting improves readability but must not disguise an invalid 728.1 km route.
+4. For invalid/stale state, replace the live numeric countdown with “Distance unavailable” and a clear reason/retry action. A retained previous route may be displayed only as explicitly stale.
+5. Check generation/request/route identity again inside queued UI callbacks so an older navigation request cannot overwrite a new one.
+6. Replace “We are walking on [road]” with less certain wording when evidence only establishes the planned route, not the user's matched position on that road.
+7. Preserve the visible Stop control and TalkBack access.
+
+### Step 10 — Correct cancellation, off-route and arrival behavior
+
+1. Cancel pending location/geocoding/routing and invalidate their callbacks on Stop/pause/new destination. Propagate coroutine cancellation rather than converting it into an ordinary provider failure.
+2. Retain one active route job and release location subscriptions on lifecycle transitions; do not restart automatically after backgrounding.
+3. Implement a real reroute callback with the existing provider/coverage validation, or remove the false “Recalculating” claim and present retry. Do not add a service solely for this.
+4. Keep old directions suppressed while off-route/unmatched; failed rerouting must not silently resume them as current.
+5. Require valid quality/progress evidence to say “Near destination”; use explicit arrival confirmation for completion rather than radius alone.
+6. Keep camera/ESP32 warnings independent and higher priority. A route calculation must not block sensor processing or delay STOP speech.
+
+## 5. Minimal proposed contracts
+
+These are implementation shapes, not files already present:
+
+```kotlin
+data class NavigationLocationFix(
+    val point: GeoPoint,
+    val accuracyMeters: Double,
+    val elapsedRealtimeMs: Long,
+    val provider: String
+)
+
+data class RouteMatch(
+    val segmentIndex: Int,
+    val fraction: Double,
+    val chainageMeters: Double,
+    val crossTrackMeters: Double
+)
+
+// Match failure / unavailable state must be explicit; never encode it as zero.
+// Route preparation and output also carry the existing session generation
+// plus a request identifier to distinguish concurrent requests within a session.
 ```
 
-Capture commands, counts, failures and environment in the central record. Do not rerun expensive camera/model qualification solely for a documentation change.
+Use the existing coordinator rather than introducing a parallel navigation manager. Prefer pure validator/progress functions with injectable clock/provider for deterministic tests.
 
-## 8. Diagnostics required to explain any repeated number
+## 6. Test cases with exact expected behavior
 
-For a bounded debug session capture: request ID/generation; query; resolved place ID/source; origin coordinate/age/accuracy/provider; route source and graph hash; snapped endpoints and offsets; total length; current matched segment/fraction; direct versus remaining distance; fix acceptance/rejection reason; final failure reason. Redact credentials. Keep precise personal location traces out of ordinary Git commits; commit minimal synthetic reproductions and aggregate findings.
+| ID | Fixture/action | Assertion |
+|---|---|---|
+| G01 | Actual captured AB1 failing response | Reproduces baseline defect; repaired code corrects the proven cause or rejects inconsistent data |
+| G02 | Provider total 178 m; geometry hundreds of km | Route rejected before start; no numeric navigation output |
+| G03 | Valid long-distance provider route with matching geometry | Not rejected merely for length; correct kilometer formatting |
+| G04 | Standard polyline test | Every coordinate matches independently specified reference, not only first |
+| G05 | Truncated/overflowing/illegal encoding | Typed failure; no crash or partial successful route |
+| G06 | Wrong precision or swapped axes | Validation detects inconsistent endpoints/length; no guess-based reinterpretation |
+| G07 | L-shaped 100 m + 100 m path | At start approximately 200 m remains, not the 141 m diagonal |
+| G08 | Same path, halfway along first leg | Approximately 150 m remains; about 50 m to bend |
+| G09 | 30 geometry segments but two maneuvers | Step index never used as segment identity; progress stays on expected segments |
+| G10 | Hairpin/parallel route and noisy fixes | No unjustified jump to much later route segment |
+| G11 | Stationary jitter then genuine backtrack | Stable nearby progress; remaining may increase on true backtracking |
+| G12 | Missing/stale/future/imprecise fix | No precise turn/arrival; explicit quality/unavailable state |
+| G13 | Cached fix before fresh fix arrives | Stale position cannot start route or refresh itself by receipt time |
+| G14 | AB1 spoken alias and AB1 menu selection | Same canonical destination identity; routing source/coverage explicit |
+| G15 | New request B while A completes | No output from A overwrites B |
+| G16 | Stop during location/lookup/routing/UI dispatch | No route start, late speech or countdown after cancellation |
+| G17 | Off-route with no network/local coverage | Honest route unavailable/retry; no fictional reroute announcement |
+| G18 | Position near endpoint but inaccurate | No automatic arrived state |
+| G19 | USB close hazard while route calculation runs | Existing STOP processing/preemption remains intact |
+| G20 | Device reproduction inside AB1 | Accepted fix/route yields defensible result or unavailable; retain actual spoken/UI evidence |
 
-UI should state “Waiting for location,” “Choose destination,” “Destination unavailable offline,” “Route unavailable,” or actual route status. Developer diagnostics belong in logs/debug views rather than the primary walking screen. When stale, mark distance unavailable immediately under the accepted policy; do not silently keep displaying an old measurement.
+For hand-defined geometry tests, target <=1 m numerical tolerance over short paths. Build geographic fixtures from independently specified meter offsets and verify conversion; do not compute expected values by calling the same production helper. Device tolerance must account for real GPS uncertainty and route choice; no guessed 178 m acceptance criterion.
 
-## 9. Dependencies, estimates and review checkpoints
+## 7. Commands and verification order
 
-These are effort estimates from remediation start, not the hackathon T+ clock or promised completion times. Work remains with existing owners; this plan does not initiate parallel agents.
+After implementation files/tests exist, from the implementation worktree's `android` directory:
 
-| Checkpoint | Steps | Rough effort | Dependency / review exit |
+```powershell
+.\gradlew.bat :app:testDebugUnitTest --tests 'dev.navisense.GoogleRoutesParsingTest' --tests 'dev.navisense.PedestrianNavigationEngineTest' --tests 'dev.navisense.navigation.maps.NavigationDistanceRemediationTest'
+.\gradlew.bat :app:testDebugUnitTest :app:assembleDebug
+Get-FileHash -LiteralPath 'app/build/outputs/apk/debug/app-debug.apk' -Algorithm SHA256
+```
+
+Add new validator/location test classes to focused execution as they are created. Inspect XML test results and record actual counts/failures. Run device instrumentation only against a reserved connected phone and the exact candidate APK; preserve app data and existing signing constraints. Installation success is not navigation validation.
+
+Physical checks in order: stationary online AB1 request; location disabled; denied/approximate permission; indoor low-quality fix; outdoor accepted fix; offline supported campus route; offline unsupported destination; Stop during loading; supervised short curved walk; deliberate route deviation; camera/ESP32 regression. Never require the user to walk along an unvalidated route just to reproduce a software calculation.
+
+## 8. Delivery boundaries and estimates
+
+| Change | Included steps | Exit evidence | Effort estimate |
 |---|---|---|---|
-| C0: evidence and review | 0 | 0.5–1 h | Source findings and device reproduction status recorded; entry scope acknowledged |
-| C1: honest failure behavior | 1 | 1–2 h | No fabricated success regressions pass |
-| C2: real origins and destinations | 2–4 | 3–5 h | Current fixes, identity, coverage and provider contract verified |
-| C3: graph and distance correctness | 5–6 | 3–5 h | Geometry fixtures, snapping and progress tests pass |
-| C4: integrated qualification | 7–8 | 2–4 h | Lifecycle tests, device matrix and receiver review |
+| Diagnostic/reproduction slice | 01–03 | Captured trace and baseline failing test, or explicit reproduction blocker | 1–2 h after device available |
+| Input correctness slice | 04–07 | Strict parser, route validation, accepted fix and destination identity tests | 3–5 h |
+| Progress/UI slice | 08–09 | Geometry/continuity tests and unified snapshot | 2–4 h |
+| Lifecycle/device slice | 10 and physical matrix | Cancellation/priority tests, device evidence and remaining limitations | 2–3 h |
 
-Total estimated engineering/qualification effort: approximately 9.5–17 hours, excluding map survey/data repair, credential provisioning, unavailable hardware or new regional map extraction. Stop at an honest unavailable state for unsupported areas rather than compressing validation to fit the event deadline.
+Estimates are provisional, not promises. Decoder/provider faults, missing raw responses or unavailable phone access may change them. Each slice should be reviewable independently; commit only intended files after appropriate checks. Do not replace existing main history or push communication history into source.
 
-Open dependencies: actual Phoenix Mall identity; reproduction of the original numeric display; device availability; pedestrian-provider configuration/profile evidence; map-generation provenance and validated entrances; named peer ACK. None blocks preparing negative-path fixtures or removing fabricated success logic after the permitted entry scope is recorded.
+## 9. Completion checklist
 
-## 10. Definition of done and next handoff
+- The exact cause of the AB1 screenshot is demonstrated by recorded input and a regression, not assumed from the magnitude alone.
+- Invalid routes/fixes fail clearly before misleading distance/turn output.
+- Both route paths use real accepted position and correct destination identity.
+- Along-route total and next-turn distance use the same valid snapshot and correct index mapping.
+- Stop, unavailable location, offline failure and off-route behavior remain honest and cancellable.
+- Device retest records source/APK/map identity, actual display/speech and failures.
+- Model accuracy and YOLO–ESP32 naming work remain separate, covered by `chair-table-fusion-and-navigation-plan.md`.
 
-The repair is ready for receiver review only when production contains no coordinate/mock fallbacks; both navigation paths use accepted actual fixes; resolved identity is correct or explicitly unavailable; offline coverage/connectivity is enforced; remaining distance follows validated geometry; cancellation/hazard priority/explicit arrival pass; and build/map/test evidence is attached.
+Immediate first implementation task: establish the source worktree and instrument one AB1 request while preparing the campus inventory below. If raw route data cannot yet be captured, implement the deterministic inconsistent-geometry guard/tests independently while retaining the exact-cause investigation as open. All common fixes in Steps 01–10 must apply to campus-wide route construction and progress, not special-case AB1.
 
-Physical navigation is verified only after the relevant device rows actually run. Project acceptance remains separate. The immediate next action is Rishav's entry review followed by Step 1 regression tests and removal of fabricated success paths. Samik reviews the navigation-to-fusion boundary; Rohan reviews physical USB interaction. No receiver acknowledgement is recorded by this document.
+## 10. Campus-wide implementation extension
 
-Frozen baseline verified during planning:
+### C01 — Establish the complete Chennai-only location inventory
 
-- `docs/README.md`: `54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA`.
-- `docs/guidance.md`: `A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E`.
+Owner: navigation integration owner; campus operator supplies field verification. Run before adding guessed coordinates.
+
+1. Extract the existing map's POIs, entrance/node associations and aliases into an audit table. Current asset at the inspected revision has 11 POIs, 2,571 nodes and 5,452 directed edge records.
+2. Cross-reference the current official Chennai campus directory/map and on-campus signage. Exclude Vellore, AP and Bhopal information. Official name evidence does not establish coordinates or a usable entrance.
+3. Add every identified destination with a stable ID, canonical name, aliases, category, source URL/document/date, discovery status and responsible verifier.
+4. Separate building, service, entrance and room identities. A library inside a building may share its entrance; it should not be assigned an invented independent outdoor location. One building can have multiple verified entrances.
+5. Check all categories: academic buildings, administration/offices, libraries, hostels and their permitted entrances, dining/mess/canteens, auditoriums/event venues, sports facilities, medical/welfare services, banks/ATMs, shops/student services, parking/transit points and gates. These are discovery categories, not claims that every candidate is mapped or unrestricted.
+6. Maintain explicit inventory states: discovered, name verified, position verified, entrance verified, graph connected, device tested, restricted, temporarily unavailable. No guessed item enters the selectable routable list.
+7. Reconcile the inventory with a campus operator before calling it complete. Record missing names/data and excluded/restricted places with reasons; do not invent a final campus location count.
+
+Current asset checklist—all entries need coordinate/entrance verification rather than automatic acceptance:
+
+| Existing ID | Existing label | Required review |
+|---|---|---|
+| `poi_main_gate` | Main Entrance Gate | Pedestrian entrance and crossing/access rules |
+| `poi_academic_block_1` | Academic Block 1 (AB1) | Screenshot regression, canonical entrance and indoor limitation |
+| `poi_academic_block_2` | Academic Block 2 (AB2) | Actual entrance; current POI-to-node offset 38.0 m |
+| `poi_academic_block_3` | Academic Block 3 (AB3) | Current offset 79.5 m; verify missing path rather than increasing snap radius |
+| `poi_library` | Central Library | Building/service identity and actual access entrance |
+| `poi_food_court` | Food Court / Ambrosia Canteen | Verify these names refer to the same routable place; current offset 45.6 m |
+| `poi_hostel_delta` | Delta Hostel Block | Verify name, permitted entrance and access restrictions |
+| `poi_hostel_gamma` | Gamma Hostel Block | Verify name, permitted entrance and access restrictions |
+| `poi_admin_block` | Admin Block | Verify canonical identity and public entrance |
+| `poi_sports_complex` | Sports Complex & Ground | Determine whether multiple distinct destinations/entrances are needed |
+| `poi_kelambakkam_road` | Vandalur-Kelambakkam Bus Stop | Outside-campus boundary, pedestrian connection and crossing evidence |
+
+Known inventory gaps: official Chennai pages identify [Academic Block Four](https://chennai.vit.ac.in/about/infrastructure/academics-block-4/) and [Academic Block Five](https://chennai.vit.ac.in/academic-block-5/), absent from the current 11 POIs. Their coordinates and entrances are not established in this plan. The [official infrastructure page](https://chennai.vit.ac.in/about/infrastructure/) contains inconsistent numeric wording while listing AB1–AB5, so use individual facility records and field verification rather than trusting a single summary count. Use [campus amenities](https://chennai.vit.ac.in/campus-amenities/) to seed service discovery, not to invent positions.
+
+### C02 — Define location data and one destination resolver
+
+Files: extend `map/MapModels.kt`, map loader in `MapRoutingEngine.kt`, and MainActivity's destination selection/voice dispatch. Proposed test: `CampusDestinationResolverTest.kt`.
+
+1. Add aliases, parent building ID where applicable, verification status and entrance IDs to the current POI data with a versioned schema. Keep existing IDs stable.
+2. Store verified entrance coordinate, associated walking graph node/edge, permitted approach, source and verification date. Access metadata may be unknown; unknown must not be presented as verified unrestricted access.
+3. Implement a pure resolver over this index: normalized exact ID/name/alias first, then candidate matching. Use token-aware matching so AB1 does not match AB10 and “hostel” does not choose the first hostel.
+4. Ambiguous matches require accessible selection. Unknown campus destinations return not-found with alternatives; never substitute the nearest named place.
+5. Route known campus voice/menu destinations through this same resolver. No unrestricted online geocoder for canonical campus IDs.
+6. A room/service query can resolve its verified parent entrance and explain “Guidance to [building] entrance; indoor directions unavailable.” Do not silently strip a room number and announce arrival at the room.
+7. Keep out-of-campus queries in an explicit online/unsupported branch. Phoenix Mall must not be mapped to a campus default to satisfy the request.
+
+Exit: every selectable place has a stable verified identity; input method cannot change its coordinates or route semantics.
+
+### C03 — Survey entrances and walking connections
+
+Files/data: existing `vit_chennai_map.json`; proposed audited source manifest and an export/validation script under a dedicated `scripts/maps/` directory. Do not scatter hand-edited coordinates through Kotlin.
+
+1. Compare graph coverage with the inventoried locations. Current declared bounds and actual node extrema disagree; derive region metadata from audited source data and separately represent the campus boundary. Graph bounds alone do not prove coverage of every point inside them.
+2. For each destination verify an actual pedestrian entrance, not building centroid. Record distinct entrances if one is inaccessible from another side.
+3. Identify walkways, ramps, stairs, gates, barriers, roads/crossings, direction restrictions and known closures. Do not infer accessibility from a generic road label or a straight line between nodes.
+4. Add missing connections only from map/survey evidence. A 79.5 m node offset is a data-review issue; blindly extending the snapping radius can route through a building or wall.
+5. Use appropriate access filtering. Do not market a stairs-unknown path as step-free or universally accessible. If a requested access profile cannot be supported, report that rather than relaxing it silently.
+6. Validate each edge's endpoints, geometry length, cost and direction. Preserve deliberate one-way/access constraints; do not automatically mirror all edges.
+7. Export deterministic, versioned map data with checksums, provenance and attribution. Keep unavailable destinations in the audit inventory but out of routable choices until connected.
+
+Exit: every supported entrance has a defensible connected approach. Map completeness and physical walkability are independently recorded.
+
+### C04 — Apply one route correctness pipeline everywhere
+
+1. Use accepted current location from Step 06 for every campus origin. Never assume main gate, last requested building or the user's spoken building name is their measured location.
+2. Snap only to a plausible connected walking edge within the accepted policy and location uncertainty. If the fix cannot distinguish parallel paths, mark location ambiguous.
+3. Resolve the target's selected entrance and compute graph route. Check access constraints before running path search.
+4. Validate endpoints, geometry and totals with the common validator; compare local A* cost with an independent Dijkstra reference on test graphs.
+5. Include only evidence-backed connectors; do not include an unverified indoor-to-outdoor straight line in the claimed walking distance.
+6. Both campus and online navigation feed the shared progress/snapshot contract from Steps 08–09. Retain provider differences behind adapters; do not create one countdown implementation per destination.
+7. An unavailable path remains unavailable, including same-building/nearby scenarios. Same snapped node is not proof of arrival inside the building.
+8. Stop/new destination invalidates progress and callbacks identically for every destination. GPS failure must not silently switch routing mode.
+
+Exit: one common fix resolves the class of problem across campus; no AB1-only special case.
+
+### C05 — Generate automated tests for the entire inventory
+
+Extend `MapRoutingEngineTest.kt` and `NavigationDistanceRemediationTest.kt`; proposed new `CampusMapIntegrityTest.kt` and `CampusDestinationResolverTest.kt`.
+
+1. Parameterize ID/name/alias tests over every inventoried supported destination. Test whitespace/case and explicit AB variants; assert ambiguous/general names never pick arbitrarily.
+2. Validate every supported POI/entrance reference, graph node, edge and geometry. Count missing/invalid entries and fail the build on invalid selectable data.
+3. For N supported entrances, test all N*(N-1) directed origin/destination pairs on the graph. With the current 11 single-entrance POIs, this is 110 directed non-self pairs; update the denominator as the inventory grows. Maintain explicit expected-unreachable/restricted pairs rather than requiring illegal connections.
+4. For valid pairs, assert route starts/ends at intended entrances, uses permitted connected edges, has finite non-negative length and agrees with an independent reference cost within documented numerical tolerance.
+5. Generate mid-edge/intersection origin tests as well as entrance-to-entrance tests; a user need not start at a named POI. Exercise both sides of snapping and coverage boundaries.
+6. Replay progress over each representative route geometry; assert coherent total/next-turn values at start, bends, midpoint and destination vicinity.
+7. Include short, curved, looped, disconnected and long routes. Apply malformed-geometry and 728100-m inconsistency fixtures to common validation rather than only the AB1 ID.
+8. Test stale/imprecise location, offline mode, new request, Stop and non-campus queries across representative location categories. Unit tests must not require live internet.
+
+Exit: report exact inventory size, entrance count, pair counts, valid routes, expected restrictions and failures. “110 tests passed” alone is not campus-wide physical qualification.
+
+### C06 — Verify every supported destination physically
+
+1. Maintain a per-destination record with canonical name, selected entrance, verification operator/date, map/APK hash, accepted-fix quality, route trace and observed barriers/access rules.
+2. Verify arrival vicinity at every supported entrance, and that the label actually matches the destination. No automatic room-level arrival claims.
+3. For each destination, approach from at least two distinct, valid campus origins where the topology permits. A route from a second origin must be computed from that origin, not cached from the first. If topology permits only one approach, record the limitation explicitly.
+4. Choose field routes that collectively cover every claimed supported walking edge and turn/connector at least once. Share field traces across destination tests when valid; do not claim all-pairs physical walking from all-pairs unit tests.
+5. Repeat a representative route from each category with internet disabled. Verify no hidden network dependency in the local campus path.
+6. Test representative indoor starting points, including AB1. If location is insufficient, correct output is unavailable/ask to obtain a usable fix; do not force numeric guidance to demonstrate coverage.
+7. Verify restrictions/closures and trace uncertainty with an operator before a supervised walking trial. Review GPS changes around large buildings and entrances separately from arithmetic correctness.
+8. Keep the screenshot regression mandatory. A campus inventory expansion does not close the original defect without its reproduced cause and device retest.
+
+Exit: all supported destinations have physical identity/entrance evidence and tested approaches; unverified places remain visibly unavailable. Full edge coverage claims require an edge coverage report.
+
+### C07 — Package coverage honestly and keep it maintainable
+
+1. Display supported campus destinations from the verified inventory rather than a hardcoded name list in the UI/voice parser.
+2. Bundle a versioned offline destination index and graph in the existing app. No new server is required for offline campus routing.
+3. Run schema, destination, all-pairs and progress checks whenever map data changes. Retain a previous qualified package for rollback.
+4. Mark known closed/restricted destinations explicitly and regenerate routes; do not present outdated access as verified current indefinitely. Record review dates and recheck after reported campus changes.
+5. Publish coverage counts: discovered locations, verified names, verified entrances, connected destinations, automated-tested routes and physically checked destinations. All must retain clear denominators.
+6. Completion means the campus inventory has been reconciled and every claimed supported destination meets the same validation; it does not mean GPS can navigate to every floor, classroom or lab interior.
+
+## 11. Revised schedule and first actions
+
+Shared GPS/route repair retains the Steps 01–10 estimates. Campus inventory, entrance verification and coverage expansion add work proportional to missing locations and paths; do not claim they fit the AB1-only estimate. Start with a half-day inventory/survey assessment to measure the actual gap, then estimate data edits and field coverage from that result. Physical survey requires an available campus operator; it cannot be replaced with fabricated coordinates.
+
+Execute in this order:
+
+1. Prepare the implementation worktree; record source/APK/map identity.
+2. Capture AB1's failing route and create the regression test.
+3. In parallel as independent work packages, inventory all Chennai destinations and implement shared input/geometry validation.
+4. Verify destination aliases, entrances and graph gaps; produce the versioned campus index.
+5. Correct common progress, UI, GPS quality and cancellation across both routing paths.
+6. Run the full inventory/pair/mid-edge test matrix.
+7. Survey and device-check every supported destination and claimed path; keep unresolved items unavailable.
+8. Review results and package the verified campus map/APK. Report precisely what remains unsupported.
+
+No runtime code, map asset, location coordinates or deployment was changed while expanding this plan.
+
+## References
+
+- [Android Location fields](https://developer.android.com/reference/android/location/Location): accuracy and elapsed-realtime timestamps.
+- [Android current versus last location](https://developer.android.com/develop/sensors-and-location/location/retrieve-current): cached position and current acquisition.
+- [OSRM API](https://project-osrm.org/docs/v5.24.0/api/): geometry options, coordinate order and server-prepared routing profile.
+- [Google Routes request contract](https://developers.google.com/maps/documentation/routes/compute_route_directions): walking request and response field selection.
 
 ## Communication branch — mandatory
 

@@ -16,6 +16,7 @@ import dev.navisense.navigation.IRiskEngine
 import dev.navisense.navigation.RiskEngine
 import dev.navisense.navigation.RiskEvaluationResult
 import dev.navisense.navigation.RiskLevel
+import dev.navisense.navigation.RiskSource
 import dev.navisense.navigation.maps.PedestrianNavigationEngine
 import dev.navisense.navigation.maps.models.GeoPoint
 import dev.navisense.navigation.maps.models.NavigationEngineStatus
@@ -74,6 +75,7 @@ class SessionCoordinator(
         fun onRiskEvaluated(result: RiskEvaluationResult) {}
         fun onSearchStateChanged(newState: SearchUiState, event: SearchEvent? = null) {}
         fun onNavigationStatusUpdated(status: NavigationEngineStatus) {}
+        fun onNavigationSnapshotUpdated(snapshot: dev.navisense.navigation.maps.models.NavigationSnapshot) {}
     }
 
     init {
@@ -96,6 +98,12 @@ class SessionCoordinator(
             override fun onStatusUpdated(status: NavigationEngineStatus) {
                 if (currentMode == AppMode.OUTDOOR_WALKING) {
                     stateListeners.forEach { it.onNavigationStatusUpdated(status) }
+                }
+            }
+
+            override fun onSnapshotUpdated(snapshot: dev.navisense.navigation.maps.models.NavigationSnapshot) {
+                if (currentMode == AppMode.OUTDOOR_WALKING) {
+                    stateListeners.forEach { it.onNavigationSnapshotUpdated(snapshot) }
                 }
             }
 
@@ -654,8 +662,17 @@ class SessionCoordinator(
         updatePathStatus(result.pathStatus)
         val now = clock.nowMonotonicMs()
         if (currentMode == AppMode.MOBILITY || currentMode == AppMode.OUTDOOR_WALKING) {
-            val obstacleLabel = result.associatedObjectLabel?.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
-                ?: result.visualObstacleLabel
+            val obstacleLabel = when (result.primaryHazardSource) {
+                RiskSource.SENSOR -> {
+                    result.associatedObjectLabel?.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+                }
+                RiskSource.VISION -> {
+                    result.visualObstacleLabel?.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+                }
+                null -> null
+            }
+            val isRefinement = (obstacleLabel != null && result.associatedObjectLabel != null)
+
             when (result.combinedRisk) {
                 RiskLevel.STOP -> {
                     val phrase = if (obstacleLabel != null) {
@@ -670,7 +687,11 @@ class SessionCoordinator(
                             priority = AlertPriority.STOP,
                             sessionGeneration = sessionGeneration.get(),
                             requestMonotonicMs = now,
-                            isEscalation = result.isEscalation
+                            isEscalation = result.isEscalation,
+                            hazardEpisodeId = result.hazardEpisodeId,
+                            isRefinement = isRefinement,
+                            refinementLabel = obstacleLabel,
+                            expiresAtMonotonicMs = now + 500L
                         )
                     )
                 }
@@ -687,7 +708,11 @@ class SessionCoordinator(
                             priority = AlertPriority.SLOW,
                             sessionGeneration = sessionGeneration.get(),
                             requestMonotonicMs = now,
-                            isEscalation = result.isEscalation
+                            isEscalation = result.isEscalation,
+                            hazardEpisodeId = result.hazardEpisodeId,
+                            isRefinement = isRefinement,
+                            refinementLabel = obstacleLabel,
+                            expiresAtMonotonicMs = now + 500L
                         )
                     )
                 }
@@ -700,7 +725,11 @@ class SessionCoordinator(
                             priority = AlertPriority.AWARENESS,
                             sessionGeneration = sessionGeneration.get(),
                             requestMonotonicMs = now,
-                            isEscalation = result.isEscalation
+                            isEscalation = result.isEscalation,
+                            hazardEpisodeId = result.hazardEpisodeId,
+                            isRefinement = isRefinement,
+                            refinementLabel = obstacleLabel,
+                            expiresAtMonotonicMs = now + 500L
                         )
                     )
                 }

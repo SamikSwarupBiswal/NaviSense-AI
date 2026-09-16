@@ -73,19 +73,19 @@ class RiskEngineTest {
 
     @Test
     fun testUltrasonicDeescalationRequiresOneSecondHoldAndMargin() {
-        // Step 1: Initial emergency STOP at 80 cm (<= 100 cm)
-        riskEngine.onSensorEvent(createSensorEvent(distanceCm = 80, timestampMs = 1000L))
+        // Step 1: Initial emergency STOP at 40 cm (<= 50 cm)
+        riskEngine.onSensorEvent(createSensorEvent(distanceCm = 40, timestampMs = 1000L))
 
-        // Step 2: Distance increases to 120 cm (> 115 cm required for STOP release) at t=1500 ms (release timer starts)
-        val heldResult = riskEngine.onSensorEvent(createSensorEvent(distanceCm = 120, timestampMs = 1500L))
+        // Step 2: Distance increases to 80 cm (> 65 cm required for STOP release) at t=1500 ms (release timer starts)
+        val heldResult = riskEngine.onSensorEvent(createSensorEvent(distanceCm = 80, timestampMs = 1500L))
         assertEquals("Must hold STOP for at least 1.0s", RiskLevel.STOP, heldResult.sensorRisk)
 
         // Still held at t=2000 ms (only 500 ms elapsed since release timer started at t=1500 ms)
-        val stillHeld = riskEngine.onSensorEvent(createSensorEvent(distanceCm = 120, timestampMs = 2000L))
+        val stillHeld = riskEngine.onSensorEvent(createSensorEvent(distanceCm = 80, timestampMs = 2000L))
         assertEquals("Must continue holding STOP", RiskLevel.STOP, stillHeld.sensorRisk)
 
-        // Step 3: At t=2501 ms (> 1000 ms elapsed since t=1500 ms) with safe distance 120 cm, release steps down to SLOW (101..150 cm)
-        val releasedResult = riskEngine.onSensorEvent(createSensorEvent(distanceCm = 120, timestampMs = 2501L))
+        // Step 3: At t=2501 ms (> 1000 ms elapsed since t=1500 ms) with safe distance 80 cm, release steps down to SLOW (51..100 cm)
+        val releasedResult = riskEngine.onSensorEvent(createSensorEvent(distanceCm = 80, timestampMs = 2501L))
         assertEquals("Must step down to SLOW after hold expires", RiskLevel.SLOW, releasedResult.sensorRisk)
     }
 
@@ -252,24 +252,33 @@ class RiskEngineTest {
 
     @Test
     fun testExactSensorDistanceBandsAndEqualityReleaseBoundary() {
-        assertEquals(RiskLevel.STOP, riskEngine.onSensorEvent(createSensorEvent(100, 1000L)).sensorRisk)
+        assertEquals(RiskLevel.STOP, riskEngine.onSensorEvent(createSensorEvent(50, 1000L)).sensorRisk)
         riskEngine.reset()
-        assertEquals(RiskLevel.SLOW, riskEngine.onSensorEvent(createSensorEvent(101, 1000L)).sensorRisk)
+        assertEquals(RiskLevel.SLOW, riskEngine.onSensorEvent(createSensorEvent(51, 1000L)).sensorRisk)
         riskEngine.reset()
-        assertEquals(RiskLevel.SLOW, riskEngine.onSensorEvent(createSensorEvent(150, 1000L)).sensorRisk)
+        assertEquals(RiskLevel.SLOW, riskEngine.onSensorEvent(createSensorEvent(100, 1000L)).sensorRisk)
+        riskEngine.reset()
+        assertEquals(RiskLevel.AWARENESS, riskEngine.onSensorEvent(createSensorEvent(101, 1000L)).sensorRisk)
+        riskEngine.reset()
+        assertEquals(RiskLevel.AWARENESS, riskEngine.onSensorEvent(createSensorEvent(150, 1000L)).sensorRisk)
         riskEngine.reset()
         assertEquals(RiskLevel.NONE, riskEngine.onSensorEvent(createSensorEvent(151, 1000L)).sensorRisk)
 
         riskEngine.reset()
-        riskEngine.onSensorEvent(createSensorEvent(80, 1000L))
-        riskEngine.onSensorEvent(createSensorEvent(115, 1500L))
-        val equalityDoesNotRelease = riskEngine.onSensorEvent(createSensorEvent(115, 2600L))
+        riskEngine.onSensorEvent(createSensorEvent(40, 1000L))
+        riskEngine.onSensorEvent(createSensorEvent(65, 1500L))
+        val equalityDoesNotRelease = riskEngine.onSensorEvent(createSensorEvent(65, 2600L))
         assertEquals(RiskLevel.STOP, equalityDoesNotRelease.sensorRisk)
+
+        riskEngine.onSensorEvent(createSensorEvent(66, 3000L))
+        assertEquals(RiskLevel.STOP, riskEngine.onSensorEvent(createSensorEvent(66, 3500L)).sensorRisk)
+        val strictlyGreaterReleases = riskEngine.onSensorEvent(createSensorEvent(66, 4001L))
+        assertEquals(RiskLevel.SLOW, strictlyGreaterReleases.sensorRisk)
     }
 
     @Test
     fun testSingleAlignedTrackMayLabelButCannotChangeSeverity() {
-        riskEngine.onSensorEvent(createSensorEvent(120, 600L))
+        riskEngine.onSensorEvent(createSensorEvent(80, 600L))
         val box = NormalizedRect(0.40f, 0.40f, 0.60f, 0.60f)
         val detection = DetectedObject(1, "chair", 0.90f, box)
         riskEngine.onPerceptionEvent(createPerceptionEvent(listOf(detection), 400L))
@@ -277,11 +286,70 @@ class RiskEngineTest {
         val aligned = riskEngine.onPerceptionEvent(createPerceptionEvent(listOf(detection), 600L))
 
         assertEquals("chair", aligned.associatedObjectLabel)
+        assertEquals(AssociationStatus.ASSOCIATED_SINGLE_TRACK, aligned.associationStatus)
         assertEquals("Sensor SLOW remains dominant", RiskLevel.SLOW, aligned.combinedRisk)
 
         val staleAssociation = riskEngine.onPerceptionEvent(createPerceptionEvent(listOf(detection), 901L))
         assertNull(staleAssociation.associatedObjectLabel)
+        assertEquals(AssociationStatus.TIME_MISALIGNED, staleAssociation.associationStatus)
         assertEquals(RiskLevel.SLOW, staleAssociation.combinedRisk)
+    }
+
+    @Test
+    fun testMultipleCorridorTracksRejectsAssociation() {
+        riskEngine.onSensorEvent(createSensorEvent(80, 600L))
+        val box1 = NormalizedRect(0.35f, 0.40f, 0.45f, 0.60f)
+        val box2 = NormalizedRect(0.55f, 0.40f, 0.65f, 0.60f)
+        val d1 = DetectedObject(1, "chair", 0.90f, box1, trackId = 1L)
+        val d2 = DetectedObject(0, "table", 0.85f, box2, trackId = 2L)
+
+        riskEngine.onPerceptionEvent(createPerceptionEvent(listOf(d1, d2), 400L))
+        riskEngine.onPerceptionEvent(createPerceptionEvent(listOf(d1, d2), 500L))
+        val result = riskEngine.onPerceptionEvent(createPerceptionEvent(listOf(d1, d2), 600L))
+
+        assertNull("Multiple tracks in corridor must NOT associate a label", result.associatedObjectLabel)
+        assertEquals(AssociationStatus.MULTIPLE_TRACKS, result.associationStatus)
+        assertEquals(RiskLevel.SLOW, result.combinedRisk)
+    }
+
+    @Test
+    fun testSensorFirstArrivalEnforcesPureAssociation() {
+        val box = NormalizedRect(0.40f, 0.40f, 0.60f, 0.60f)
+        val detection = DetectedObject(1, "chair", 0.90f, box)
+        riskEngine.onPerceptionEvent(createPerceptionEvent(listOf(detection), 400L))
+        riskEngine.onPerceptionEvent(createPerceptionEvent(listOf(detection), 500L))
+        riskEngine.onPerceptionEvent(createPerceptionEvent(listOf(detection), 550L))
+
+        // Sensor arrives at 600L (diff 50ms <= 200ms) with 1 persistent corridor track
+        val sensorResult = riskEngine.onSensorEvent(createSensorEvent(80, 600L))
+        assertEquals("chair", sensorResult.associatedObjectLabel)
+        assertEquals(AssociationStatus.ASSOCIATED_SINGLE_TRACK, sensorResult.associationStatus)
+
+        // Stale sensor arrival at 850L (diff 300ms > 200ms)
+        val lateSensorResult = riskEngine.onSensorEvent(createSensorEvent(80, 850L))
+        assertNull(lateSensorResult.associatedObjectLabel)
+        assertEquals(AssociationStatus.TIME_MISALIGNED, lateSensorResult.associationStatus)
+    }
+
+    @Test
+    fun testHazardEpisodeLifecycle() {
+        // Starts in NONE
+        val r0 = riskEngine.onSensorEvent(createSensorEvent(200, 500L))
+        assertNull(r0.hazardEpisodeId)
+
+        // Hazard begins: STOP at 40cm
+        val r1 = riskEngine.onSensorEvent(createSensorEvent(40, 1000L))
+        val epId = r1.hazardEpisodeId
+        assertNotNull("Hazard episode must be created", epId)
+
+        // Same episode remains active across frames during hazard
+        val r2 = riskEngine.onSensorEvent(createSensorEvent(40, 1050L))
+        assertEquals(epId, r2.hazardEpisodeId)
+
+        // Released to clear
+        riskEngine.reset()
+        val r3 = riskEngine.onSensorEvent(createSensorEvent(200, 3000L))
+        assertNull(r3.hazardEpisodeId)
     }
 
     @Test

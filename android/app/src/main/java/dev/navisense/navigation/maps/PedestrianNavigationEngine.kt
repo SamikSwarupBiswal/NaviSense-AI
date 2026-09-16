@@ -6,6 +6,7 @@ import dev.navisense.navigation.maps.models.GeoPoint
 import dev.navisense.navigation.maps.models.ManeuverType
 import dev.navisense.navigation.maps.models.NavigationEngineStatus
 import dev.navisense.navigation.maps.models.NavigationGuidance
+import dev.navisense.navigation.maps.models.NavigationSnapshot
 import dev.navisense.navigation.maps.models.WalkingRoute
 import dev.navisense.voice.AlertPriority
 import kotlin.math.abs
@@ -32,10 +33,13 @@ class PedestrianNavigationEngine(
         fun onStatusUpdated(status: NavigationEngineStatus)
         fun onOffRouteDetected()
         fun onArrival()
+        fun onSnapshotUpdated(snapshot: NavigationSnapshot) {}
     }
 
     private var activeRoute: WalkingRoute? = null
     private var currentStepIndex: Int = 0
+    private var lastMatchedSegmentIndex: Int = 0
+    private var cachedChainage: PedestrianProgressCalculator.PolylineChainage? = null
     private var currentHeadingDegrees: Float = 0f
     private var lastLocation: GeoPoint? = null
     private var lastGuidanceTimeMs: Long = 0L
@@ -63,6 +67,15 @@ class PedestrianNavigationEngine(
     fun startRoute(route: WalkingRoute) {
         this.activeRoute = route
         this.currentStepIndex = 0
+        this.lastMatchedSegmentIndex = 0
+        val fullPolyline = if (route.overviewPolyline.isNotEmpty()) {
+            route.overviewPolyline
+        } else {
+            route.steps.flatMap { step ->
+                if (step.polylinePoints.isNotEmpty()) step.polylinePoints else listOf(step.startLocation, step.endLocation)
+            }
+        }
+        this.cachedChainage = PedestrianProgressCalculator.buildChainage(fullPolyline)
         this.alert50mGivenForStep = false
         this.alert20mGivenForStep = false
         this.actionableAlertGivenForStep = false
@@ -114,13 +127,28 @@ class PedestrianNavigationEngine(
                 if (step.polylinePoints.isNotEmpty()) step.polylinePoints else listOf(step.startLocation, step.endLocation)
             }
         }
-        val remainingDistanceAlongRoute = PedestrianProgressCalculator.computeRemainingDistanceGeoPoints(
-            currentLocation,
-            fullPolyline,
-            preferredStartIndex = currentStepIndex
+        val chainage = cachedChainage ?: PedestrianProgressCalculator.buildChainage(fullPolyline).also { cachedChainage = it }
+        val match = PedestrianProgressCalculator.matchFixToRoute(
+            fix = currentLocation,
+            chainage = chainage,
+            preferredSegmentIndex = lastMatchedSegmentIndex,
+            searchWindowRadius = 5,
+            maxCrossTrackMeters = 50.0
         )
+        if (match.isValid) {
+            lastMatchedSegmentIndex = match.segmentIndex
+        }
+        val remainingDistanceAlongRoute = if (match.isValid) {
+            kotlin.math.max(0.0, chainage.totalLengthMeters - match.chainageMeters).toFloat()
+        } else {
+            PedestrianProgressCalculator.computeRemainingDistanceGeoPoints(
+                currentLocation,
+                fullPolyline,
+                preferredStartIndex = lastMatchedSegmentIndex
+            )
+        }
 
-        if (distanceToFinalDestination <= ARRIVAL_DISTANCE_METERS) {
+        if (distanceToFinalDestination <= ARRIVAL_DISTANCE_METERS && accuracyMeters <= 20f) {
             hasArrived = true
             val arrivalGuidance = NavigationGuidance(
                 phrase = "You have arrived at your destination: ${route.destinationName}.",
@@ -334,13 +362,28 @@ class PedestrianNavigationEngine(
             isOffRoute = offRouteCount >= 3,
             hasArrived = hasArrived
         )
-        listeners.forEach { it.onStatusUpdated(status) }
+        val snapshot = NavigationSnapshot(
+            destinationName = route.destinationName,
+            totalRemainingDistanceMeters = distanceToFinal.toDouble(),
+            nextManeuverDistanceMeters = distanceToStepEnd.toDouble(),
+            nextManeuverInstruction = currentStep?.instruction ?: "Complete",
+            formattedDistanceLeft = NavigationSnapshot.formatDistance(distanceToFinal.toDouble()),
+            isStale = false,
+            isOffRoute = offRouteCount >= 3,
+            hasArrived = hasArrived
+        )
+        listeners.forEach {
+            it.onStatusUpdated(status)
+            it.onSnapshotUpdated(snapshot)
+        }
     }
 
     @Synchronized
     fun stopNavigation() {
         activeRoute = null
         currentStepIndex = 0
+        lastMatchedSegmentIndex = 0
+        cachedChainage = null
         hasArrived = false
         offRouteCount = 0
     }

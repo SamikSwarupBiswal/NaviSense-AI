@@ -31,6 +31,10 @@ class RiskEngine(
     private var tentativeCorridorCandidate = false
     private var associatedObjectLabel: String? = null
     private var visualObstacleLabel: String? = null
+    private var lastPersistentCorridorTracks: List<FusionVisionTrackStore.Track> = emptyList()
+    private var associationStatus = AssociationStatus.NONE
+    private var currentHazardEpisodeId: String? = null
+    private var episodeCounter: Long = 0L
     private var approachingHazard = false
     private var expansionRate: Float? = null
 
@@ -50,17 +54,20 @@ class RiskEngine(
         lastSensorEvent = event
         val valid = event.wireRecord.version == 1 && event.wireRecord.isValid &&
             event.wireRecord.distanceCm in 2..400
-        val critical = valid && event.wireRecord.distanceCm <= 100
+        val critical = valid && event.wireRecord.distanceCm <= 50
         val normallyUsable = valid && event.sensorHealth == SensorHealth.STREAMING
         if (normallyUsable || critical) {
             lastUsableSensorEvent = event
             sensorLossStartMs = null
             updateSensorRisk(rawSensorRisk(event.wireRecord.distanceCm), event, now)
         } else markSensorUnavailable(now)
-        val cameraAge = lastUsableCameraDeliveryMs?.let { now - it }
-        if (cameraAge != null && cameraAge <= CAMERA_DELIVERY_DEADLINE_MS && visualObstacleLabel != null) {
-            associatedObjectLabel = visualObstacleLabel
-        }
+        val (assocLabel, status) = evaluateAssociation(
+            lastPersistentCorridorTracks,
+            lastVisionCaptureMs,
+            lastUsableSensorEvent
+        )
+        associatedObjectLabel = assocLabel
+        associationStatus = status
         return buildResult(now) to true
     }
 
@@ -118,7 +125,15 @@ class RiskEngine(
         }
         approachingHazard = strongestGrowth != null && strongestGrowth >= MIN_AREA_GROWTH
         expansionRate = strongestTrack?.expansionRatePerSecond(event.captureMonotonicMs)
-        associatedObjectLabel = associateLabel(persistentCorridorTracks, event.captureMonotonicMs)
+        lastPersistentCorridorTracks = persistentCorridorTracks
+        lastVisionCaptureMs = event.captureMonotonicMs
+        val (assocLabel, status) = evaluateAssociation(
+            persistentCorridorTracks,
+            event.captureMonotonicMs,
+            lastUsableSensorEvent
+        )
+        associatedObjectLabel = assocLabel
+        associationStatus = status
         visualObstacleLabel = if (rawVisionRisk != RiskLevel.NONE) {
             val trackToName = strongestTrack ?: persistentCorridorTracks.maxByOrNull { it.current.box.area }
             trackToName?.label?.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
@@ -137,6 +152,8 @@ class RiskEngine(
             tentativeCorridorCandidate = false
             associatedObjectLabel = null
             visualObstacleLabel = null
+            lastPersistentCorridorTracks = emptyList()
+            associationStatus = AssociationStatus.NONE
             approachingHazard = false
             expansionRate = null
             clearanceStartMs = null
@@ -154,6 +171,9 @@ class RiskEngine(
         sensorReleaseStartMs = null; sensorLossStartMs = null; heldVisionRisk = RiskLevel.NONE
         visionReleaseStartMs = null; clearanceStartMs = null; previousCombinedRisk = RiskLevel.NONE
         tentativeCorridorCandidate = false; associatedObjectLabel = null; visualObstacleLabel = null
+        lastPersistentCorridorTracks = emptyList()
+        associationStatus = AssociationStatus.NONE
+        currentHazardEpisodeId = null
         approachingHazard = false; expansionRate = null; visionTracks.reset()
     }
 
@@ -202,8 +222,10 @@ class RiskEngine(
         }
         if (raw.severity == heldSensorRisk.severity) { sensorReleaseStartMs = null; return }
         val releaseDistance = when (heldSensorRisk) {
-            RiskLevel.STOP -> 115; RiskLevel.SLOW -> 165
-            RiskLevel.AWARENESS -> 215; RiskLevel.NONE -> 0
+            RiskLevel.STOP -> 65
+            RiskLevel.SLOW -> 115
+            RiskLevel.AWARENESS -> 165
+            RiskLevel.NONE -> 0
         }
         if (event.wireRecord.distanceCm > releaseDistance) {
             val started = sensorReleaseStartMs
@@ -236,11 +258,18 @@ class RiskEngine(
         } else visionReleaseStartMs = null
     }
 
-    private fun associateLabel(tracks: List<FusionVisionTrackStore.Track>, cameraCaptureMs: Long): String? {
-        if (tracks.size != 1) return null
-        val sensor = lastUsableSensorEvent ?: return null
-        if (abs(sensor.receiptMonotonicMs - cameraCaptureMs) > ASSOCIATION_WINDOW_MS) return null
-        return tracks.single().label
+    private fun evaluateAssociation(
+        tracks: List<FusionVisionTrackStore.Track>,
+        cameraCaptureMs: Long?,
+        sensor: SensorEvent?
+    ): Pair<String?, AssociationStatus> {
+        if (sensor == null || cameraCaptureMs == null) return null to AssociationStatus.NONE
+        if (abs(sensor.receiptMonotonicMs - cameraCaptureMs) > ASSOCIATION_WINDOW_MS) {
+            return null to AssociationStatus.TIME_MISALIGNED
+        }
+        if (tracks.isEmpty()) return null to AssociationStatus.NO_TRACKS
+        if (tracks.size > 1) return null to AssociationStatus.MULTIPLE_TRACKS
+        return tracks.single().label to AssociationStatus.ASSOCIATED_SINGLE_TRACK
     }
 
     private fun buildResult(now: Long): RiskEvaluationResult {
@@ -253,9 +282,32 @@ class RiskEngine(
         val path = evaluatePathStatus(combined, now)
         val escalated = combined.severity > previousCombinedRisk.severity
         previousCombinedRisk = combined
+
+        if (combined != RiskLevel.NONE) {
+            if (currentHazardEpisodeId == null) {
+                episodeCounter++
+                currentHazardEpisodeId = "hazard_${now}_$episodeCounter"
+            }
+        } else {
+            currentHazardEpisodeId = null
+        }
+
         val visualLabel = visualObstacleLabel
-        return RiskEvaluationResult(combined, heldSensorRisk, heldVisionRisk, path, source,
-            associatedObjectLabel, escalated, now, approachingHazard, expansionRate, visualLabel)
+        return RiskEvaluationResult(
+            combinedRisk = combined,
+            sensorRisk = heldSensorRisk,
+            visionRisk = heldVisionRisk,
+            pathStatus = path,
+            primaryHazardSource = source,
+            associatedObjectLabel = associatedObjectLabel,
+            isEscalation = escalated,
+            timestampMonotonicMs = now,
+            isApproachingHazard = approachingHazard,
+            expansionRate = expansionRate,
+            visualObstacleLabel = visualLabel,
+            hazardEpisodeId = currentHazardEpisodeId,
+            associationStatus = associationStatus
+        )
     }
 
     private fun snapshot(now: Long, result: RiskEvaluationResult): FusionState {
@@ -307,8 +359,9 @@ class RiskEngine(
     }
 
     private fun rawSensorRisk(distanceCm: Int) = when (distanceCm) {
-        in 2..100 -> RiskLevel.STOP
-        in 101..150 -> RiskLevel.SLOW
+        in 2..50 -> RiskLevel.STOP
+        in 51..100 -> RiskLevel.SLOW
+        in 101..150 -> RiskLevel.AWARENESS
         else -> RiskLevel.NONE
     }
     private fun validBox(box: NormalizedRect) = box.left.isFinite() && box.top.isFinite() &&

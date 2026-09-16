@@ -4,6 +4,15 @@ import dev.navisense.contracts.PathStatus
 import dev.navisense.contracts.PerceptionFrameEvent
 import dev.navisense.contracts.SensorEvent
 
+enum class AssociationStatus {
+    NONE,
+    ASSOCIATED_SINGLE_TRACK,
+    NO_TRACKS,
+    MULTIPLE_TRACKS,
+    TIME_MISALIGNED,
+    OUTSIDE_CORRIDOR
+}
+
 /**
  * Result of a deterministic multi-source risk evaluation cycle (PRD Section 17).
  */
@@ -18,7 +27,9 @@ data class RiskEvaluationResult(
     val timestampMonotonicMs: Long,
     val isApproachingHazard: Boolean = false,
     val expansionRate: Float? = null,
-    val visualObstacleLabel: String? = null
+    val visualObstacleLabel: String? = null,
+    val hazardEpisodeId: String? = null,
+    val associationStatus: AssociationStatus = AssociationStatus.NONE
 )
 
 /**

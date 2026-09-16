@@ -136,4 +136,93 @@ class SpeechArbiterTest {
         arbiter.cancelAll()
         assertFalse("cancelAll must immediately silence playback", fakePlayer.isSpeaking())
     }
+
+    @Test
+    fun testTypedRefinementPreemptsGenericPlaceholderAtSamePriority() {
+        val genericReq = SpeechRequest(
+            utteranceId = "slow_gen",
+            phrase = "Slow down. Obstacle ahead.",
+            priority = AlertPriority.SLOW,
+            sessionGeneration = 1L,
+            requestMonotonicMs = 1000L,
+            hazardEpisodeId = "ep_1",
+            isRefinement = false
+        )
+        assertTrue("Generic warning accepted", arbiter.speak(genericReq))
+        assertTrue(fakePlayer.isSpeaking())
+        assertEquals("Slow down. Obstacle ahead.", fakePlayer.lastSpokenText)
+
+        clock.set(1100L)
+        val refinementReq = SpeechRequest(
+            utteranceId = "slow_refined",
+            phrase = "Slow down. Chair ahead.",
+            priority = AlertPriority.SLOW,
+            sessionGeneration = 1L,
+            requestMonotonicMs = 1100L,
+            hazardEpisodeId = "ep_1",
+            isRefinement = true,
+            refinementLabel = "Chair",
+            expiresAtMonotonicMs = 1600L
+        )
+        assertTrue("Refinement preempts generic placeholder", arbiter.speak(refinementReq))
+        assertEquals("Slow down. Chair ahead.", fakePlayer.lastSpokenText)
+    }
+
+    @Test
+    fun testTypedRefinementOnlyDeliveredOncePerEpisode() {
+        val genericReq = SpeechRequest(
+            utteranceId = "slow_gen",
+            phrase = "Slow down. Obstacle ahead.",
+            priority = AlertPriority.SLOW,
+            sessionGeneration = 1L,
+            requestMonotonicMs = 1000L,
+            hazardEpisodeId = "ep_1",
+            isRefinement = false
+        )
+        arbiter.speak(genericReq)
+
+        clock.set(1100L)
+        val ref1 = SpeechRequest(
+            utteranceId = "ref_1",
+            phrase = "Slow down. Chair ahead.",
+            priority = AlertPriority.SLOW,
+            sessionGeneration = 1L,
+            requestMonotonicMs = 1100L,
+            hazardEpisodeId = "ep_1",
+            isRefinement = true,
+            refinementLabel = "Chair"
+        )
+        assertTrue("First refinement accepted", arbiter.speak(ref1))
+        fakePlayer.currentlySpeaking = false
+
+        // Attempt second refinement for same episode within cooldown window
+        clock.set(1500L)
+        val ref2 = SpeechRequest(
+            utteranceId = "ref_2",
+            phrase = "Slow down. Table ahead.",
+            priority = AlertPriority.SLOW,
+            sessionGeneration = 1L,
+            requestMonotonicMs = 1500L,
+            hazardEpisodeId = "ep_1",
+            isRefinement = true,
+            refinementLabel = "Table"
+        )
+        assertFalse("Second refinement for same episode must be suppressed", arbiter.speak(ref2))
+    }
+
+    @Test
+    fun testExpiredRefinementIsDiscarded() {
+        clock.set(1500L)
+        val expiredReq = SpeechRequest(
+            utteranceId = "expired_1",
+            phrase = "Slow down. Chair ahead.",
+            priority = AlertPriority.SLOW,
+            sessionGeneration = 1L,
+            requestMonotonicMs = 1000L,
+            hazardEpisodeId = "ep_1",
+            isRefinement = true,
+            expiresAtMonotonicMs = 1400L // Already past
+        )
+        assertFalse("Expired refinement request must be discarded", arbiter.speak(expiredReq))
+    }
 }

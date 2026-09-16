@@ -25,5 +25,9 @@ data class SpeechRequest(
     val priority: AlertPriority,
     val sessionGeneration: Long,
     val requestMonotonicMs: Long,
-    val isEscalation: Boolean = false
+    val isEscalation: Boolean = false,
+    val hazardEpisodeId: String? = null,
+    val isRefinement: Boolean = false,
+    val refinementLabel: String? = null,
+    val expiresAtMonotonicMs: Long? = null
 )

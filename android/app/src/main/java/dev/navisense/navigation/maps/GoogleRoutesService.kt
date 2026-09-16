@@ -106,7 +106,7 @@ class GoogleRoutesService(
     /**
      * Computes pedestrian walking route between origin and destination.
      * Tries Google Routes API v2 if apiKey is provided, then live OSRM walking router.
-     * Fails if neither provider can compute a valid walking route.
+     * Validates resulting route geometry with RouteValidator before returning.
      */
     suspend fun computeWalkingRoute(
         origin: GeoPoint,
@@ -116,14 +116,26 @@ class GoogleRoutesService(
         if (!apiKey.isNullOrBlank()) {
             val googleResult = fetchGoogleRoutes(origin, destination, destinationName)
             if (googleResult.isSuccess) {
-                return@withContext googleResult
+                val route = googleResult.getOrThrow()
+                when (val validation = RouteValidator.validateRoute(route, origin, destination)) {
+                    is RouteValidationResult.Valid -> return@withContext Result.success(validation.route)
+                    is RouteValidationResult.Invalid -> {
+                        return@withContext Result.failure(validation.exception)
+                    }
+                }
             }
         }
 
         // Live OpenStreetMap walking router (free, public, pedestrian paths)
         val osrmResult = fetchOsrmWalkingRoute(origin, destination, destinationName)
         if (osrmResult.isSuccess) {
-            return@withContext osrmResult
+            val route = osrmResult.getOrThrow()
+            when (val validation = RouteValidator.validateRoute(route, origin, destination)) {
+                is RouteValidationResult.Valid -> return@withContext Result.success(validation.route)
+                is RouteValidationResult.Invalid -> {
+                    return@withContext Result.failure(validation.exception)
+                }
+            }
         }
 
         Result.failure(RouteNotFoundException("Unable to compute walking route to $destinationName"))

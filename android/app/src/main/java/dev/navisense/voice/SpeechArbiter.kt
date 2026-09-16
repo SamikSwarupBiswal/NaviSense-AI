@@ -38,6 +38,9 @@ class SpeechArbiter(
     private var currentGeneration: Long = 0L
     private var currentSpeakingPriority: AlertPriority? = null
     private var currentSpeakingPhrase: String? = null
+    private var currentSpeakingEpisodeId: String? = null
+    private var currentSpeakingIsGeneric: Boolean = false
+    private val deliveredRefinements = mutableSetOf<String>()
     private val lastSpokenTimestamps = mutableMapOf<String, Long>()
 
     override fun speak(request: SpeechRequest): Boolean {
@@ -47,6 +50,16 @@ class SpeechArbiter(
         }
 
         val now = clock.nowMonotonicMs()
+
+        // Expiration check: If request has an explicit expiry, discard if stale
+        if (request.expiresAtMonotonicMs != null && now > request.expiresAtMonotonicMs) {
+            return false
+        }
+
+        // Refinement uniqueness: Each hazard episode allows at most ONE semantic refinement
+        if (request.isRefinement && request.hazardEpisodeId != null && deliveredRefinements.contains(request.hazardEpisodeId)) {
+            return false
+        }
 
         // 2. Cooldown check per alert priority
         val cooldownMs = when (request.priority) {
@@ -58,11 +71,15 @@ class SpeechArbiter(
             AlertPriority.INFORMATIONAL -> INFORMATIONAL_COOLDOWN_MS
         }
 
+        val isEligibleRefinement = request.isRefinement &&
+            request.hazardEpisodeId != null &&
+            !deliveredRefinements.contains(request.hazardEpisodeId)
+
         val lastTime = lastSpokenTimestamps[request.phrase]
         val inCooldown = if (lastTime != null) (now - lastTime) < cooldownMs else false
 
-        // Escalation bypasses cooldown for STOP and SLOW
-        if (inCooldown && !request.isEscalation) {
+        // Escalation bypasses cooldown for STOP and SLOW; a fresh refinement for the hazard episode also bypasses cooldown
+        if (inCooldown && !request.isEscalation && !isEligibleRefinement) {
             return false
         }
 
@@ -71,11 +88,19 @@ class SpeechArbiter(
             val activePriority = currentSpeakingPriority
             val activePhrase = currentSpeakingPhrase
             if (activePriority != null) {
-                // A specific named obstacle (e.g. "Slow down. Chair ahead." or "STOP. Chair ahead.")
-                // can preempt a generic unnamed placeholder (e.g. "Slow down. Obstacle ahead." or "STOP.") at the same priority level
+                // Typed refinement preemption at same priority level
+                val isTypedRefinement = request.priority == activePriority &&
+                    request.hazardEpisodeId != null &&
+                    request.hazardEpisodeId == currentSpeakingEpisodeId &&
+                    currentSpeakingIsGeneric &&
+                    isEligibleRefinement
+
+                // Fallback for untyped legacy requests
                 val isGenericActive = activePhrase == "STOP." || activePhrase?.contains("Obstacle") == true
                 val isSpecificNew = !request.phrase.contains("Obstacle") && request.phrase != "STOP."
-                val isSameLevelRefinement = request.priority == activePriority && isGenericActive && isSpecificNew
+                val isLegacyRefinement = request.priority == activePriority && isGenericActive && isSpecificNew
+
+                val isSameLevelRefinement = isTypedRefinement || (request.hazardEpisodeId == null && isLegacyRefinement)
 
                 if (!isSameLevelRefinement && request.priority.priorityLevel >= activePriority.priorityLevel) {
                     return false
@@ -90,6 +115,11 @@ class SpeechArbiter(
         if (success) {
             currentSpeakingPriority = request.priority
             currentSpeakingPhrase = request.phrase
+            currentSpeakingEpisodeId = request.hazardEpisodeId
+            currentSpeakingIsGeneric = !request.isRefinement
+            if (isEligibleRefinement) {
+                deliveredRefinements.add(request.hazardEpisodeId!!)
+            }
             lastSpokenTimestamps[request.phrase] = now
         }
         return success
@@ -99,12 +129,15 @@ class SpeechArbiter(
         ttsPlayer.stop()
         currentSpeakingPriority = null
         currentSpeakingPhrase = null
+        currentSpeakingEpisodeId = null
+        currentSpeakingIsGeneric = false
     }
 
     override fun invalidateSession(newGeneration: Long) {
         currentGeneration = newGeneration
         cancelAll()
         lastSpokenTimestamps.clear()
+        deliveredRefinements.clear()
     }
 
     override val isSpeaking: Boolean

@@ -1,4 +1,4 @@
-﻿package dev.navisense.navigation.maps.models
+package dev.navisense.navigation.maps.models
 
 import dev.navisense.voice.AlertPriority
 import kotlin.math.atan2
@@ -137,3 +137,65 @@ class DestinationNotFoundException(message: String) : NavigationException(messag
 class RouteNotFoundException(message: String, cause: Throwable? = null) : NavigationException(message, cause)
 class OutsideCoverageException(message: String) : NavigationException(message)
 class LocationUnavailableException(message: String) : NavigationException(message)
+class MalformedGeometryException(message: String) : NavigationException(message)
+class InconsistentRouteException(message: String) : NavigationException(message)
+
+/**
+ * Accepted, qualified location fix with uncertainty and freshness metadata.
+ */
+data class NavigationLocationFix(
+    val point: GeoPoint,
+    val accuracyMeters: Double,
+    val elapsedRealtimeMs: Long,
+    val provider: String
+) {
+    fun isFresh(maxAgeMs: Long = 10_000L, clockElapsedRealtimeMs: Long): Boolean {
+        val age = clockElapsedRealtimeMs - elapsedRealtimeMs
+        return age in 0..maxAgeMs
+    }
+
+    fun isAccurate(maxAccuracyMeters: Double = 20.0): Boolean {
+        return accuracyMeters in 0.0..maxAccuracyMeters
+    }
+}
+
+/**
+ * Structured along-route matching result.
+ */
+data class RouteMatch(
+    val segmentIndex: Int,
+    val fraction: Double,
+    val chainageMeters: Double,
+    val crossTrackMeters: Double,
+    val isValid: Boolean = true
+)
+
+/**
+ * Immutable navigation snapshot consumed by both screen UI and speech guidance.
+ */
+data class NavigationSnapshot(
+    val requestId: String = "",
+    val sessionGeneration: Long = 1L,
+    val destinationName: String,
+    val totalRemainingDistanceMeters: Double?,
+    val nextManeuverDistanceMeters: Double?,
+    val nextManeuverInstruction: String,
+    val formattedDistanceLeft: String,
+    val isStale: Boolean = false,
+    val isOffRoute: Boolean = false,
+    val hasArrived: Boolean = false,
+    val locationQualityDegraded: Boolean = false
+) {
+    companion object {
+        fun formatDistance(distanceMeters: Double?): String {
+            if (distanceMeters == null || distanceMeters.isNaN() || distanceMeters < 0.0) {
+                return "Distance unavailable"
+            }
+            return if (distanceMeters >= 1000.0) {
+                String.format(java.util.Locale.US, "%.1f km left", distanceMeters / 1000.0)
+            } else {
+                "${distanceMeters.toInt()} m left"
+            }
+        }
+    }
+}

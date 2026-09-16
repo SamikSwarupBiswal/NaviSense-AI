@@ -168,4 +168,90 @@ object PedestrianProgressCalculator {
             preferredStartIndex
         ).toFloat()
     }
+
+    data class PolylineChainage(
+        val polyline: List<GeoPoint>,
+        val segmentLengths: DoubleArray,
+        val cumulativeChainage: DoubleArray,
+        val totalLengthMeters: Double
+    )
+
+    fun buildChainage(polyline: List<GeoPoint>): PolylineChainage {
+        if (polyline.size < 2) {
+            return PolylineChainage(polyline, DoubleArray(0), doubleArrayOf(0.0), 0.0)
+        }
+        val count = polyline.size - 1
+        val lengths = DoubleArray(count)
+        val cumulative = DoubleArray(polyline.size)
+        cumulative[0] = 0.0
+        var total = 0.0
+        for (i in 0 until count) {
+            val d = computeDistanceMeters(
+                polyline[i].latitude, polyline[i].longitude,
+                polyline[i + 1].latitude, polyline[i + 1].longitude
+            )
+            lengths[i] = d
+            total += d
+            cumulative[i + 1] = total
+        }
+        return PolylineChainage(polyline, lengths, cumulative, total)
+    }
+
+    fun matchFixToRoute(
+        fix: GeoPoint,
+        chainage: PolylineChainage,
+        preferredSegmentIndex: Int = 0,
+        searchWindowRadius: Int = 5,
+        maxCrossTrackMeters: Double = 50.0
+    ): dev.navisense.navigation.maps.models.RouteMatch {
+        val poly = chainage.polyline
+        if (poly.size < 2) {
+            return dev.navisense.navigation.maps.models.RouteMatch(0, 0.0, 0.0, 0.0, isValid = false)
+        }
+        val segmentCount = chainage.segmentLengths.size
+
+        val minWindow = max(0, preferredSegmentIndex - 1)
+        val maxWindow = min(segmentCount - 1, preferredSegmentIndex + searchWindowRadius)
+
+        var bestSeg = preferredSegmentIndex.coerceIn(0, segmentCount - 1)
+        var bestScore = Double.MAX_VALUE
+        var bestProj: SegmentProjection? = null
+
+        fun evaluateSegment(idx: Int) {
+            val p = projectPointOntoSegment(
+                fix.latitude, fix.longitude,
+                poly[idx].latitude, poly[idx].longitude,
+                poly[idx + 1].latitude, poly[idx + 1].longitude
+            )
+            val score = p.distanceToSegmentMeters + abs(idx - preferredSegmentIndex) * 0.5
+            if (score < bestScore) {
+                bestScore = score
+                bestSeg = idx
+                bestProj = p
+            }
+        }
+
+        for (i in minWindow..maxWindow) {
+            evaluateSegment(i)
+        }
+
+        if ((bestProj?.distanceToSegmentMeters ?: Double.MAX_VALUE) > maxCrossTrackMeters) {
+            for (i in 0 until segmentCount) {
+                evaluateSegment(i)
+            }
+        }
+
+        val proj = bestProj ?: return dev.navisense.navigation.maps.models.RouteMatch(0, 0.0, 0.0, 0.0, isValid = false)
+        val isCrossTrackValid = proj.distanceToSegmentMeters <= maxCrossTrackMeters
+
+        val matchedChainage = chainage.cumulativeChainage[bestSeg] + proj.tClamped * chainage.segmentLengths[bestSeg]
+
+        return dev.navisense.navigation.maps.models.RouteMatch(
+            segmentIndex = bestSeg,
+            fraction = proj.tClamped,
+            chainageMeters = matchedChainage,
+            crossTrackMeters = proj.distanceToSegmentMeters,
+            isValid = isCrossTrackValid
+        )
+    }
 }
