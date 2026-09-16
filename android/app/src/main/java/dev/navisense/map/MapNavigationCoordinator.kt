@@ -1,5 +1,8 @@
 package dev.navisense.map
 
+import dev.navisense.contracts.IClock
+import dev.navisense.contracts.SystemMonotonicClock
+import dev.navisense.navigation.maps.PedestrianProgressCalculator
 import dev.navisense.voice.AlertPriority
 import dev.navisense.voice.ISpeechArbiter
 import dev.navisense.voice.SpeechRequest
@@ -10,9 +13,10 @@ import kotlin.math.roundToInt
  */
 class MapNavigationCoordinator(
     private val speechArbiter: ISpeechArbiter?,
-    private val clock: () -> Long = { System.currentTimeMillis() }
+    private val clock: IClock = SystemMonotonicClock()
 ) {
     private var activeRoute: NavigationRoute? = null
+    private var activeSessionGeneration: Long = 1L
     private var currentManeuverIndex = 0
     private var hasAnnouncedApproach = false
     private var hasAnnouncedImmediateTurn = false
@@ -23,8 +27,9 @@ class MapNavigationCoordinator(
     var onRouteUpdated: ((route: NavigationRoute?, currentManeuver: Maneuver?, remainingDistanceMeters: Double) -> Unit)? = null
     var onArrival: ((destination: MapPOI) -> Unit)? = null
 
-    fun startNavigation(route: NavigationRoute) {
+    fun startNavigation(route: NavigationRoute, sessionGeneration: Long = 1L) {
         activeRoute = route
+        activeSessionGeneration = sessionGeneration
         currentManeuverIndex = 0
         hasAnnouncedApproach = false
         hasAnnouncedImmediateTurn = false
@@ -63,10 +68,20 @@ class MapNavigationCoordinator(
             currentManeuver.waypoint.lat, currentManeuver.waypoint.lon
         )
 
-        // Compute total remaining distance
-        var remainingDist = distToWaypoint
-        for (i in (currentManeuverIndex + 1) until route.maneuvers.size) {
-            remainingDist += route.maneuvers[i].distanceMeters
+        // Compute total along-route remaining distance
+        val polylinePairs = route.polylinePoints.map { Pair(it.lat, it.lon) }
+        val remainingDist = if (polylinePairs.isNotEmpty()) {
+            PedestrianProgressCalculator.computeAlongRouteRemainingDistance(
+                lat, lon,
+                polylinePairs,
+                preferredStartIndex = currentManeuverIndex
+            )
+        } else {
+            var dist = distToWaypoint
+            for (i in (currentManeuverIndex + 1) until route.maneuvers.size) {
+                dist += route.maneuvers[i].distanceMeters
+            }
+            dist
         }
         onRouteUpdated?.invoke(route, currentManeuver, remainingDist)
 
@@ -127,7 +142,7 @@ class MapNavigationCoordinator(
     }
 
     private fun speakInstruction(phrase: String, force: Boolean = false) {
-        val now = clock()
+        val now = clock.nowMonotonicMs()
         if (!force && phrase == lastSpokenInstruction && (now - lastSpokenMs) < 6000L) {
             return
         }
@@ -138,7 +153,7 @@ class MapNavigationCoordinator(
                 utteranceId = "nav_step_$now",
                 phrase = phrase,
                 priority = AlertPriority.DIRECTIONAL,
-                sessionGeneration = 1L,
+                sessionGeneration = activeSessionGeneration,
                 requestMonotonicMs = now
             )
         )

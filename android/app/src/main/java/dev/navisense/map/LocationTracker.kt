@@ -30,8 +30,8 @@ class LocationTracker(
 
     private var isTracking = false
     private var mockMode = false
-    private var lastLat: Double = 12.8407 // Defaults to VIT Chennai Main Gate
-    private var lastLon: Double = 80.1534
+    private var lastLat: Double? = null
+    private var lastLon: Double? = null
 
     @SuppressLint("MissingPermission")
     fun startTracking(enableGps: Boolean = true) {

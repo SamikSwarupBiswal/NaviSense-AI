@@ -1,4 +1,4 @@
-package dev.navisense.navigation.maps.models
+﻿package dev.navisense.navigation.maps.models
 
 import dev.navisense.voice.AlertPriority
 import kotlin.math.atan2
@@ -131,3 +131,9 @@ data class NavigationEngineStatus(
     val isOffRoute: Boolean,
     val hasArrived: Boolean
 )
+
+open class NavigationException(message: String, cause: Throwable? = null) : Exception(message, cause)
+class DestinationNotFoundException(message: String) : NavigationException(message)
+class RouteNotFoundException(message: String, cause: Throwable? = null) : NavigationException(message, cause)
+class OutsideCoverageException(message: String) : NavigationException(message)
+class LocationUnavailableException(message: String) : NavigationException(message)

@@ -1,6 +1,7 @@
 package dev.navisense
 
 import dev.navisense.navigation.maps.GoogleRoutesService
+import dev.navisense.navigation.maps.WalkingRouteFixtureBuilder
 import dev.navisense.navigation.maps.models.GeoPoint
 import dev.navisense.navigation.maps.models.ManeuverType
 import dev.navisense.voice.VoiceDestinationRecognizer
@@ -41,7 +42,7 @@ class GoogleRoutesParsingTest {
     fun testMockWalkingRouteGeneration() {
         val origin = GeoPoint(12.8406, 80.1534)
         val destination = GeoPoint(12.8442, 80.1549)
-        val route = routesService.createMockWalkingRoute(origin, destination, "Central Library")
+        val route = WalkingRouteFixtureBuilder.createMockWalkingRoute(origin, destination, "Central Library")
 
         assertEquals("Central Library", route.destinationName)
         assertEquals(3, route.steps.size)

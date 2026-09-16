@@ -6,7 +6,7 @@ import dev.navisense.contracts.SensorEvent
 import dev.navisense.contracts.SensorHealth
 import dev.navisense.contracts.SessionGeneration
 import dev.navisense.navigation.RiskEngine
-import dev.navisense.navigation.maps.GoogleRoutesService
+import dev.navisense.navigation.maps.WalkingRouteFixtureBuilder
 import dev.navisense.navigation.maps.models.GeoPoint
 import dev.navisense.voice.AlertPriority
 import dev.navisense.voice.SpeechArbiter
@@ -23,7 +23,6 @@ class NavigationSafetyPreemptionTest {
     private lateinit var arbiter: SpeechArbiter
     private lateinit var sessionGen: SessionGeneration
     private lateinit var coordinator: SessionCoordinator
-    private val routesService = GoogleRoutesService()
 
     @Before
     fun setUp() {
@@ -44,7 +43,7 @@ class NavigationSafetyPreemptionTest {
         // 1. User starts outdoor walking navigation
         val origin = GeoPoint(12.8400, 80.1500)
         val destination = GeoPoint(12.8406, 80.1508)
-        val route = routesService.createMockWalkingRoute(origin, destination, "Library")
+        val route = WalkingRouteFixtureBuilder.createMockWalkingRoute(origin, destination, "Library")
 
         val token = coordinator.startOutdoorWalking(route)
         assertEquals(AppMode.OUTDOOR_WALKING, coordinator.currentMode)
@@ -91,7 +90,7 @@ class NavigationSafetyPreemptionTest {
     fun testImmediateUserStopCancelsNavigationAndSilencesAudio() {
         val origin = GeoPoint(12.8400, 80.1500)
         val destination = GeoPoint(12.8406, 80.1508)
-        val route = routesService.createMockWalkingRoute(origin, destination, "Library")
+        val route = WalkingRouteFixtureBuilder.createMockWalkingRoute(origin, destination, "Library")
 
         coordinator.startOutdoorWalking(route)
         assertEquals(AppMode.OUTDOOR_WALKING, coordinator.currentMode)

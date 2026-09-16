@@ -106,6 +106,20 @@ class PedestrianNavigationEngine(
         // 1. Destination Arrival Check
         val lastStep = route.steps.last()
         val distanceToFinalDestination = currentLocation.distanceTo(lastStep.endLocation)
+
+        val fullPolyline = if (route.overviewPolyline.isNotEmpty()) {
+            route.overviewPolyline
+        } else {
+            route.steps.flatMap { step ->
+                if (step.polylinePoints.isNotEmpty()) step.polylinePoints else listOf(step.startLocation, step.endLocation)
+            }
+        }
+        val remainingDistanceAlongRoute = PedestrianProgressCalculator.computeRemainingDistanceGeoPoints(
+            currentLocation,
+            fullPolyline,
+            preferredStartIndex = currentStepIndex
+        )
+
         if (distanceToFinalDestination <= ARRIVAL_DISTANCE_METERS) {
             hasArrived = true
             val arrivalGuidance = NavigationGuidance(
@@ -148,7 +162,7 @@ class PedestrianNavigationEngine(
                 )
             )
             lastGuidanceTimeMs = now
-            updateStatus(currentLocation, distanceToStepEnd, distanceToFinalDestination)
+            updateStatus(currentLocation, distanceToStepEnd, remainingDistanceAlongRoute)
             return
         }
 
@@ -230,7 +244,7 @@ class PedestrianNavigationEngine(
             offRouteCount = 0
         }
 
-        updateStatus(currentLocation, distanceToStepEnd, distanceToFinalDestination)
+        updateStatus(currentLocation, distanceToStepEnd, remainingDistanceAlongRoute)
     }
 
     /**

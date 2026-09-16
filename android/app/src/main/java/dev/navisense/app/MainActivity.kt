@@ -127,7 +127,7 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
     private var voiceRecognizer: VoiceDestinationRecognizer? = null
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private var locationCallback: LocationCallback? = null
-    private var lastKnownLocation: GeoPoint = GeoPoint(12.8406, 80.1534)
+    private var lastKnownLocation: GeoPoint? = null
 
     private var voiceCommandManager: VoiceCommandManager? = null
 
@@ -354,6 +354,7 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
             speechArbiter = coordinator.speechArbiter
         )
         locationTracker = LocationTracker(this) { lat, lon, _, bearing ->
+            lastKnownLocation = GeoPoint(lat, lon)
             mapNavigationCoordinator?.onLocationUpdated(lat, lon, bearing)
         }
 
@@ -1025,24 +1026,41 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
     }
 
     private fun onDestinationReceived(destination: String) {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            announce("Location permission required for navigation. Please grant permission.")
+            requestNavPermissionsLauncher.launch(
+                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.RECORD_AUDIO)
+            )
+            return
+        }
+
         announce("Calculating walking route to $destination.")
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-            fusedLocationClient.lastLocation.addOnSuccessListener { loc ->
-                val origin = if (loc != null) GeoPoint(loc.latitude, loc.longitude) else lastKnownLocation
+        fusedLocationClient.lastLocation.addOnSuccessListener { loc ->
+            val origin = if (loc != null) GeoPoint(loc.latitude, loc.longitude) else lastKnownLocation
+            if (origin != null) {
                 lastKnownLocation = origin
                 fetchAndStartWalkingRoute(origin, destination)
-            }.addOnFailureListener {
-                fetchAndStartWalkingRoute(lastKnownLocation, destination)
+            } else {
+                announce("Waiting for GPS location fix. Please ensure location is enabled.")
             }
-        } else {
-            fetchAndStartWalkingRoute(lastKnownLocation, destination)
+        }.addOnFailureListener {
+            val origin = lastKnownLocation
+            if (origin != null) {
+                fetchAndStartWalkingRoute(origin, destination)
+            } else {
+                announce("Location unavailable. Please check device location settings.")
+            }
         }
     }
 
     private fun fetchAndStartWalkingRoute(origin: GeoPoint, destination: String) {
         lifecycleScope.launch {
             val geocodeResult = routesService.geocodeDestination(destination)
-            val targetPoint = geocodeResult.getOrDefault(GeoPoint(origin.latitude + 0.0005, origin.longitude + 0.0005))
+            geocodeResult.onFailure {
+                announce("Unable to find destination: $destination")
+                return@launch
+            }
+            val targetPoint = geocodeResult.getOrThrow()
 
             val routeResult = routesService.computeWalkingRoute(origin, targetPoint, destination)
             routeResult.onSuccess { route ->
@@ -1050,7 +1068,7 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
                 startOutdoorNavigationSensors()
                 window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             }.onFailure { err ->
-                announce("Unable to find walking route: ${err.message}")
+                announce("Unable to find walking route: ${err.message ?: "Route unavailable"}")
             }
         }
     }
@@ -1197,33 +1215,40 @@ class MainActivity : AppCompatActivity(), SessionCoordinator.StateChangeListener
     }
 
     private fun startMapNavigationToPoi(poi: MapPOI) {
-        val engine = mapRoutingEngine ?: return
+        val engine = mapRoutingEngine ?: run {
+            announce("Map data is still loading. Please try again in a moment.")
+            return
+        }
 
         // Request location permissions if not yet granted
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            announce("Location permission required for campus navigation.")
             requestLocationPermissionLauncher.launch(
                 arrayOf(
                     Manifest.permission.ACCESS_FINE_LOCATION,
                     Manifest.permission.ACCESS_COARSE_LOCATION
                 )
             )
+            return
         }
 
         // Start GPS tracking
         locationTracker?.startTracking()
 
-        // Default start coordinate: VIT Chennai Main Gate if indoor / awaiting GPS lock
-        val startLat = 12.8407
-        val startLon = 80.1534
-
-        val route = engine.planRoute(startLat, startLon, poi.id)
-        if (route == null) {
-            announce("Unable to compute walking route to ${poi.name}")
+        val origin = lastKnownLocation
+        if (origin == null) {
+            announce("Acquiring GPS location for campus navigation. Please wait for a GPS fix.")
             return
         }
 
-        coordinator.startMapNavigation(poi.name)
-        mapNavigationCoordinator?.startNavigation(route)
+        val route = engine.planRoute(origin.latitude, origin.longitude, poi.id)
+        if (route == null) {
+            announce("Unable to compute walking route to ${poi.name}. You may be outside campus walking coverage.")
+            return
+        }
+
+        val token = coordinator.startMapNavigation(poi.name)
+        mapNavigationCoordinator?.startNavigation(route, token.generation)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         announce("Navigating to ${poi.name}. Route distance is ${route.totalDistanceMeters.roundToInt()} meters.")
     }

@@ -2,8 +2,10 @@ package dev.navisense.navigation.maps
 
 import android.content.Context
 import android.location.Geocoder
+import dev.navisense.navigation.maps.models.DestinationNotFoundException
 import dev.navisense.navigation.maps.models.GeoPoint
 import dev.navisense.navigation.maps.models.ManeuverType
+import dev.navisense.navigation.maps.models.RouteNotFoundException
 import dev.navisense.navigation.maps.models.WalkingRoute
 import dev.navisense.navigation.maps.models.WalkingStep
 import kotlinx.coroutines.Dispatchers
@@ -52,7 +54,7 @@ class GoogleRoutesService(
                 if (!street.isNullOrBlank()) return street
             } catch (_: Exception) {}
         }
-        return "Vandalur Road"
+        return ""
     }
 
     /**
@@ -98,14 +100,13 @@ class GoogleRoutesService(
             } catch (_: Exception) {}
         }
 
-        // Near Vandalur / Chennai default if offline / not found
-        Result.success(GeoPoint(12.8442, 80.1549))
+        Result.failure(DestinationNotFoundException("Destination '$destinationName' not found"))
     }
 
     /**
      * Computes pedestrian walking route between origin and destination.
-     * Tries Google Routes API v2 if apiKey is provided, then live OSRM walking router,
-     * and falls back to localized mock route with real geocoded street names.
+     * Tries Google Routes API v2 if apiKey is provided, then live OSRM walking router.
+     * Fails if neither provider can compute a valid walking route.
      */
     suspend fun computeWalkingRoute(
         origin: GeoPoint,
@@ -125,9 +126,7 @@ class GoogleRoutesService(
             return@withContext osrmResult
         }
 
-        // Resilient mock route fallback with localized street names
-        val originStreet = resolveStreetName(origin)
-        Result.success(createMockWalkingRoute(origin, destination, destinationName, originStreet))
+        Result.failure(RouteNotFoundException("Unable to compute walking route to $destinationName"))
     }
 
     private fun fetchGoogleRoutes(
@@ -407,60 +406,5 @@ class GoogleRoutesService(
         return html.replace(Regex("<[^>]*>"), " ")
             .replace(Regex("\\s+"), " ")
             .trim()
-    }
-
-    /**
-     * Creates a realistic pedestrian walking test route for testing and offline development.
-     */
-    fun createMockWalkingRoute(
-        origin: GeoPoint,
-        destination: GeoPoint,
-        destinationName: String,
-        initialStreet: String = "Vandalur Road"
-    ): WalkingRoute {
-        val step1End = GeoPoint(origin.latitude + 0.0003, origin.longitude)
-        val step2End = GeoPoint(step1End.latitude, step1End.longitude + 0.0004)
-        val step3End = destination
-
-        val step1 = WalkingStep(
-            instruction = "Head forward on $initialStreet",
-            maneuver = ManeuverType.DEPART,
-            distanceMeters = 35,
-            durationSeconds = 25,
-            startLocation = origin,
-            endLocation = step1End,
-            streetName = initialStreet,
-            polylinePoints = listOf(origin, step1End)
-        )
-
-        val step2 = WalkingStep(
-            instruction = "Turn right onto GST Road",
-            maneuver = ManeuverType.RIGHT,
-            distanceMeters = 45,
-            durationSeconds = 35,
-            startLocation = step1End,
-            endLocation = step2End,
-            streetName = "GST Road",
-            polylinePoints = listOf(step1End, step2End)
-        )
-
-        val step3 = WalkingStep(
-            instruction = "Turn left towards $destinationName",
-            maneuver = ManeuverType.LEFT,
-            distanceMeters = 40,
-            durationSeconds = 30,
-            startLocation = step2End,
-            endLocation = step3End,
-            streetName = destinationName,
-            polylinePoints = listOf(step2End, step3End)
-        )
-
-        return WalkingRoute(
-            destinationName = destinationName,
-            totalDistanceMeters = 120,
-            totalDurationSeconds = 90,
-            steps = listOf(step1, step2, step3),
-            overviewPolyline = listOf(origin, step1End, step2End, step3End)
-        )
     }
 }

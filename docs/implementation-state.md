@@ -202,6 +202,31 @@ Codex prepared [the detailed navigation distance implementation plan](rishav/nav
 
 Status: planning/source-audit evidence only; no runtime code changes, build/test execution, installation, physical validation or acceptance claimed. Rishav owns navigation integration; Samik/Rohan reviews and receiver replies are pending. Entry decision for dependent implementation: PENDING; independent diagnosis and planning performed under the user's request. Next action: Rishav reviews the concrete file/function changes, records permitted entry scope, and starts Step 1 negative-path regressions/removal of fabricated successes. Actual T+ remains unverified. Both frozen hashes matched AGENTS.md before planning; final hash recheck is required before push. Existing product gate results remain unchanged. Communication relay must reference the committed plan and request review without implying ACK.
 
+### Navigation distance remediation execution — 2026-09-16
+
+Executed navigation distance and offline routing defect remediation (NAV-01 through NAV-14) per approved plan:
+1. **Removed Fabricated Fallbacks (NAV-01, NAV-02, NAV-03, NAV-05)**:
+   - In `GoogleRoutesService.kt`: Removed fallback coordinate `12.8442, 80.1549` and `createMockWalkingRoute` (120m, 3 steps) from production. Returns typed `Result.failure(DestinationNotFoundException)` and `Result.failure(RouteNotFoundException)`. Removed hardcoded `"Vandalur Road"` in `resolveStreetName`.
+   - In `MainActivity.kt`: Removed `origin + 0.0005` coordinate fallback. Halts navigation and announces honest failure when destination or route is unavailable.
+2. **Actual Location Fix Requirement (NAV-04, NAV-06, NAV-13)**:
+   - In `MainActivity.kt`: Changed `lastKnownLocation` from hardcoded VIT Main Gate (`12.8406, 80.1534`) to nullable `GeoPoint?`. Requires accepted fresh GPS fix; announces recoverable "Waiting for GPS location fix" or permission requirement instead of routing from the gate.
+   - In `LocationTracker.kt`: Removed default coordinates `12.8407, 80.1534`.
+3. **Graph Snapping & Geometry Correction (NAV-08, NAV-09, NAV-10)**:
+   - In `MapRoutingEngine.kt`: Added bounded snapping (`DEFAULT_MAX_SNAP_DISTANCE_METERS = 80.0`). Rejects off-campus locations (e.g. Phoenix Mall at ~20 km) with `null`.
+   - In `reconstructRoute`: Included origin connector distance (`computeDistanceMeters(startLat, startLon, node1)`) and destination connector distance in `totalDistanceMeters`. Aligned turn bearing indexing directly between graph nodes $A \to B$ and $B \to C$, eliminating the 1-point shift.
+4. **Along-Route Remaining Distance Engine (NAV-07, NAV-11)**:
+   - Implemented `PedestrianProgressCalculator.kt` for true along-route polyline projection, chainage, and segment summation. Handles reverse movement and overshoot.
+   - In `PedestrianNavigationEngine.kt`: Replaced straight-line Haversine distance with along-route remaining distance. Tested L-shaped path (100m + 100m): yields ~200m remaining vs ~141m geodesic diagonal (N09).
+   - In `MapNavigationCoordinator.kt`: Replaced straight-line waypoint distance with along-route distance; injected `IClock = SystemMonotonicClock()`; propagated active `sessionGeneration` to `SpeechRequest` (NAV-14).
+5. **Test Fixture Migration & Verification (N01 - N15)**:
+   - Isolated `WalkingRouteFixtureBuilder.kt` in `src/test/` for unit tests.
+   - Added comprehensive suite `NavigationDistanceRemediationTest.kt` verifying N01, N02, N03, N07, N08, N09, N10, N11, N13, N14.
+   - Full automated test suite: 134/134 tests PASS (`./gradlew.bat :app:testDebugUnitTest`, 0 failures, 0 skipped).
+   - Debug APK build: BUILD SUCCESSFUL (`./gradlew.bat :app:assembleDebug`), APK SHA-256 `5E3F393B00C4557BC0BAAB6551EA27D6D14C9D7B7B4F0A022AB7381B6D3D2615`.
+   - Physical device tests (N16-N26) remain pending physical phone connection.
+   - Frozen file integrity check: `docs/README.md` (54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA) and `docs/guidance.md` (A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E) MATCH.
+
+
 Entry status: PENDING / READY / READY-FIXTURES / BLOCKED.
 Exit status: PENDING / VERIFIED / RETURNED.
 READY-FIXTURES must name allowed independent work and cannot authorize real-device claims.
