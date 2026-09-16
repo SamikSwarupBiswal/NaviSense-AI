@@ -2789,3 +2789,27 @@ Source revision and evidence reference: commit abc282e on main; debug APK instal
 Recipient(s): Rishav, Rohan, Subham, Spandan
 For response: Team ACK; verified live on physical OPPO device.
 ```
+
+```text
+Entry ID: SAMIK-2026-09-16-039 / 2026-09-16T11:06:00+05:30 / T+ unverified
+Author and type: Samik | PROGRESS, DOCUMENTATION & RELAY
+Phase / step / S-instance / H-contract: Root Documentation / User Request / Project Overview & Setup Guidelines
+Message and requested action:
+1. Created Root README.md:
+   - Added comprehensive project documentation (`README.md`) at the repository root.
+   - Includes full system architecture diagram (Mermaid) illustrating the dual-tier edge AI architecture:
+     * Mobile Android subsystem (CameraX, Mobility YOLO, TFLite GPU / PyTorch Lite, USB-C CDC sensor adapter, 3-tier Risk Engine, Compass / GPS Pedestrian Navigation Engine, Speech Arbiter, Gemini Flash).
+     * Stationary Laptop Locate service (HardScanEngine 10-frame consensus, Locate YOLO, SQLite memory DB, FastAPI REST server).
+   - Documented complete hardware bill of materials and wiring table for ESP32-S3 and HC-SR04 ultrasonic rangefinder (GPIO 4 TRIG, GPIO 5 ECHO with voltage divider).
+   - Documented 10 Hz USB CDC sensor wire protocol: `V=1,SEQ=<seq>,UP_MS=<uptime_ms>,DIST_CM=<dist>,VALID=<valid>`.
+   - Outlined full repository directory structure across `android/`, `laptop/`, `esp32/`, `models/`, `scripts/`.
+   - Provided complete step-by-step setup and installation instructions for ESP32-S3 firmware, Laptop Locate server (FastAPI/SQLite with ADB port forwarding), and Android Studio build/installation.
+   - Detailed voice commands, AI model specs, sensor fusion rules, and quality verification test commands.
+2. Test Evidence:
+   - Python tests: `pytest laptop/tests --basetemp=.pytest_temp` -> 43 / 43 PASSED.
+   - Sensor serial tool: `python scripts/test_sensor_serial.py --self-test` -> 20 / 20 PASSED.
+   - Android tests: `./gradlew testDebugUnitTest` -> 158 / 158 PASSED (BUILD SUCCESSFUL).
+Source revision and evidence reference: commit 9c4a7b7 on main
+Recipient(s): Rishav, Rohan, Subham, Spandan
+For response: Team ACK.
+```
