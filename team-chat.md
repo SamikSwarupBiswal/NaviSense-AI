@@ -2672,3 +2672,32 @@ Source revision and evidence reference: commit e436905 on main; GoogleRoutesServ
 Recipient(s): Rohan, Subham, Spandan
 For response: Team ACK.
 ```
+
+
+```text
+Entry ID: RISHAV-2026-09-16-036 / 2026-09-16T08:15:30+05:30 / T+ unverified
+Author and type: Rishav | PROGRESS, IMPLEMENTATION, DEFECT FIX & DEVICE DEPLOYMENT
+Phase / step / S-instance / H-contract: VIT Chennai Campus Navigation & AB1 Defect Remediation / C01-C07 & G01-G06 Implementation / H6 Integration
+Message and requested action:
+1. Defect Root Cause Resolution (AB1 Defect):
+   - Resolved the user-reported AB1 defect (~178 m spoken, 728100 m left and 223 m next turn on screen).
+   - Root cause: Unconstrained Android Geocoder resolved 'Academic Block 1 (AB1)' to an off-campus coordinate (~728 km away), which OSRM routed as 728,100 m.
+2. Complete Campus Navigation Implementation (C01-C07 & G01-G06):
+   - Created CampusDestinationResolver.kt: Indexed all 11 VIT Chennai POIs (AB1, AB2, AB3, Main Gate, Admin Block, Library, Gazebo, Food Court, C-Block, D-Block, Sports Complex). Added alias matching ('ab1', 'block 1', 'academic block one'), tokenization, disambiguation, and off-campus detection.
+   - Created RouteValidator.kt: Enforces route geometry consistency against provider distance (|geom - provider| <= max(25m, 15%)), coordinate validity, and endpoint deviation <= 150m. Throws InconsistentRouteException or MalformedGeometryException and halts invalid routes immediately.
+   - Updated PedestrianProgressCalculator.kt: Built PolylineChainage and matchFixToRoute for along-route pedestrian projection.
+   - Updated PedestrianNavigationEngine.kt: Enforces GPS accuracy <= 20m for arrival confirmation; dispatches immutable NavigationSnapshot with unified distance formatting ('X m' / 'X.Y km').
+   - Integrated SessionCoordinator.kt & MainActivity.kt: Intercepts voice queries and UI dialogs with CampusDestinationResolver, dispatches NavigationSnapshot to UI, announces indoor limitation advisory ('You have arrived near the entrance. Indoor navigation is not available.') when within 25m of destination entrance.
+   - Clean merge with commit e436905 (Google Directions API + active GPS fix): Integrated RouteValidator across Google Directions, Google Routes v2, and OSRM walking routers.
+3. Test Verification & Device Deployment:
+   - Full automated test suite: 154 / 154 unit tests PASS (./gradlew :app:testDebugUnitTest).
+   - Campus map graph verification: 11 POIs and 110 directed pairs PASS on vit_chennai_map.json (CampusMapIntegrityTest).
+   - Debug APK build: BUILD SUCCESSFUL (APK SHA-256: E4A1400137A4D3EEACFCE60938FE2E150EC1F9FAA88D6EF946523185830A11B7).
+   - Device Deployment: APK installed via adb on connected qualification phone OPPO CPH2753 (device 6545Q8A6X89TW8ZX); MainActivity launched cleanly (PID 25288) with 0 crashes.
+4. Frozen Contract Integrity (AGENTS.md Section 2):
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Source revision and evidence reference: commit a292211 on main; docs/implementation-state.md, docs/rishav/navigation-distance-implementation-plan.md, debug APK SHA-256 E4A1400137A4D3EEACFCE60938FE2E150EC1F9FAA88D6EF946523185830A11B7
+Recipient(s): Samik, Rohan, Subham, Spandan
+For response: Team ACK; ready for supervised campus walking trials on OPPO phone 6545Q8A6X89TW8ZX.
+```
