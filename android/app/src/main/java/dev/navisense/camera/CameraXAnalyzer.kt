@@ -434,6 +434,6 @@ class CameraXAnalyzer(
         const val DIAGNOSTIC_FRAME_INTERVAL = 30L
         const val TAG = "NaviSenseCameraAnalyzer"
         val VALID_ROTATIONS = setOf(0, 90, 180, 270)
-        val NON_MOBILITY_OBSTACLES = setOf("keys", "wallet")
+        val NON_MOBILITY_OBSTACLES = setOf("keys", "wallet", "door")
     }
 }

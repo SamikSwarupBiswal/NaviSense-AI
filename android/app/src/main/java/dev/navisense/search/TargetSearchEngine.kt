@@ -130,8 +130,8 @@ class TargetSearchEngine(
                 listOf(it.boundingBox.left, it.boundingBox.top, it.boundingBox.right, it.boundingBox.bottom).all { coordinate -> coordinate.isFinite() && coordinate in 0f..1f } && it.boundingBox.area > 0f
         }
 
-        // Filter for indoor obstacle classes (chair, table, couch, door) with confidence >= 0.30
-        val obstacleClasses = setOf("chair", "table", "couch", "door", "desk", "sofa")
+        // Filter for indoor obstacle classes (chair, table, couch, desk, sofa) with confidence >= 0.30
+        val obstacleClasses = setOf("chair", "table", "couch", "desk", "sofa")
         val obstacleDetections = event.detections.filter {
             !it.label.equals(currentTargetClass, ignoreCase = true) &&
                 it.label.lowercase() in obstacleClasses &&

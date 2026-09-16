@@ -57,6 +57,10 @@ class RiskEngine(
             sensorLossStartMs = null
             updateSensorRisk(rawSensorRisk(event.wireRecord.distanceCm), event, now)
         } else markSensorUnavailable(now)
+        val cameraAge = lastUsableCameraDeliveryMs?.let { now - it }
+        if (cameraAge != null && cameraAge <= CAMERA_DELIVERY_DEADLINE_MS && visualObstacleLabel != null) {
+            associatedObjectLabel = visualObstacleLabel
+        }
         return buildResult(now) to true
     }
 
@@ -249,7 +253,7 @@ class RiskEngine(
         val path = evaluatePathStatus(combined, now)
         val escalated = combined.severity > previousCombinedRisk.severity
         previousCombinedRisk = combined
-        val visualLabel = if (heldVisionRisk != RiskLevel.NONE) visualObstacleLabel else null
+        val visualLabel = visualObstacleLabel
         return RiskEvaluationResult(combined, heldSensorRisk, heldVisionRisk, path, source,
             associatedObjectLabel, escalated, now, approachingHazard, expansionRate, visualLabel)
     }
@@ -320,6 +324,6 @@ class RiskEngine(
         const val CLEAR_HOLD_MS = 1_000L; const val MIN_VISION_CONFIDENCE = 0.30f
         const val MIN_AREA_GROWTH = 0.25f; const val NEAR_BOTTOM = 0.85f
         const val NEAR_AREA = 0.20f
-        val NON_MOBILITY_OBSTACLES = setOf("keys", "wallet")
+        val NON_MOBILITY_OBSTACLES = setOf("keys", "wallet", "door")
     }
 }

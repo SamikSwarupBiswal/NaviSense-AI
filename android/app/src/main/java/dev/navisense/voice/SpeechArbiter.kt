@@ -37,6 +37,7 @@ class SpeechArbiter(
 
     private var currentGeneration: Long = 0L
     private var currentSpeakingPriority: AlertPriority? = null
+    private var currentSpeakingPhrase: String? = null
     private val lastSpokenTimestamps = mutableMapOf<String, Long>()
 
     override fun speak(request: SpeechRequest): Boolean {
@@ -68,9 +69,15 @@ class SpeechArbiter(
         // 3. Preemption check: If TTS is currently speaking, can we interrupt?
         if (ttsPlayer.isSpeaking()) {
             val activePriority = currentSpeakingPriority
+            val activePhrase = currentSpeakingPhrase
             if (activePriority != null) {
-                // Only preempt if the new request has STRICTLY higher priority (lower numerical level)
-                if (request.priority.priorityLevel >= activePriority.priorityLevel) {
+                // A specific named obstacle (e.g. "Slow down. Chair ahead." or "STOP. Chair ahead.")
+                // can preempt a generic unnamed placeholder (e.g. "Slow down. Obstacle ahead." or "STOP.") at the same priority level
+                val isGenericActive = activePhrase == "STOP." || activePhrase?.contains("Obstacle") == true
+                val isSpecificNew = !request.phrase.contains("Obstacle") && request.phrase != "STOP."
+                val isSameLevelRefinement = request.priority == activePriority && isGenericActive && isSpecificNew
+
+                if (!isSameLevelRefinement && request.priority.priorityLevel >= activePriority.priorityLevel) {
                     return false
                 }
                 // Preempt immediately
@@ -82,6 +89,7 @@ class SpeechArbiter(
         val success = ttsPlayer.speak(request.phrase, request.utteranceId)
         if (success) {
             currentSpeakingPriority = request.priority
+            currentSpeakingPhrase = request.phrase
             lastSpokenTimestamps[request.phrase] = now
         }
         return success
@@ -90,6 +98,7 @@ class SpeechArbiter(
     override fun cancelAll() {
         ttsPlayer.stop()
         currentSpeakingPriority = null
+        currentSpeakingPhrase = null
     }
 
     override fun invalidateSession(newGeneration: Long) {
