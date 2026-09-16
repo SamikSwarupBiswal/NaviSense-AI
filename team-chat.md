@@ -2559,3 +2559,28 @@ Source revision and evidence reference: commit b6972d9 on main; MainActivity.kt,
 Recipient(s): Rishav, Rohan, Spandan, Subham
 For response: Team ACK; verify on-device obstacle audio announcements in Walking Mode and Search Nearby.
 ```
+
+```text
+Entry ID: SAMIK-2026-09-16-033 / 2026-09-16T07:06:00+05:30 / T+ unverified
+Author and type: Samik | PROGRESS, FUSION OPTIMIZATION, SENSOR-VISION INTEGRATION
+Phase / step / S-instance / H-contract: Phase 1 & 4 / Door Removal, Ultrasonic-Vision Obstacle Label Binding & Speech Arbiter Name Refinement
+Message and requested action:
+1. Ultrasonic Sensor Hiding YOLO Obstacle Class — Root Cause & Resolution:
+   - Root Cause: When ESP32 was connected, 20 Hz ultrasonic sensor events arrived before camera vision tracks stabilized, triggering generic "Slow down. Obstacle ahead." at AlertPriority.SLOW (priority level 2). When YOLO detected "Chair", SpeechArbiter dropped "Slow down. Chair ahead." because active priority SLOW blocked equal or lower priority speech.
+   - Resolution:
+     * In RiskEngine.kt: Updated processSensorEvent to automatically bind fresh visualObstacleLabel from camera corridor tracks to ultrasonic sensor events within CAMERA_DELIVERY_DEADLINE_MS. Sensor alerts now directly announce specific hazard names ("Slow down. Chair ahead.", "STOP. Chair ahead.").
+     * In SpeechArbiter.kt: Added obstacle name refinement preemption. If a generic placeholder ("Slow down. Obstacle ahead." or "STOP.") is actively speaking, a specific named obstacle prompt ("Slow down. Chair ahead.") immediately preempts and refines the audio.
+2. Obstacle Class Sanitization — Door Removal:
+   - Removed "door" class from mobility obstacle candidates in CameraXAnalyzer.kt and RiskEngine.kt (NON_MOBILITY_OBSTACLES now excludes keys, wallet, door).
+   - Removed "door" class from indoor obstacle detection in TargetSearchEngine.kt.
+3. Verification & Deployment:
+   - Full automated Android JVM unit test suite: 123/123 tests PASS (./gradlew.bat :app:testDebugUnitTest).
+   - assembleDebug builds cleanly (BUILD SUCCESSFUL in 2s).
+   - Deployed fresh debug APK to connected qualification device OPPO CPH2753 (device 6545Q8A6X89TW8ZX).
+4. Frozen Contract Check (AGENTS.md Section 2):
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Source revision and evidence reference: commit e76b87f on main; CameraXAnalyzer.kt, RiskEngine.kt, TargetSearchEngine.kt, SpeechArbiter.kt
+Recipient(s): Rohan, Rishav, Subham, Spandan
+For response: Team ACK; Rohan verify combined ultrasonic + vision obstacle naming on device.
+```
