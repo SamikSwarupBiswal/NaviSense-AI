@@ -2592,3 +2592,36 @@ Message and requested action: Created detailed navigation-distance remediation p
 Source revision and evidence reference: main 5ec55b0; docs/rishav/navigation-distance-implementation-plan.md; docs/implementation-state.md. Source audit baseline e76b87f. Documentation link checks and git diff --check passed; README SHA256 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA and guidance SHA256 A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E matched before/after. No runtime code changed, application tests run, APK installed or physical acceptance established.
 Recipient(s): Rishav; Samik; Rohan
 For response: Reference this entry with ACK or RETURNED and concrete review findings. Implementation entry/exit and physical checks remain pending.
+
+```text
+Entry ID: RISHAV-2026-09-16-034 / 2026-09-16T07:31:00+05:30 / T+ unverified
+Author and type: Rishav | PROGRESS, DEFECT REMEDIATION & VERIFICATION
+Phase / step / S-instance / H-contract: Existing optional navigation defect remediation / Steps 0 - 8 complete / H6 integration verification
+Message and requested action:
+1. Executed Navigation Distance & Offline Routing Defect Remediation (NAV-01 through NAV-14):
+   - Eliminated Fabricated Fallbacks (NAV-01, NAV-02, NAV-03, NAV-05):
+     * In GoogleRoutesService.kt: Removed fallback coordinate 12.8442, 80.1549 and createMockWalkingRoute (120m, 3 steps) from production runtime. Returns typed Result.failure(DestinationNotFoundException) and Result.failure(RouteNotFoundException). Removed hardcoded "Vandalur Road" in resolveStreetName.
+     * In MainActivity.kt: Removed origin + 0.0005 fallback. Stops navigation cleanly and announces honest error when destination or route is unavailable.
+   - Actual Location Fix Requirement (NAV-04, NAV-06, NAV-13):
+     * In MainActivity.kt: Changed lastKnownLocation from hardcoded VIT Main Gate (12.8406, 80.1534) to nullable GeoPoint?. Requires accepted fresh GPS fix; announces recoverable "Waiting for GPS location fix" or permission requirement instead of routing from the gate.
+     * In LocationTracker.kt: Removed default coordinates 12.8407, 80.1534.
+   - Graph Snapping & Geometry Correction (NAV-08, NAV-09, NAV-10):
+     * In MapRoutingEngine.kt: Added bounded snapping (DEFAULT_MAX_SNAP_DISTANCE_METERS = 80.0). Rejects off-campus locations (e.g. Phoenix Mall at ~20 km) with null.
+     * In reconstructRoute: Included origin connector distance (computeDistanceMeters(startLat, startLon, node1)) and destination connector distance in totalDistanceMeters. Aligned turn bearing indexing directly between graph nodes A -> B and B -> C, eliminating the 1-point shift.
+   - Along-Route Remaining Distance Engine (NAV-07, NAV-11, NAV-14):
+     * Implemented PedestrianProgressCalculator.kt for true along-route polyline projection, chainage, and segment summation. Handles reverse movement and overshoot.
+     * In PedestrianNavigationEngine.kt: Replaced straight-line Haversine distance with along-route remaining distance. Verified on L-shaped path (100m + 100m): yields ~200m remaining vs ~141m geodesic diagonal (N09).
+     * In MapNavigationCoordinator.kt: Replaced straight-line waypoint distance with along-route distance; injected IClock = SystemMonotonicClock(); propagated active sessionGeneration to SpeechRequest.
+2. Test Fixture Migration & Verification Suite:
+   - Isolated WalkingRouteFixtureBuilder.kt in src/test/ for unit tests.
+   - Added comprehensive test suite NavigationDistanceRemediationTest.kt covering N01, N02, N03, N07, N08, N09, N10, N11, N13, N14.
+   - Full automated Android JVM suite: 134/134 tests PASS (./gradlew.bat :app:testDebugUnitTest, 0 failures, 0 skipped).
+   - Debug APK build: BUILD SUCCESSFUL (./gradlew.bat :app:assembleDebug), APK SHA-256 5E3F393B00C4557BC0BAAB6551EA27D6D14C9D7B7B4F0A022AB7381B6D3D2615.
+   - Physical device tests (N16-N26) remain gated until qualification phone is attached.
+3. Frozen Contract Integrity (AGENTS.md Section 2):
+   - docs/README.md: 54B140D1442F9E82DFCA024DE157BD6505452906968EC92588D8B2337F5990BA (MATCH)
+   - docs/guidance.md: A317342E58F0F29528002A3581C804B403070DB99F8EE8622914722609D7596E (MATCH)
+Source revision and evidence reference: commit e79ac95 on main; docs/implementation-state.md; MainActivity.kt, GoogleRoutesService.kt, PedestrianNavigationEngine.kt, PedestrianProgressCalculator.kt, MapRoutingEngine.kt, MapNavigationCoordinator.kt, LocationTracker.kt, NavigationDistanceRemediationTest.kt
+Recipient(s): Samik, Rohan, Subham, Spandan
+For response: Reference CODEX-NAVPLAN-20260916-071424-01 with ACK/review; verify on-device field matrix when device slot is available.
+```
