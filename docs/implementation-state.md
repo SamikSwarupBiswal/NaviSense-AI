@@ -196,6 +196,12 @@ Next action / blocker resolver:
 
 ## 12. Mandatory Phase Review Register
 
+### Chair/table accuracy and YOLO–ESP32 fusion plan — 2026-09-16
+
+Codex prepared [the chair/table training and fusion repair plan](samik/chair-table-fusion-implementation-plan.md) on the user's explicit planning request, source baseline `b49e6c3`. Kaggle's actual dataset YAML confirms `0: table`, `1: chair`; full annotation/count/leakage audit remains pending. Current source already has a fusion engine, but sensor-event naming bypasses the stricter camera association check, coordinator falls back to independent visual identity, and speech refinement relies on phrase matching. Physical cause of each generic warning remains unverified. The plan also records current risk-policy drift against the frozen contract; no thresholds or frozen files changed here.
+
+Status: Codex-prepared plan/source inspection only. No dataset training, runtime implementation, test execution, model deployment or physical qualification performed. Owners: Spandan data/model, Samik camera/inference/fusion, Rohan sensor/mount, Rishav shared app/voice integration. Entry/receiver verdicts PENDING; next actions are dataset annotation audit and a bounded ESP32-first event/speech trace, followed by named review. T+ unverified; product gate results unchanged. Frozen hashes match before planning and must be rechecked before push. Relay the committed plan through communication; do not imply receiver ACK.
+
 ### Navigation distance remediation planning — 2026-09-16
 
 Codex prepared [the detailed navigation distance implementation plan](rishav/navigation-distance-implementation-plan.md) at source `e76b87f9e3b20d593b5793b73187e89260124972`, following the user's request for an in-depth plan. Source inspection confirmed fixed fallback destination/origin coordinates, production mock routes, main-gate-only campus route starts, and straight-line distance presented as remaining walking distance. The exact reported 750 m/220 m device output has not been reproduced. Current offline data has 11 POIs, no Phoenix Mall POI, and declared bounds inconsistent with node extrema.
