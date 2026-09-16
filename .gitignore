@@ -29,5 +29,7 @@ models/locate/runs/
 models/locate_obstacle/tflite_out/
 runs/
 yolov8n.pt
+datasets/mobility_chair_table/
+models/mobility_chair_table/
 
 
